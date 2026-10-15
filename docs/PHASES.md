@@ -26,9 +26,9 @@ The synopsis proposes a 16-week plan. The phases below preserve its major module
 **Deliverables:** exam cycle state machine (`DRAFT` → `REGISTRATION_OPEN` → `SCHEDULING` → `PUBLISHED` → `ARCHIVED`), offering management, student registration workflow with duplicate rejection, registration gap tracking (`eligible-but-unregistered`), student registration UI, automated test suite (`backend/tests/exam_cycle.test.ts`).
 **Exit gate:** duplicate registrations and invalid state transitions are rejected. [PASSED]
 
-## Phase 6 — Scheduling problem model
-**Deliverables:** time-slot model, hard/soft constraints catalogue, optimizer input/output contracts, small fixture datasets.
-**Exit gate:** each constraint has an owner, definition, and automated test.
+## Phase 6 — Scheduling problem model (Completed)
+**Deliverables:** time-slot model, formal mathematical specification (`docs/CONSTRAINTS_CATALOGUE.md`), hard constraints (H1: Student collision, H2: Room double-booking, H3: Room capacity, H4: Mandatory exam coverage, H5: Invigilator overlap) and soft constraints (S1: Consecutive exams, S2: Multiple exams same day, S3: Room underutilization), independent Node-side schedule validator service (`backend/src/services/schedule-validator.service.ts`), shared Zod contracts (`packages/contracts/src/schedule.ts`), deterministic unit test fixtures (`backend/tests/schedule_constraints_model.test.ts`).
+**Exit gate:** each constraint has an owner, definition, and automated test; independent validator strictly catches all hard conflicts and scores soft penalties. [PASSED]
 
 ## Phase 7 — OR-Tools optimization MVP
 **Deliverables:** isolated Python service, asynchronous schedule runs, statuses/diagnostics, one feasible candidate and explicit infeasibility handling.
