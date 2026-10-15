@@ -1,0 +1,27 @@
+{
+  "name": "nexora-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nexora - Automated University Exam Timetable Scheduling, Hall Allocation & Invigilation Duty Management System",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run --workspaces --if-present build",
+    "test": "npm run --workspaces --if-present test",
+    "lint": "npm run --workspaces --if-present lint",
+    "dev:api": "npm run --workspace=@nexora/api dev",
+    "dev:web": "npm run --workspace=@nexora/web dev",
+    "test:optimizer": "pytest services/optimizer/tests"
+  },
+  "keywords": [
+    "exam-scheduling",
+    "hall-allocation",
+    "invigilation",
+    "or-tools",
+    "typescript"
+  ],
+  "author": "Nexora Team",
+  "license": "UNLICENSED"
+}

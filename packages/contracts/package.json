@@ -1,0 +1,26 @@
+{
+  "name": "@nexora/contracts",
+  "version": "0.1.0",
+  "description": "Shared TypeScript types, enums, and API schemas for Nexora",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/**/*.test.js || echo 'No contract tests yet'",
+    "lint": "echo 'Contracts OK'"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

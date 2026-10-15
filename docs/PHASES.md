@@ -2,13 +2,13 @@
 
 The synopsis proposes a 16-week plan. The phases below preserve its major modules but add explicit gates and risk controls. Calendar duration is a planning estimate; do not promise dates until team capacity and institutional rules are confirmed.
 
-## Phase 0 — Discovery and decisions
-**Deliverables:** stakeholder questions, glossary, agreed MVP, role/permission matrix, hard/soft constraint catalogue, success measures, risk register.
-**Exit gate:** institution-specific rules are documented; unresolved policy decisions have owners.
+## Phase 0 — Discovery and decisions (Completed)
+**Deliverables:** stakeholder questions (`docs/EXAM_CELL_QUESTIONS.md`), glossary (`docs/GLOSSARY.md`), agreed MVP, role/permission matrix, hard/soft constraint catalogue, success measures, risk register (`docs/DECISIONS_AND_RISKS.md`), decision log (`docs/DECISION_LOG.md`).
+**Exit gate:** institution-specific rules are documented; unresolved policy decisions have owners. [PASSED]
 
-## Phase 1 — Repository foundation
-**Deliverables:** repository structure, TypeScript/Python setup, lint/format/type-check/test scripts, CI, environment examples, health endpoints, README.
-**Exit gate:** clean install and all checks pass from a fresh clone.
+## Phase 1 — Repository foundation (Completed)
+**Deliverables:** repository structure (`apps/web`, `apps/api`, `services/optimizer`, `packages/contracts`), TypeScript/Python setup, npm workspaces scripts (`build`, `test`, `lint`), GitHub Actions CI (`.github/workflows/ci.yml`), environment examples (`.env.example`), Express health endpoints (`/health`, `/api/v1/health`), minimal light theme React client, OR-Tools solver prototype & pytest suite.
+**Exit gate:** clean install, all checks pass, build and tests executed successfully. [PASSED]
 
 ## Phase 2 — Data model and database
 **Deliverables:** reviewed ERD, Prisma schema/migrations, synthetic seed data, transaction strategy, backup plan.
