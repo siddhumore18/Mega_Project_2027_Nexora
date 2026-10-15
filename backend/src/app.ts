@@ -5,6 +5,7 @@ import { correlationMiddleware } from "./middleware/correlation.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { healthRouter } from "./routes/health.js";
 import { authRouter } from "./routes/auth.routes.js";
+import { academicRouter } from "./routes/academic.routes.js";
 import { testRouter } from "./routes/test.routes.js";
 
 export function createApp(): Express {
@@ -32,6 +33,9 @@ export function createApp(): Express {
 
   // Auth routes
   app.use("/api/v1/auth", authRouter);
+
+  // Academic & eligibility routes
+  app.use("/api/v1/academic", academicRouter);
 
   // Scoped authorization test routes
   app.use("/api/v1/test", testRouter);

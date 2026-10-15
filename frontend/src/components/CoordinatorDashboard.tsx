@@ -13,7 +13,19 @@ interface ExamEntry {
   status: "FEASIBLE" | "APPROVED" | "DRAFT";
 }
 
+interface StudentEligibilityEntry {
+  roll: string;
+  name: string;
+  subject: string;
+  attendance: number;
+  backlogAttempt: number;
+  isEligible: boolean;
+  statusLabel: string;
+  explanation: string;
+}
+
 export const CoordinatorDashboard: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<"schedule" | "eligibility">("schedule");
   const [solverStatus, setSolverStatus] = useState<string>("FEASIBLE");
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
@@ -61,6 +73,49 @@ export const CoordinatorDashboard: React.FC = () => {
       room: "Hall A-101 (Cap: 150)",
       invigilator: "Prof. S. Patil (CSE)",
       status: "FEASIBLE",
+    },
+  ];
+
+  const mockEligibility: StudentEligibilityEntry[] = [
+    {
+      roll: "CS2023-042",
+      name: "Aarav Sharma",
+      subject: "CS701",
+      attendance: 88.5,
+      backlogAttempt: 0,
+      isEligible: true,
+      statusLabel: "ELIGIBLE",
+      explanation: "Prerequisites and 75% attendance criterion satisfied.",
+    },
+    {
+      roll: "CS2023-055",
+      name: "Neha Patel",
+      subject: "CS701",
+      attendance: 69.0,
+      backlogAttempt: 0,
+      isEligible: true,
+      statusLabel: "MEDICAL_CONCESSION",
+      explanation: "Approved medical concession applied (threshold 65%).",
+    },
+    {
+      roll: "CS2023-088",
+      name: "Rohan Verma",
+      subject: "CS701",
+      attendance: 62.4,
+      backlogAttempt: 0,
+      isEligible: false,
+      statusLabel: "ATTENDANCE_SHORTAGE",
+      explanation: "62.4% is below the mandatory 75% threshold without exemption.",
+    },
+    {
+      roll: "CS2021-019",
+      name: "Vikram Das",
+      subject: "CS701",
+      attendance: 78.0,
+      backlogAttempt: 4,
+      isEligible: false,
+      statusLabel: "MAX_ATTEMPTS_EXCEEDED",
+      explanation: "Attempt 4 exceeds institutional limit of 3 backlog attempts.",
     },
   ];
 
@@ -128,9 +183,9 @@ export const CoordinatorDashboard: React.FC = () => {
         </div>
 
         <div className="metric-card">
-          <div className="metric-label">Scheduled Offerings</div>
-          <div className="metric-value">4 / 4</div>
-          <div className="metric-footer">100% of candidate offerings mapped</div>
+          <div className="metric-label">Eligible Candidates</div>
+          <div className="metric-value">385 / 400</div>
+          <div className="metric-footer">15 flagged with explainable shortages</div>
         </div>
 
         <div className="metric-card">
@@ -146,50 +201,119 @@ export const CoordinatorDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Timetable Data Table */}
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <h2 className="card-title">Candidate Schedule Grid</h2>
-            <p className="card-subtitle">
-              Generated via Google OR-Tools constraint solver and verified independently
-            </p>
+      {/* Tab Switcher */}
+      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+        <button
+          onClick={() => setActiveTab("schedule")}
+          className={`btn ${activeTab === "schedule" ? "btn-primary" : "btn-secondary"}`}
+          style={{ fontSize: "13px", padding: "6px 14px" }}
+        >
+          Candidate Schedule Grid
+        </button>
+        <button
+          onClick={() => setActiveTab("eligibility")}
+          className={`btn ${activeTab === "eligibility" ? "btn-primary" : "btn-secondary"}`}
+          style={{ fontSize: "13px", padding: "6px 14px" }}
+        >
+          Academic Eligibility & Policy Monitor
+        </button>
+      </div>
+
+      {/* Tab 1: Schedule Grid */}
+      {activeTab === "schedule" && (
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <h2 className="card-title">Candidate Schedule Grid</h2>
+              <p className="card-subtitle">
+                Generated via Google OR-Tools constraint solver and verified independently
+              </p>
+            </div>
+          </div>
+
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Subject Name</th>
+                  <th>Dept</th>
+                  <th>Registered</th>
+                  <th>Assigned Slot</th>
+                  <th>Allocated Room</th>
+                  <th>Invigilator</th>
+                  <th>Solver Outcome</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mockExams.map((exam) => (
+                  <tr key={exam.id}>
+                    <td style={{ fontFamily: "var(--font-mono)", fontWeight: "600" }}>{exam.code}</td>
+                    <td style={{ fontWeight: "500" }}>{exam.subject}</td>
+                    <td>{exam.department}</td>
+                    <td>{exam.enrolled} candidates</td>
+                    <td>{exam.slot}</td>
+                    <td>{exam.room}</td>
+                    <td>{exam.invigilator}</td>
+                    <td>
+                      <StatusBadge status={exam.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
+      )}
 
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Subject Name</th>
-                <th>Dept</th>
-                <th>Registered</th>
-                <th>Assigned Slot</th>
-                <th>Allocated Room</th>
-                <th>Invigilator</th>
-                <th>Solver Outcome</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mockExams.map((exam) => (
-                <tr key={exam.id}>
-                  <td style={{ fontFamily: "var(--font-mono)", fontWeight: "600" }}>{exam.code}</td>
-                  <td style={{ fontWeight: "500" }}>{exam.subject}</td>
-                  <td>{exam.department}</td>
-                  <td>{exam.enrolled} candidates</td>
-                  <td>{exam.slot}</td>
-                  <td>{exam.room}</td>
-                  <td>{exam.invigilator}</td>
-                  <td>
-                    <StatusBadge status={exam.status} />
-                  </td>
+      {/* Tab 2: Eligibility Monitor */}
+      {activeTab === "eligibility" && (
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <h2 className="card-title">Explainable Student Eligibility Monitor</h2>
+              <p className="card-subtitle">
+                Rules: Mandatory 75% attendance (65% with Medical), Max 3 Backlog Attempts, Fee Clearance Required
+              </p>
+            </div>
+          </div>
+
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Roll Number</th>
+                  <th>Student Name</th>
+                  <th>Paper</th>
+                  <th>Attendance %</th>
+                  <th>Attempt</th>
+                  <th>Eligibility Outcome</th>
+                  <th>Explanation & Policy Reason</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {mockEligibility.map((item) => (
+                  <tr key={item.roll}>
+                    <td style={{ fontFamily: "var(--font-mono)", fontWeight: "600" }}>{item.roll}</td>
+                    <td>{item.name}</td>
+                    <td>{item.subject}</td>
+                    <td>
+                      <strong style={{ color: item.attendance < 75 ? "var(--status-danger-text)" : "var(--status-success-text)" }}>
+                        {item.attendance}%
+                      </strong>
+                    </td>
+                    <td>#{item.backlogAttempt === 0 ? "Regular" : `Backlog ${item.backlogAttempt}`}</td>
+                    <td>
+                      <StatusBadge status={item.isEligible ? "FEASIBLE" : "INFEASIBLE"} />
+                    </td>
+                    <td style={{ fontSize: "12px", color: "var(--text-secondary)" }}>{item.explanation}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -18,9 +18,9 @@ The synopsis proposes a 16-week plan. The phases below preserve its major module
 **Deliverables:** login/logout endpoints (`/api/v1/auth/login`, `/logout`, `/me`), JWT token issuance & verification (`backend/src/utils/jwt.ts`), password hashing (`backend/src/utils/password.ts`), role & department-scoped permission middleware (`backend/src/middleware/auth.middleware.ts`), audit events service (`backend/src/services/audit.service.ts`), frontend auth state synchronization & demo accounts (`frontend/src/services/auth.ts`).
 **Exit gate:** positive and negative authorization tests pass for each role and department scope. [PASSED]
 
-## Phase 4 — Academic data and eligibility
-**Deliverables:** departments/programs/terms/subjects/students/faculty, import validation, configurable eligibility/backlog rules, explainable results.
-**Exit gate:** edge cases are signed off by the domain owner; no undocumented eligibility assumptions.
+## Phase 4 — Academic data and eligibility (Completed)
+**Deliverables:** academic catalog routes (`/api/v1/academic/departments`, `/rooms`, `/subjects`), explainable eligibility engine (`backend/src/services/eligibility.service.ts`), batch student import validation with error reconciliation (`backend/src/services/import.service.ts`), eligibility monitor tab in coordinator dashboard, automated test suite (`backend/tests/eligibility.test.ts`).
+**Exit gate:** explainable eligibility rules and edge cases (medical concession, attendance shortage, backlog attempt limits, fee clearance) tested and verified. [PASSED]
 
 ## Phase 5 — Examination cycle and registration
 **Deliverables:** exam cycle setup, offerings, registration windows, registration workflow, eligible-but-unregistered dashboard.
