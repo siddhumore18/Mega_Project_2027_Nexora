@@ -7,6 +7,7 @@ import { healthRouter } from "./routes/health.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { academicRouter } from "./routes/academic.routes.js";
 import { examCycleRouter } from "./routes/exam-cycle.routes.js";
+import { scheduleRouter } from "./routes/schedule.routes.js";
 import { testRouter } from "./routes/test.routes.js";
 
 export function createApp(): Express {
@@ -40,6 +41,9 @@ export function createApp(): Express {
 
   // Exam cycle & registration routes
   app.use("/api/v1/exam-cycles", examCycleRouter);
+
+  // Scheduling & optimization routes
+  app.use("/api/v1/schedules", scheduleRouter);
 
   // Scoped authorization test routes
   app.use("/api/v1/test", testRouter);

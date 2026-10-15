@@ -30,9 +30,9 @@ The synopsis proposes a 16-week plan. The phases below preserve its major module
 **Deliverables:** time-slot model, formal mathematical specification (`docs/CONSTRAINTS_CATALOGUE.md`), hard constraints (H1: Student collision, H2: Room double-booking, H3: Room capacity, H4: Mandatory exam coverage, H5: Invigilator overlap) and soft constraints (S1: Consecutive exams, S2: Multiple exams same day, S3: Room underutilization), independent Node-side schedule validator service (`backend/src/services/schedule-validator.service.ts`), shared Zod contracts (`packages/contracts/src/schedule.ts`), deterministic unit test fixtures (`backend/tests/schedule_constraints_model.test.ts`).
 **Exit gate:** each constraint has an owner, definition, and automated test; independent validator strictly catches all hard conflicts and scores soft penalties. [PASSED]
 
-## Phase 7 — OR-Tools optimization MVP
-**Deliverables:** isolated Python service, asynchronous schedule runs, statuses/diagnostics, one feasible candidate and explicit infeasibility handling.
-**Exit gate:** solver output passes independent Node-side validation; solver failure cannot change published data.
+## Phase 7 — OR-Tools optimization MVP (Completed)
+**Deliverables:** enterprise Google OR-Tools CP-SAT scheduling engine (`optimizer/src/solver.py`), isolated Python runner with JSON IPC, dual-validation integration with independent Node validator (`backend/src/services/optimizer.service.ts`), schedule run REST endpoints (`/api/v1/schedules/runs`), diagnostics emission, coordinator workspace live solver trigger & diagnostics tab (`frontend/src/components/CoordinatorDashboard.tsx`), automated test suites (`backend/tests/schedule_optimizer.test.ts`, `optimizer/tests/test_full_solver.py`).
+**Exit gate:** solver output passes independent Node-side validation; solver failure strictly cannot alter published data; explicit infeasibility handling with detailed conflict diagnostics. [PASSED]
 
 ## Phase 8 — Review, approval, and publication
 **Deliverables:** candidate comparison, warnings, approval workflow, immutable schedule versions, publication history.

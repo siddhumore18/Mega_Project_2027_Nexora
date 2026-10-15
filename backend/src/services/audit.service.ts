@@ -27,3 +27,9 @@ export async function logAuditEvent(entry: CreateAuditEntry): Promise<void> {
     }
   }
 }
+
+export class AuditService {
+  public static async log(entry: CreateAuditEntry): Promise<void> {
+    return logAuditEvent(entry);
+  }
+}
