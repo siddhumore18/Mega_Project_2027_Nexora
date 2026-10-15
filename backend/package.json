@@ -1,5 +1,5 @@
 {
-  "name": "@nexora/api",
+  "name": "@nexora/backend",
   "version": "0.1.0",
   "description": "Express REST API for Nexora Exam Scheduling System",
   "main": "dist/index.js",

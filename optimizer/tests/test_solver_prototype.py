@@ -1,4 +1,4 @@
-from services.optimizer.src.solver_prototype import Exam, Slot, solve_exam_schedule
+from optimizer.src.solver_prototype import Exam, Slot, solve_exam_schedule
 
 
 def test_feasible_schedule_with_distinct_slots():

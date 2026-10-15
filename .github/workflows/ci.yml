@@ -32,7 +32,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r services/optimizer/requirements.txt
+          pip install -r optimizer/requirements.txt
 
       - name: Build contracts and apps
         run: npm run build
@@ -41,4 +41,4 @@ jobs:
         run: npm run test
 
       - name: Run Python optimizer tests
-        run: pytest services/optimizer/tests
+        run: pytest optimizer/tests

@@ -1,5 +1,5 @@
 {
-  "name": "@nexora/web",
+  "name": "@nexora/frontend",
   "version": "0.1.0",
   "private": true,
   "description": "Minimalist Light-Theme Frontend for Nexora",

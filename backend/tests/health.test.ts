@@ -18,7 +18,7 @@ describe("API Health Endpoint", () => {
       const body = await res.json();
       assert.equal(body.success, true);
       assert.equal(body.data.status, "ok");
-      assert.equal(body.data.service, "nexora-api");
+      assert.equal(body.data.service, "nexora-backend");
       assert.ok(typeof body.data.uptime === "number");
     } finally {
       await new Promise((resolve) => server.close(resolve));

@@ -1,14 +1,12 @@
-import { Router } from "express";
+import { Request, Response } from "express";
 import { HealthStatus, ApiSuccessResponse } from "@nexora/contracts";
-
-export const healthRouter = Router();
 
 const startTime = Date.now();
 
-healthRouter.get("/", (_req, res) => {
+export function getHealth(_req: Request, res: Response) {
   const healthData: HealthStatus = {
     status: "ok",
-    service: "nexora-api",
+    service: "nexora-backend",
     version: "0.1.0",
     uptime: Math.floor((Date.now() - startTime) / 1000),
     timestamp: new Date().toISOString(),
@@ -21,4 +19,4 @@ healthRouter.get("/", (_req, res) => {
   };
 
   res.json(response);
-});
+}

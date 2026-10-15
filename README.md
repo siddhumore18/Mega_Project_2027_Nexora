@@ -17,25 +17,33 @@ Nexora is an enterprise-grade academic optimization platform designed to elimina
 
 ## 🏗️ Repository Architecture
 
-Nexora is organized as an npm monorepo with an isolated Python OR-Tools optimization engine:
+Nexora is organized as a clean modular repository with dedicated frontend, backend, and optimizer directories:
 
 ```text
 MegaProject_2027_Nexora/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml             # Automated CI for Node & Python
-├── apps/
-│   ├── api/                   # Express + TypeScript REST API
-│   │   ├── src/               # Correlation tracing, error handling, health endpoints
-│   │   └── tests/             # Automated test suite
-│   └── web/                   # React + TypeScript (Vite)
-│       └── src/               # Minimalist Light Theme UI & role portals
+├── frontend/                  # React 18 + TypeScript + Vite (Minimalist Light Theme)
+│   ├── src/
+│   │   ├── components/        # Header, CoordinatorDashboard, RoleViews, StatusBadge
+│   │   ├── services/          # Typed API client
+│   │   └── styles/            # Minimalist Light Theme tokens & utilities
+│   ├── package.json
+│   └── vite.config.ts
+├── backend/                   # Express + TypeScript REST API
+│   ├── src/
+│   │   ├── controllers/       # Controller logic (getHealth, etc.)
+│   │   ├── middleware/        # Correlation tracing & secure error handling
+│   │   └── routes/            # Route declarations (/health, /api/v1)
+│   ├── tests/                 # Automated API endpoint test suite
+│   └── package.json
+├── optimizer/                 # Python 3.12 + Google OR-Tools constraint engine
+│   ├── src/                   # CP-SAT constraint optimization prototype
+│   ├── tests/                 # Automated pytest constraint validation suite
+│   └── requirements.txt
 ├── packages/
 │   └── contracts/             # Shared TypeScript schemas, types, and Zod validators
-├── services/
-│   └── optimizer/             # Python 3.12 + Google OR-Tools constraint engine
-│       ├── src/               # CP-SAT constraint optimization prototype
-│       └── tests/             # Automated pytest constraint validation suite
 ├── docs/                      # Architectural decisions, domain models & requirements
 ├── .env.example               # Environment variables template
 ├── package.json               # Root monorepo workspace configuration
@@ -61,25 +69,25 @@ cd Mega_Project_2027_Nexora
 npm install
 
 # Install Python OR-Tools dependencies
-pip install -r services/optimizer/requirements.txt
+pip install -r optimizer/requirements.txt
 ```
 
 ### 2. Run Locally
 ```bash
-# Start Express API server (port 4000)
-npm run dev:api
+# Start Express backend server (port 4000)
+npm run dev:backend
 
 # In a separate terminal, start Vite React frontend (port 3000)
-npm run dev:web
+npm run dev:frontend
 ```
 
 ### 3. Run Automated Tests
 ```bash
-# Run Node test suites (API & contracts)
+# Run Node test suites (Backend & Contracts)
 npm test
 
 # Run Python OR-Tools constraint solver tests
-pytest services/optimizer/tests
+pytest optimizer/tests
 ```
 
 ---
