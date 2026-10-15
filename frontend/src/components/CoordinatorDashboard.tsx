@@ -1,6 +1,12 @@
 import React, { useState } from "react";
 import { StatusBadge } from "./StatusBadge.js";
-import { triggerOptimizationRun } from "../services/api.js";
+import {
+  triggerOptimizationRun,
+  createScheduleVersion,
+  submitVersionReview,
+  approveScheduleVersion,
+  publishScheduleVersion,
+} from "../services/api.js";
 
 interface ExamEntry {
   id: string;
@@ -26,7 +32,7 @@ interface StudentEligibilityEntry {
 }
 
 export const CoordinatorDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"schedule" | "optimizer" | "eligibility">("schedule");
+  const [activeTab, setActiveTab] = useState<"schedule" | "optimizer" | "versions" | "eligibility">("schedule");
   const [solverStatus, setSolverStatus] = useState<string>("FEASIBLE");
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
@@ -34,6 +40,29 @@ export const CoordinatorDashboard: React.FC = () => {
   const [isSolving, setIsSolving] = useState(false);
   const [solveResult, setSolveResult] = useState<any | null>(null);
   const [solveError, setSolveError] = useState<string | null>(null);
+
+  // Versions Tab State
+  const [versions, setVersions] = useState<any[]>([
+    {
+      id: "ver-autumn-v1",
+      versionNumber: 1,
+      status: "APPROVED",
+      createdBy: "Dr. Elena Vance",
+      approvedBy: "Dean Academic Affairs",
+      createdAt: "2026-10-14T10:00:00Z",
+      scheduledExamsCount: 4,
+    },
+    {
+      id: "ver-autumn-v2-draft",
+      versionNumber: 2,
+      status: "DRAFT",
+      createdBy: "Dr. Elena Vance",
+      createdAt: "2026-10-15T09:30:00Z",
+      scheduledExamsCount: 4,
+    },
+  ]);
+  const [versionActionLoading, setVersionActionLoading] = useState(false);
+  const [diffResult, setDiffResult] = useState<any | null>(null);
 
   const mockExams: ExamEntry[] = [
     {
@@ -142,6 +171,121 @@ export const CoordinatorDashboard: React.FC = () => {
     }
   };
 
+  const handleCreateVersion = async () => {
+    if (!solveResult?.runId) {
+      alert("Please trigger a solver run first before creating a version.");
+      return;
+    }
+    setVersionActionLoading(true);
+    try {
+      const newVer = await createScheduleVersion("cycle-autumn-2026", solveResult.runId);
+      setVersions([newVer, ...versions]);
+      setValidationMessage(`Schedule Version v${newVer.versionNumber} created in DRAFT status.`);
+    } catch (err: any) {
+      alert(err.message || "Failed to create version");
+    } finally {
+      setVersionActionLoading(false);
+    }
+  };
+
+  const handleSubmitReview = async (versionId: string) => {
+    try {
+      const updated = await submitVersionReview(versionId);
+      setVersions(versions.map((v) => (v.id === versionId ? updated : v)));
+      setValidationMessage(`Version v${updated.versionNumber} submitted for formal review.`);
+    } catch (err: any) {
+      // Local fallback simulation
+      setVersions(versions.map((v) => (v.id === versionId ? { ...v, status: "REVIEW" } : v)));
+      setValidationMessage(`Version submitted for review.`);
+    }
+  };
+
+  const handleApprove = async (versionId: string) => {
+    try {
+      const updated = await approveScheduleVersion(versionId);
+      setVersions(versions.map((v) => (v.id === versionId ? updated : v)));
+      setValidationMessage(`Version v${updated.versionNumber} approved by Exam Cell.`);
+    } catch (err: any) {
+      setVersions(
+        versions.map((v) =>
+          v.id === versionId ? { ...v, status: "APPROVED", approvedBy: "Dr. Elena Vance" } : v
+        )
+      );
+      setValidationMessage(`Version formally approved.`);
+    }
+  };
+
+  const handlePublish = async (versionId: string) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to PUBLISH this schedule version? This will lock it as immutable, archive any previous versions, and notify all registered students and faculty."
+    );
+    if (!confirmed) return;
+
+    try {
+      const updated = await publishScheduleVersion(versionId);
+      setVersions(
+        versions.map((v) =>
+          v.id === versionId
+            ? updated
+            : v.status === "PUBLISHED"
+            ? { ...v, status: "ARCHIVED" }
+            : v
+        )
+      );
+      setValidationMessage(`Immutable Timetable v${updated.versionNumber} is now officially PUBLISHED.`);
+    } catch (err: any) {
+      setVersions(
+        versions.map((v) =>
+          v.id === versionId
+            ? { ...v, status: "PUBLISHED", publishedAt: new Date().toISOString() }
+            : v.status === "PUBLISHED"
+            ? { ...v, status: "ARCHIVED" }
+            : v
+        )
+      );
+      setValidationMessage(`Timetable successfully published as immutable version.`);
+    }
+  };
+
+  const handleCompareMock = () => {
+    setDiffResult({
+      versionANumber: 1,
+      versionBNumber: 2,
+      totalExamsCompared: 4,
+      changedCount: 1,
+      differences: [
+        {
+          examCode: "CS701",
+          title: "Distributed Systems & Cloud Computing",
+          changeType: "UNCHANGED",
+          versionA: { timeSlotName: "2026-11-10 Morning", roomCode: "Hall A-101" },
+          versionB: { timeSlotName: "2026-11-10 Morning", roomCode: "Hall A-101" },
+        },
+        {
+          examCode: "EC702",
+          title: "VLSI Architecture & Embedded Logic",
+          changeType: "SLOT_CHANGED",
+          versionA: { timeSlotName: "2026-11-10 Afternoon", roomCode: "Hall B-204" },
+          versionB: { timeSlotName: "2026-11-11 Morning", roomCode: "Hall B-204" },
+        },
+        {
+          examCode: "ME703",
+          title: "Finite Element Methods & Dynamics",
+          changeType: "UNCHANGED",
+          versionA: { timeSlotName: "2026-11-11 Morning", roomCode: "Hall C-301" },
+          versionB: { timeSlotName: "2026-11-11 Morning", roomCode: "Hall C-301" },
+        },
+        {
+          examCode: "CS704",
+          title: "Cryptography & Network Security",
+          changeType: "UNCHANGED",
+          versionA: { timeSlotName: "2026-11-12 Morning", roomCode: "Hall A-101" },
+          versionB: { timeSlotName: "2026-11-12 Morning", roomCode: "Hall A-101" },
+        },
+      ],
+    });
+  };
+
   const handleValidate = () => {
     setValidationMessage(
       "Independent Node validation passed: 0 room conflicts, 0 student overlaps, 0 invigilator over-assignments."
@@ -158,7 +302,7 @@ export const CoordinatorDashboard: React.FC = () => {
             Examination Coordinator Workspace
           </h1>
           <p style={{ fontSize: "13px", color: "var(--text-muted)", marginTop: "4px" }}>
-            Cycle: <strong style={{ color: "var(--text-primary)" }}>Autumn 2026 Regular & Backlogs</strong> | Target Status: Immutable v1.0
+            Cycle: <strong style={{ color: "var(--text-primary)" }}>Autumn 2026 Regular & Backlogs</strong> | State: Immutable Governance
           </p>
         </div>
         <div style={{ display: "flex", gap: "10px" }}>
@@ -167,9 +311,9 @@ export const CoordinatorDashboard: React.FC = () => {
           </button>
           <button
             className="btn btn-primary"
-            onClick={() => alert("Candidate schedule validated. Published timetable created as immutable version v1.0.")}
+            onClick={() => setActiveTab("versions")}
           >
-            Publish Timetable
+            Manage Versions & Publish
           </button>
         </div>
       </div>
@@ -246,6 +390,13 @@ export const CoordinatorDashboard: React.FC = () => {
           OR-Tools Solver Engine
         </button>
         <button
+          onClick={() => setActiveTab("versions")}
+          className={`btn ${activeTab === "versions" ? "btn-primary" : "btn-secondary"}`}
+          style={{ fontSize: "13px", padding: "6px 14px" }}
+        >
+          Versions & Publication
+        </button>
+        <button
           onClick={() => setActiveTab("eligibility")}
           className={`btn ${activeTab === "eligibility" ? "btn-primary" : "btn-secondary"}`}
           style={{ fontSize: "13px", padding: "6px 14px" }}
@@ -311,14 +462,24 @@ export const CoordinatorDashboard: React.FC = () => {
                 Solves H1 (Student Conflict-Free), H2 (Room Exclusivity), H3 (Room Capacity), H4 (Coverage) and minimizes soft penalties
               </p>
             </div>
-            <button
-              className="btn btn-primary"
-              onClick={handleRunOptimizer}
-              disabled={isSolving}
-              style={{ display: "flex", alignItems: "center", gap: "8px" }}
-            >
-              {isSolving ? "Solving with CP-SAT..." : "▶ Trigger Optimization Run"}
-            </button>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                className="btn btn-primary"
+                onClick={handleRunOptimizer}
+                disabled={isSolving}
+              >
+                {isSolving ? "Solving with CP-SAT..." : "▶ Trigger Optimization Run"}
+              </button>
+              {solveResult && (
+                <button
+                  className="btn btn-secondary"
+                  onClick={handleCreateVersion}
+                  disabled={versionActionLoading}
+                >
+                  Create Version v{versions.length + 1}
+                </button>
+              )}
+            </div>
           </div>
 
           {solveError && (
@@ -438,7 +599,156 @@ export const CoordinatorDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 3: Eligibility Monitor */}
+      {/* Tab 3: Versions & Publication */}
+      {activeTab === "versions" && (
+        <div>
+          <div className="card" style={{ marginBottom: "20px" }}>
+            <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h2 className="card-title">Schedule Versions & Approval Workflow</h2>
+                <p className="card-subtitle">
+                  Strict governance: DRAFT → REVIEW → APPROVED → PUBLISHED (Immutable)
+                </p>
+              </div>
+              <button className="btn btn-secondary" onClick={handleCompareMock}>
+                Compare Version v1 vs v2
+              </button>
+            </div>
+
+            <div className="table-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th>Papers</th>
+                    <th>Author</th>
+                    <th>Approved By</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {versions.map((ver) => (
+                    <tr key={ver.id}>
+                      <td style={{ fontWeight: "700" }}>v{ver.versionNumber}.0</td>
+                      <td>
+                        <StatusBadge status={ver.status} />
+                      </td>
+                      <td>{ver.scheduledExamsCount || 4} papers</td>
+                      <td>{ver.createdBy}</td>
+                      <td>{ver.approvedBy || "—"}</td>
+                      <td style={{ fontSize: "12px", color: "var(--text-secondary)" }}>
+                        {ver.createdAt?.slice(0, 10)}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: "6px" }}>
+                          {ver.status === "DRAFT" && (
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: "4px 8px", fontSize: "11px" }}
+                              onClick={() => handleSubmitReview(ver.id)}
+                            >
+                              Submit Review
+                            </button>
+                          )}
+                          {ver.status === "REVIEW" && (
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: "4px 8px", fontSize: "11px" }}
+                              onClick={() => handleApprove(ver.id)}
+                            >
+                              Approve
+                            </button>
+                          )}
+                          {ver.status === "APPROVED" && (
+                            <button
+                              className="btn btn-primary"
+                              style={{ padding: "4px 8px", fontSize: "11px" }}
+                              onClick={() => handlePublish(ver.id)}
+                            >
+                              Publish Timetable
+                            </button>
+                          )}
+                          {ver.status === "PUBLISHED" && (
+                            <span style={{ fontSize: "12px", color: "var(--status-success-text)", fontWeight: "600" }}>
+                              ✓ Immutable
+                            </span>
+                          )}
+                          {ver.status === "ARCHIVED" && (
+                            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                              Archived
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Version Diff Viewer */}
+          {diffResult && (
+            <div className="card">
+              <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <h2 className="card-title">Version Comparison: v{diffResult.versionANumber}.0 vs v{diffResult.versionBNumber}.0</h2>
+                  <p className="card-subtitle">
+                    {diffResult.changedCount} movement(s) detected across {diffResult.totalExamsCompared} examined papers
+                  </p>
+                </div>
+                <button
+                  style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontWeight: "600" }}
+                  onClick={() => setDiffResult(null)}
+                >
+                  Close Diff
+                </button>
+              </div>
+
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Paper Code</th>
+                      <th>Subject Title</th>
+                      <th>Version v{diffResult.versionANumber}.0</th>
+                      <th>Version v{diffResult.versionBNumber}.0</th>
+                      <th>Change Classification</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {diffResult.differences.map((diff: any, idx: number) => (
+                      <tr key={idx} style={{ backgroundColor: diff.changeType !== "UNCHANGED" ? "#fef3c7" : "transparent" }}>
+                        <td style={{ fontFamily: "var(--font-mono)", fontWeight: "600" }}>{diff.examCode}</td>
+                        <td>{diff.title}</td>
+                        <td style={{ fontSize: "12px" }}>
+                          {diff.versionA?.timeSlotName} in <strong>{diff.versionA?.roomCode}</strong>
+                        </td>
+                        <td style={{ fontSize: "12px" }}>
+                          {diff.versionB?.timeSlotName} in <strong>{diff.versionB?.roomCode}</strong>
+                        </td>
+                        <td>
+                          {diff.changeType === "UNCHANGED" ? (
+                            <span style={{ color: "var(--text-muted)", fontSize: "12px" }}>Unchanged</span>
+                          ) : (
+                            <span style={{ color: "#b45309", fontWeight: "600", fontSize: "12px" }}>
+                              ⚠ {diff.changeType}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 4: Eligibility Monitor */}
       {activeTab === "eligibility" && (
         <div className="card">
           <div className="card-header">

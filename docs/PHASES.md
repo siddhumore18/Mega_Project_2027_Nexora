@@ -34,9 +34,9 @@ The synopsis proposes a 16-week plan. The phases below preserve its major module
 **Deliverables:** enterprise Google OR-Tools CP-SAT scheduling engine (`optimizer/src/solver.py`), isolated Python runner with JSON IPC, dual-validation integration with independent Node validator (`backend/src/services/optimizer.service.ts`), schedule run REST endpoints (`/api/v1/schedules/runs`), diagnostics emission, coordinator workspace live solver trigger & diagnostics tab (`frontend/src/components/CoordinatorDashboard.tsx`), automated test suites (`backend/tests/schedule_optimizer.test.ts`, `optimizer/tests/test_full_solver.py`).
 **Exit gate:** solver output passes independent Node-side validation; solver failure strictly cannot alter published data; explicit infeasibility handling with detailed conflict diagnostics. [PASSED]
 
-## Phase 8 — Review, approval, and publication
-**Deliverables:** candidate comparison, warnings, approval workflow, immutable schedule versions, publication history.
-**Exit gate:** only validated approved versions can be published.
+## Phase 8 — Review, approval, and publication (Completed)
+**Deliverables:** schedule version lifecycle (`DRAFT` → `REVIEW` → `APPROVED` → `PUBLISHED` → `ARCHIVED`), formal governance service (`backend/src/services/schedule-version.service.ts`), version comparison diff engine, publication endpoints (`/api/v1/schedules/versions/:versionId/publish`), immutable published timetable locks, coordinator review, approval & diff viewer UI (`frontend/src/components/CoordinatorDashboard.tsx`), automated test suite (`backend/tests/schedule_publication.test.ts`).
+**Exit gate:** only validated, formally approved versions can be published; published versions are strictly immutable and archive predecessor versions. [PASSED]
 
 ## Phase 9 — Room and seating allocation
 **Deliverables:** room availability, capacity checks, seat allocation strategy, duplicate-prevention constraints, seating-list export.

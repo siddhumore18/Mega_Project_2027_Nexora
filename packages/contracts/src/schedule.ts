@@ -146,3 +146,53 @@ export const ScheduleRunSummarySchema = z.object({
 });
 
 export type ScheduleRunSummary = z.infer<typeof ScheduleRunSummarySchema>;
+
+// Phase 8: Review, Approval & Publication Contracts
+
+export const ScheduleVersionSummarySchema = z.object({
+  id: z.string(),
+  examCycleId: z.string(),
+  scheduleRunId: z.string().optional(),
+  versionNumber: z.number().int().positive(),
+  status: z.nativeEnum(ScheduleVersionStatus),
+  createdBy: z.string(),
+  approvedBy: z.string().optional(),
+  publishedAt: z.string().optional(),
+  createdAt: z.string(),
+  scheduledExamsCount: z.number().int().default(0),
+});
+
+export type ScheduleVersionSummary = z.infer<typeof ScheduleVersionSummarySchema>;
+
+export const ScheduleComparisonDiffSchema = z.object({
+  examId: z.string(),
+  examCode: z.string(),
+  title: z.string(),
+  changeType: z.enum(["UNCHANGED", "SLOT_CHANGED", "ROOM_CHANGED", "BOTH_CHANGED", "ADDED", "REMOVED"]),
+  versionA: z.object({
+    timeSlotId: z.string(),
+    timeSlotName: z.string().optional(),
+    roomId: z.string(),
+    roomCode: z.string().optional(),
+  }).optional(),
+  versionB: z.object({
+    timeSlotId: z.string(),
+    timeSlotName: z.string().optional(),
+    roomId: z.string(),
+    roomCode: z.string().optional(),
+  }).optional(),
+});
+
+export type ScheduleComparisonDiff = z.infer<typeof ScheduleComparisonDiffSchema>;
+
+export const ScheduleComparisonResultSchema = z.object({
+  versionAId: z.string(),
+  versionBId: z.string(),
+  versionANumber: z.number(),
+  versionBNumber: z.number(),
+  totalExamsCompared: z.number(),
+  changedCount: z.number(),
+  differences: z.array(ScheduleComparisonDiffSchema),
+});
+
+export type ScheduleComparisonResult = z.infer<typeof ScheduleComparisonResultSchema>;
