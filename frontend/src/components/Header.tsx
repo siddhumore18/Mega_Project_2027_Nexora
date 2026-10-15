@@ -1,15 +1,20 @@
 import React from "react";
 import { UserRole } from "@nexora/contracts";
+import { UserProfile } from "../services/auth.js";
 
 interface HeaderProps {
   currentRole: UserRole;
+  currentUser: UserProfile | null;
   onRoleChange: (role: UserRole) => void;
+  onLogout: () => void;
   apiStatus: "connected" | "connecting" | "offline";
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentRole,
+  currentUser,
   onRoleChange,
+  onLogout,
   apiStatus,
 }) => {
   return (
@@ -26,6 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="nav-controls">
+          {/* Role quick switcher */}
           <div className="role-tabs" aria-label="Role Switcher">
             {(
               [
@@ -47,6 +53,41 @@ export const Header: React.FC<HeaderProps> = ({
             ))}
           </div>
 
+          {/* User profile / session indicator */}
+          {currentUser && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "12px",
+                padding: "4px 10px",
+                backgroundColor: "var(--bg-subtle)",
+                border: "1px solid var(--border-default)",
+                borderRadius: "var(--radius-md)",
+              }}
+            >
+              <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>
+                {currentUser.name}
+              </span>
+              <button
+                onClick={onLogout}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--text-muted)",
+                  cursor: "pointer",
+                  fontSize: "11px",
+                  marginLeft: "4px",
+                  textDecoration: "underline",
+                }}
+              >
+                Sign out
+              </button>
+            </div>
+          )}
+
+          {/* API Health indicator */}
           <div
             className="health-pill"
             style={{

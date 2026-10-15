@@ -14,9 +14,9 @@ The synopsis proposes a 16-week plan. The phases below preserve its major module
 **Deliverables:** reviewed ERD (`docs/ERD.md`), Prisma schema (`backend/prisma/schema.prisma`), Prisma client singleton (`backend/src/db/prisma.ts`), synthetic seed data (`backend/prisma/seed.ts`), automated schema constraint verification tests (`backend/tests/schema_constraints.test.ts`).
 **Exit gate:** Prisma schema validated, client generated, key foreign keys and composite unique constraints tested. [PASSED]
 
-## Phase 3 — Authentication, authorization, and audit
-**Deliverables:** login/logout, secure session/token design, role and scoped permission middleware, audit events, initial dashboards.
-**Exit gate:** positive and negative authorization tests pass for each role.
+## Phase 3 — Authentication, authorization, and audit (Completed)
+**Deliverables:** login/logout endpoints (`/api/v1/auth/login`, `/logout`, `/me`), JWT token issuance & verification (`backend/src/utils/jwt.ts`), password hashing (`backend/src/utils/password.ts`), role & department-scoped permission middleware (`backend/src/middleware/auth.middleware.ts`), audit events service (`backend/src/services/audit.service.ts`), frontend auth state synchronization & demo accounts (`frontend/src/services/auth.ts`).
+**Exit gate:** positive and negative authorization tests pass for each role and department scope. [PASSED]
 
 ## Phase 4 — Academic data and eligibility
 **Deliverables:** departments/programs/terms/subjects/students/faculty, import validation, configurable eligibility/backlog rules, explainable results.

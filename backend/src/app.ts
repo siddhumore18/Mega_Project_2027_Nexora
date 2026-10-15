@@ -4,6 +4,8 @@ import helmet from "helmet";
 import { correlationMiddleware } from "./middleware/correlation.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { healthRouter } from "./routes/health.js";
+import { authRouter } from "./routes/auth.routes.js";
+import { testRouter } from "./routes/test.routes.js";
 
 export function createApp(): Express {
   const app = express();
@@ -27,6 +29,12 @@ export function createApp(): Express {
   // Health checks
   app.use("/health", healthRouter);
   app.use("/api/v1/health", healthRouter);
+
+  // Auth routes
+  app.use("/api/v1/auth", authRouter);
+
+  // Scoped authorization test routes
+  app.use("/api/v1/test", testRouter);
 
   // Global 404 handler
   app.use((req, res) => {
