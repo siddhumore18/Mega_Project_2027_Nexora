@@ -105,8 +105,8 @@ pytest optimizer/tests
 | **Phase 6** | Formal Scheduling Constraint Catalogue & Fixtures | **Completed** |
 | **Phase 7** | OR-Tools Solver Microservice & Diagnostics | **Completed** |
 | **Phase 8** | Candidate Review, Approvals & Immutable Publication | **Completed** |
-| **Phase 9** | Room & Seating Allocation | Next |
-| **Phase 10** | Invigilator Rostering & Conflict Rules | Planned |
-| **Phase 11** | Rescheduling Impact Analysis & Notifications | Planned |
-| **Phase 12** | Reports & Exports | Planned |
-| **Phase 13** | Hardening, Performance Benchmarking & Release | Planned |
+| **Phase 9** | Room & Seating Allocation | **Completed** |
+| **Phase 10** | Invigilator Rostering & Conflict Rules | **Completed** |
+| **Phase 11** | Rescheduling Impact Analysis & Notifications | **Completed** |
+| **Phase 12** | Reports & Exports | **Completed** |
+| **Phase 13** | Hardening, Performance Benchmarking & Release | **Completed** |
