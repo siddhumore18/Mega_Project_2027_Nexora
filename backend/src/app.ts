@@ -6,6 +6,7 @@ import { errorHandler } from "./middleware/errorHandler.js";
 import { healthRouter } from "./routes/health.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { academicRouter } from "./routes/academic.routes.js";
+import { examCycleRouter } from "./routes/exam-cycle.routes.js";
 import { testRouter } from "./routes/test.routes.js";
 
 export function createApp(): Express {
@@ -36,6 +37,9 @@ export function createApp(): Express {
 
   // Academic & eligibility routes
   app.use("/api/v1/academic", academicRouter);
+
+  // Exam cycle & registration routes
+  app.use("/api/v1/exam-cycles", examCycleRouter);
 
   // Scoped authorization test routes
   app.use("/api/v1/test", testRouter);

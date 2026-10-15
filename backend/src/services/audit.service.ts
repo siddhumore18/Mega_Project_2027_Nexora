@@ -22,7 +22,7 @@ export async function logAuditEvent(entry: CreateAuditEntry): Promise<void> {
       },
     });
   } catch (error) {
-    if (process.env.NODE_ENV !== "test") {
+    if (process.env.NODE_ENV !== "test" && (error as any)?.name !== "PrismaClientInitializationError") {
       console.error("[AuditLog Error]", error);
     }
   }

@@ -101,8 +101,8 @@ pytest optimizer/tests
 | **Phase 2** | Data Model, Prisma Schema, Synthetic Seeds, DB Integrity Tests | **Completed** |
 | **Phase 3** | Authentication, Role & Scoped Permissions, Audit Logging | **Completed** |
 | **Phase 4** | Academic Structure & Explainable Eligibility Engine | **Completed** |
-| **Phase 5** | Exam Cycles, Offerings & Registration Windows | Next |
-| **Phase 6** | Formal Scheduling Constraint Catalogue & Fixtures | Planned |
+| **Phase 5** | Exam Cycles, Offerings & Registration Windows | **Completed** |
+| **Phase 6** | Formal Scheduling Constraint Catalogue & Fixtures | Next |
 | **Phase 7** | OR-Tools Solver Microservice & Diagnostics | Planned |
 | **Phase 8** | Candidate Review, Approvals & Immutable Publication | Planned |
 | **Phase 9** | Room & Seating Allocation | Planned |

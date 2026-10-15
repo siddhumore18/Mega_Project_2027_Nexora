@@ -22,9 +22,9 @@ The synopsis proposes a 16-week plan. The phases below preserve its major module
 **Deliverables:** academic catalog routes (`/api/v1/academic/departments`, `/rooms`, `/subjects`), explainable eligibility engine (`backend/src/services/eligibility.service.ts`), batch student import validation with error reconciliation (`backend/src/services/import.service.ts`), eligibility monitor tab in coordinator dashboard, automated test suite (`backend/tests/eligibility.test.ts`).
 **Exit gate:** explainable eligibility rules and edge cases (medical concession, attendance shortage, backlog attempt limits, fee clearance) tested and verified. [PASSED]
 
-## Phase 5 — Examination cycle and registration
-**Deliverables:** exam cycle setup, offerings, registration windows, registration workflow, eligible-but-unregistered dashboard.
-**Exit gate:** duplicate registrations and invalid state transitions are rejected.
+## Phase 5 — Examination cycle and registration (Completed)
+**Deliverables:** exam cycle state machine (`DRAFT` → `REGISTRATION_OPEN` → `SCHEDULING` → `PUBLISHED` → `ARCHIVED`), offering management, student registration workflow with duplicate rejection, registration gap tracking (`eligible-but-unregistered`), student registration UI, automated test suite (`backend/tests/exam_cycle.test.ts`).
+**Exit gate:** duplicate registrations and invalid state transitions are rejected. [PASSED]
 
 ## Phase 6 — Scheduling problem model
 **Deliverables:** time-slot model, hard/soft constraints catalogue, optimizer input/output contracts, small fixture datasets.
