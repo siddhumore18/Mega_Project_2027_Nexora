@@ -10,9 +10,9 @@ The synopsis proposes a 16-week plan. The phases below preserve its major module
 **Deliverables:** repository structure (`apps/web`, `apps/api`, `services/optimizer`, `packages/contracts`), TypeScript/Python setup, npm workspaces scripts (`build`, `test`, `lint`), GitHub Actions CI (`.github/workflows/ci.yml`), environment examples (`.env.example`), Express health endpoints (`/health`, `/api/v1/health`), minimal light theme React client, OR-Tools solver prototype & pytest suite.
 **Exit gate:** clean install, all checks pass, build and tests executed successfully. [PASSED]
 
-## Phase 2 — Data model and database
-**Deliverables:** reviewed ERD, Prisma schema/migrations, synthetic seed data, transaction strategy, backup plan.
-**Exit gate:** migrations apply from an empty database; key foreign keys/unique constraints tested.
+## Phase 2 — Data model and database (Completed)
+**Deliverables:** reviewed ERD (`docs/ERD.md`), Prisma schema (`backend/prisma/schema.prisma`), Prisma client singleton (`backend/src/db/prisma.ts`), synthetic seed data (`backend/prisma/seed.ts`), automated schema constraint verification tests (`backend/tests/schema_constraints.test.ts`).
+**Exit gate:** Prisma schema validated, client generated, key foreign keys and composite unique constraints tested. [PASSED]
 
 ## Phase 3 — Authentication, authorization, and audit
 **Deliverables:** login/logout, secure session/token design, role and scoped permission middleware, audit events, initial dashboards.

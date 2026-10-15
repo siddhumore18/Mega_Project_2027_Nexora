@@ -1,0 +1,376 @@
+// Prisma Schema for Nexora
+// University Exam Timetable Scheduling, Hall Allocation & Invigilation Duty Management
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  FACULTY
+  HOD
+  EXAM_COORDINATOR
+  ADMIN
+}
+
+enum ExamCycleStatus {
+  DRAFT
+  REGISTRATION_OPEN
+  SCHEDULING
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SolverRunStatus {
+  QUEUED
+  RUNNING
+  FEASIBLE
+  OPTIMAL
+  INFEASIBLE
+  UNKNOWN
+  FAILED
+}
+
+enum ScheduleVersionStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum RegistrationStatus {
+  REGISTERED
+  CANCELLED
+}
+
+enum InvigilatorRole {
+  CHIEF_INVIGILATOR
+  ASSISTANT_INVIGILATOR
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(STUDENT)
+  name         String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  student      Student?
+  faculty      Faculty?
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Department {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String
+  createdAt DateTime  @default(now())
+
+  programs  Program[]
+  faculty   Faculty[]
+  subjects  Subject[]
+
+  @@map("departments")
+}
+
+model Program {
+  id           String     @id @default(cuid())
+  departmentId String
+  code         String     @unique
+  name         String
+  degreeLevel  String     @default("UNDERGRADUATE")
+
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  students     Student[]
+
+  @@map("programs")
+}
+
+model AcademicTerm {
+  id               String            @id @default(cuid())
+  name             String            @unique
+  startDate        DateTime
+  endDate          DateTime
+  isActive         Boolean           @default(false)
+
+  subjectOfferings SubjectOffering[]
+  examCycles       ExamCycle[]
+
+  @@map("academic_terms")
+}
+
+model Student {
+  id              String                @id @default(cuid())
+  userId          String?               @unique
+  rollNumber      String                @unique
+  programId       String
+  currentSemester Int                   @default(1)
+  status          String                @default("ACTIVE")
+
+  user            User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  program         Program               @relation(fields: [programId], references: [id])
+  subjectRecords  StudentSubjectRecord[]
+  registrations   ExamRegistration[]
+  seatAllocations SeatAllocation[]
+
+  @@map("students")
+}
+
+model Faculty {
+  id                String                  @id @default(cuid())
+  userId            String?                 @unique
+  employeeCode      String                  @unique
+  departmentId      String
+  designation       String                  @default("Assistant Professor")
+  maxDutiesPerWeek  Int                     @default(3)
+
+  user              User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  department        Department              @relation(fields: [departmentId], references: [id])
+  availabilities    FacultyAvailability[]
+  assignments       InvigilatorAssignment[]
+
+  @@map("faculty")
+}
+
+model Subject {
+  id           String            @id @default(cuid())
+  code         String            @unique
+  title        String
+  credits      Int               @default(3)
+  departmentId String
+
+  department   Department        @relation(fields: [departmentId], references: [id])
+  offerings    SubjectOffering[]
+
+  @@map("subjects")
+}
+
+model SubjectOffering {
+  id             String                 @id @default(cuid())
+  subjectId      String
+  academicTermId String
+  semester       Int
+
+  subject        Subject                @relation(fields: [subjectId], references: [id])
+  academicTerm   AcademicTerm           @relation(fields: [academicTermId], references: [id])
+  studentRecords StudentSubjectRecord[]
+  examOfferings  ExamOffering[]
+
+  @@unique([subjectId, academicTermId, semester])
+  @@map("subject_offerings")
+}
+
+model StudentSubjectRecord {
+  id                   String          @id @default(cuid())
+  studentId            String
+  subjectOfferingId    String
+  attendancePercentage Float           @default(0.0)
+  isEligible           Boolean         @default(true)
+  ineligibilityReason  String?
+  backlogAttempt       Int             @default(0)
+
+  student              Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectOffering      SubjectOffering @relation(fields: [subjectOfferingId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, subjectOfferingId])
+  @@map("student_subject_records")
+}
+
+model ExamCycle {
+  id                String            @id @default(cuid())
+  academicTermId    String
+  name              String
+  registrationStart DateTime
+  registrationEnd   DateTime
+  status            ExamCycleStatus   @default(DRAFT)
+
+  academicTerm      AcademicTerm      @relation(fields: [academicTermId], references: [id])
+  examOfferings     ExamOffering[]
+  scheduleRuns      ScheduleRun[]
+  scheduleVersions  ScheduleVersion[]
+
+  @@map("exam_cycles")
+}
+
+model ExamOffering {
+  id                String             @id @default(cuid())
+  examCycleId       String
+  subjectOfferingId String
+  durationMinutes   Int                @default(180)
+  isBacklogOffering Boolean            @default(false)
+
+  examCycle         ExamCycle          @relation(fields: [examCycleId], references: [id], onDelete: Cascade)
+  subjectOffering   SubjectOffering    @relation(fields: [subjectOfferingId], references: [id])
+  registrations     ExamRegistration[]
+  scheduledExams    ScheduledExam[]
+
+  @@unique([examCycleId, subjectOfferingId])
+  @@map("exam_offerings")
+}
+
+model ExamRegistration {
+  id             String             @id @default(cuid())
+  studentId      String
+  examOfferingId String
+  status         RegistrationStatus @default(REGISTERED)
+  registeredAt   DateTime           @default(now())
+
+  student        Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  examOffering   ExamOffering       @relation(fields: [examOfferingId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, examOfferingId])
+  @@map("exam_registrations")
+}
+
+model Room {
+  id              String            @id @default(cuid())
+  code            String            @unique
+  building        String
+  floor           Int               @default(1)
+  capacity        Int
+  hasProjector    Boolean           @default(false)
+  isAccessible    Boolean           @default(true)
+  isActive        Boolean           @default(true)
+
+  availabilities  RoomAvailability[]
+  scheduledExams  ScheduledExam[]
+  seatAllocations SeatAllocation[]
+
+  @@map("rooms")
+}
+
+model RoomAvailability {
+  id          String   @id @default(cuid())
+  roomId      String
+  startAt     DateTime
+  endAt       DateTime
+  isAvailable Boolean  @default(true)
+  reason      String?
+
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@map("room_availabilities")
+}
+
+model FacultyAvailability {
+  id          String   @id @default(cuid())
+  facultyId   String
+  startAt     DateTime
+  endAt       DateTime
+  isAvailable Boolean  @default(true)
+  reason      String?
+
+  faculty     Faculty  @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+
+  @@map("faculty_availabilities")
+}
+
+model ScheduleRun {
+  id               String            @id @default(cuid())
+  examCycleId      String
+  inputVersion     Int               @default(1)
+  status           SolverRunStatus   @default(QUEUED)
+  objectiveScore   Float?
+  violationsCount  Int               @default(0)
+  diagnostics      String[]          @default([])
+  startedAt        DateTime          @default(now())
+  finishedAt       DateTime?
+
+  examCycle        ExamCycle         @relation(fields: [examCycleId], references: [id], onDelete: Cascade)
+  scheduleVersions ScheduleVersion[]
+
+  @@map("schedule_runs")
+}
+
+model ScheduleVersion {
+  id             String                @id @default(cuid())
+  examCycleId    String
+  scheduleRunId  String?
+  versionNumber  Int
+  status         ScheduleVersionStatus @default(DRAFT)
+  createdBy      String
+  approvedBy     String?
+  publishedAt    DateTime?
+  createdAt      DateTime              @default(now())
+
+  examCycle      ExamCycle             @relation(fields: [examCycleId], references: [id], onDelete: Cascade)
+  scheduleRun    ScheduleRun?          @relation(fields: [scheduleRunId], references: [id], onDelete: SetNull)
+  scheduledExams ScheduledExam[]
+
+  @@unique([examCycleId, versionNumber])
+  @@map("schedule_versions")
+}
+
+model ScheduledExam {
+  id                    String                  @id @default(cuid())
+  scheduleVersionId     String
+  examOfferingId        String
+  roomId                String
+  startAt               DateTime
+  endAt                 DateTime
+
+  scheduleVersion       ScheduleVersion         @relation(fields: [scheduleVersionId], references: [id], onDelete: Cascade)
+  examOffering          ExamOffering            @relation(fields: [examOfferingId], references: [id])
+  room                  Room                    @relation(fields: [roomId], references: [id])
+  seatAllocations       SeatAllocation[]
+  invigilatorAssignments InvigilatorAssignment[]
+
+  @@index([startAt, endAt])
+  @@map("scheduled_exams")
+}
+
+model SeatAllocation {
+  id              String        @id @default(cuid())
+  scheduledExamId String
+  studentId       String
+  roomId          String
+  seatLabel       String
+
+  scheduledExam   ScheduledExam @relation(fields: [scheduledExamId], references: [id], onDelete: Cascade)
+  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  room            Room          @relation(fields: [roomId], references: [id])
+
+  @@unique([scheduledExamId, studentId])
+  @@unique([scheduledExamId, roomId, seatLabel])
+  @@map("seat_allocations")
+}
+
+model InvigilatorAssignment {
+  id              String          @id @default(cuid())
+  scheduledExamId String
+  facultyId       String
+  role            InvigilatorRole @default(CHIEF_INVIGILATOR)
+
+  scheduledExam   ScheduledExam   @relation(fields: [scheduledExamId], references: [id], onDelete: Cascade)
+  faculty         Faculty         @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduledExamId, facultyId])
+  @@map("invigilator_assignments")
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  actorId       String?
+  action        String
+  entityType    String
+  entityId      String?
+  correlationId String
+  payload       Json?
+  timestamp     DateTime @default(now())
+
+  actor         User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([correlationId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
