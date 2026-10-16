@@ -4,12 +4,13 @@
   "private": true,
   "description": "Nexora - Automated University Exam Timetable Scheduling, Hall Allocation & Invigilation Duty Management System",
   "workspaces": [
-    "frontend",
+    "packages/*",
     "backend",
-    "packages/*"
+    "frontend"
   ],
   "scripts": {
-    "build": "npm run --workspaces --if-present build",
+    "build:contracts": "npm run --workspace=@nexora/contracts build",
+    "build": "npm run build:contracts && npm run --workspaces --if-present build",
     "test": "npm run --workspaces --if-present test",
     "lint": "npm run --workspaces --if-present lint",
     "dev:backend": "npm run --workspace=@nexora/backend dev",
