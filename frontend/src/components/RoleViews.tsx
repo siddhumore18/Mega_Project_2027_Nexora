@@ -2,21 +2,27 @@ import React from "react";
 import { UserRole } from "@nexora/contracts";
 import { StudentPortal } from "./student/StudentPortal.js";
 import { FacultyPortal } from "./faculty/FacultyPortal.js";
+import { AdminDashboard } from "./admin/AdminDashboard.js";
 import { StatusBadge } from "./StatusBadge.js";
 import { ShieldCheck } from "lucide-react";
 
 interface RoleViewsProps {
   role: UserRole;
   activeTab?: string;
+  onTabChange?: (tab: string) => void;
 }
 
-export const RoleViews: React.FC<RoleViewsProps> = ({ role, activeTab }) => {
+export const RoleViews: React.FC<RoleViewsProps> = ({ role, activeTab, onTabChange }) => {
   if (role === UserRole.STUDENT) {
     return <StudentPortal initialTab={activeTab === "registration" ? "registration" : "timetable"} />;
   }
 
   if (role === UserRole.FACULTY) {
     return <FacultyPortal initialTab={activeTab === "availability" ? "availability" : "invigilation"} />;
+  }
+
+  if (role === UserRole.ADMIN) {
+    return <AdminDashboard activeTab={activeTab} onNavigateTab={onTabChange} />;
   }
 
   // HOD View (Preserved and styled cleanly)

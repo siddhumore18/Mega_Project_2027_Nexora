@@ -3,13 +3,14 @@ import { UserRole } from "@nexora/contracts";
 import { AuthProvider, useAuth } from "./context/AuthContext.js";
 import { Navbar } from "./components/navigation/Navbar.js";
 import { LoginView } from "./components/auth/LoginView.js";
+import { AdminDashboard } from "./components/admin/AdminDashboard.js";
 import { CoordinatorDashboard } from "./components/CoordinatorDashboard.js";
 import { RoleViews } from "./components/RoleViews.js";
 import { fetchHealth } from "./services/api.js";
 
 const MainContent: React.FC = () => {
-  const { currentUser, isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>("timetable");
+  const { currentUser, isAuthenticated, logout, switchRole } = useAuth();
+  const [activeTab, setActiveTab] = useState<string>("overview");
   const [apiStatus, setApiStatus] = useState<"connected" | "connecting" | "offline">("connecting");
 
   useEffect(() => {
@@ -18,37 +19,36 @@ const MainContent: React.FC = () => {
       .catch(() => setApiStatus("offline"));
   }, []);
 
-  // Update default tab when role changes
-  useEffect(() => {
-    if (!currentUser) return;
-    if (currentUser.role === UserRole.STUDENT) {
-      setActiveTab("timetable");
-    } else if (currentUser.role === UserRole.FACULTY) {
-      setActiveTab("invigilation");
-    } else if (currentUser.role === UserRole.EXAM_COORDINATOR) {
-      setActiveTab("coordinator");
-    } else if (currentUser.role === UserRole.HOD) {
-      setActiveTab("hod");
-    }
-  }, [currentUser?.role]);
-
   // If user is not authenticated, show the Login View
   if (!isAuthenticated || !currentUser) {
     return (
-      <div className="app-container">
-        <Navbar
-          activeTab=""
-          onTabChange={() => {}}
-          apiStatus={apiStatus}
-          onShowLogin={() => {}}
-        />
-        <main className="main-content">
-          <LoginView onSuccess={() => {}} />
-        </main>
-      </div>
+      <main className="main-content" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#f3f4f6" }}>
+        <LoginView onSuccess={() => {}} />
+      </main>
     );
   }
 
+  // 1. Dedicated Admin Dashboard (New Reference Layout: Dark-Green Sidebar + Topbar)
+  if (currentUser.role === UserRole.ADMIN) {
+    return (
+      <AdminDashboard
+        onSwitchToCoordinator={() => switchRole(UserRole.EXAM_COORDINATOR)}
+        onLogout={logout}
+      />
+    );
+  }
+
+  // 2. Dedicated Exam Coordinator Dashboard (Matching Visual Design Reference)
+  if (currentUser.role === UserRole.EXAM_COORDINATOR) {
+    return (
+      <CoordinatorDashboard
+        onSwitchToAdmin={() => switchRole(UserRole.ADMIN)}
+        onLogout={logout}
+      />
+    );
+  }
+
+  // Fallback for preserved teammate views (Student, Faculty, HOD)
   return (
     <div className="app-container">
       <Navbar
@@ -58,10 +58,7 @@ const MainContent: React.FC = () => {
         onShowLogin={() => {}}
       />
       <main className="main-content">
-        {currentUser.role === UserRole.EXAM_COORDINATOR && <CoordinatorDashboard />}
-        {currentUser.role !== UserRole.EXAM_COORDINATOR && (
-          <RoleViews role={currentUser.role} activeTab={activeTab} />
-        )}
+        <RoleViews role={currentUser.role} activeTab={activeTab} onTabChange={setActiveTab} />
       </main>
     </div>
   );
