@@ -58,6 +58,17 @@ export const Navbar: React.FC<NavbarProps> = ({
         return [
           { id: "hod", label: "Department Overview", icon: Shield },
         ];
+      case UserRole.ADMIN:
+        return [
+          { id: "overview", label: "Command Overview", icon: Layers },
+          { id: "users", label: "Users & Roles", icon: UserCheck },
+          { id: "academic", label: "Academic Setup", icon: ClipboardList },
+          { id: "cycles", label: "Exam Cycles", icon: Calendar },
+          { id: "timetables", label: "Timetable Approvals", icon: FileText },
+          { id: "complaints", label: "Grievances", icon: Shield },
+          { id: "reports", label: "Reports", icon: LayoutGrid },
+          { id: "audit", label: "Audit & Settings", icon: Clock },
+        ];
       default:
         return [];
     }
@@ -84,6 +95,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {currentUser.role === UserRole.FACULTY && "Faculty Invigilation Portal"}
                 {currentUser.role === UserRole.EXAM_COORDINATOR && "Examination Cell Console"}
                 {currentUser.role === UserRole.HOD && "HOD Academic Administration"}
+                {currentUser.role === UserRole.ADMIN && "Central Administration Console"}
               </div>
             )}
           </div>
@@ -131,26 +143,15 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="persona-dropdown-menu">
                 <div className="dropdown-section-title">Switch Active Persona</div>
                 <button
-                  className={`dropdown-item ${currentUser?.role === UserRole.STUDENT ? "active" : ""}`}
+                  className={`dropdown-item ${currentUser?.role === UserRole.ADMIN ? "active" : ""}`}
                   onClick={() => {
-                    switchRole(UserRole.STUDENT);
-                    onTabChange("timetable");
+                    switchRole(UserRole.ADMIN);
+                    onTabChange("overview");
                     setRoleDropdownOpen(false);
                   }}
                 >
-                  <div className="dropdown-item-title">Student View</div>
-                  <div className="dropdown-item-desc">Aarav Sharma (CS2023-042)</div>
-                </button>
-                <button
-                  className={`dropdown-item ${currentUser?.role === UserRole.FACULTY ? "active" : ""}`}
-                  onClick={() => {
-                    switchRole(UserRole.FACULTY);
-                    onTabChange("invigilation");
-                    setRoleDropdownOpen(false);
-                  }}
-                >
-                  <div className="dropdown-item-title">Faculty View</div>
-                  <div className="dropdown-item-desc">Dr. A. Sharma (FAC-1082)</div>
+                  <div className="dropdown-item-title">System Admin View</div>
+                  <div className="dropdown-item-desc">Sanika Patil (SYS-ADMIN-01)</div>
                 </button>
                 <button
                   className={`dropdown-item ${currentUser?.role === UserRole.EXAM_COORDINATOR ? "active" : ""}`}
@@ -160,19 +161,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                     setRoleDropdownOpen(false);
                   }}
                 >
-                  <div className="dropdown-item-title">Coordinator View</div>
-                  <div className="dropdown-item-desc">Central Exam Scheduling</div>
-                </button>
-                <button
-                  className={`dropdown-item ${currentUser?.role === UserRole.HOD ? "active" : ""}`}
-                  onClick={() => {
-                    switchRole(UserRole.HOD);
-                    onTabChange("hod");
-                    setRoleDropdownOpen(false);
-                  }}
-                >
-                  <div className="dropdown-item-title">HOD View</div>
-                  <div className="dropdown-item-desc">CSE Department Overview</div>
+                  <div className="dropdown-item-title">Exam Coordinator View</div>
+                  <div className="dropdown-item-desc">Dr. Sarah Jenkins (ADM-9021)</div>
                 </button>
               </div>
             )}
