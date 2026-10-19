@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { StatusBadge } from "./StatusBadge.js";
+import { MasterDataManager } from "./MasterDataManager.js";
 import {
   triggerOptimizationRun,
   createScheduleVersion,
@@ -32,7 +33,7 @@ interface StudentEligibilityEntry {
 }
 
 export const CoordinatorDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"schedule" | "optimizer" | "versions" | "eligibility">("schedule");
+  const [activeTab, setActiveTab] = useState<"schedule" | "optimizer" | "versions" | "eligibility" | "master-data">("schedule");
   const [solverStatus, setSolverStatus] = useState<string>("FEASIBLE");
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
@@ -402,6 +403,13 @@ export const CoordinatorDashboard: React.FC = () => {
           style={{ fontSize: "13px", padding: "6px 14px" }}
         >
           Academic Eligibility & Policy Monitor
+        </button>
+        <button
+          onClick={() => setActiveTab("master-data")}
+          className={`btn ${activeTab === "master-data" ? "btn-primary" : "btn-secondary"}`}
+          style={{ fontSize: "13px", padding: "6px 14px" }}
+        >
+          🏫 Master Data (Teachers, Students, Halls, Subjects)
         </button>
       </div>
 
@@ -796,6 +804,9 @@ export const CoordinatorDashboard: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Tab 5: Master Data Repository */}
+      {activeTab === "master-data" && <MasterDataManager />}
     </div>
   );
 };

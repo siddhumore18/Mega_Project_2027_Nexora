@@ -18,6 +18,10 @@ export async function fetchHealth(): Promise<HealthStatus> {
   return body.data;
 }
 
+// ==========================================
+// OPTIMIZATION & SCHEDULE RUNS
+// ==========================================
+
 export async function triggerOptimizationRun(
   examCycleId: string,
   snapshot?: any
@@ -133,4 +137,124 @@ export async function compareScheduleVersions(
     throw new Error(body.error?.message || "Failed to compare schedule versions");
   }
   return body.data;
+}
+
+// ==========================================
+// ACADEMIC MASTER DATA (FACULTY, STUDENTS, ROOMS, SUBJECTS)
+// ==========================================
+
+export async function fetchFaculty(): Promise<any[]> {
+  const res = await fetch(`${API_BASE}/api/v1/academic/faculty`, {
+    headers: getAuthHeaders(),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error?.message || "Failed to fetch faculty");
+  return body.data;
+}
+
+export async function createFaculty(data: any): Promise<any> {
+  const res = await fetch(`${API_BASE}/api/v1/academic/faculty`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error?.message || "Failed to create faculty");
+  return body.data;
+}
+
+export async function deleteFaculty(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/v1/academic/faculty/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error?.message || "Failed to delete faculty");
+}
+
+export async function fetchStudents(): Promise<any[]> {
+  const res = await fetch(`${API_BASE}/api/v1/academic/students`, {
+    headers: getAuthHeaders(),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error?.message || "Failed to fetch students");
+  return body.data;
+}
+
+export async function createStudent(data: any): Promise<any> {
+  const res = await fetch(`${API_BASE}/api/v1/academic/students`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error?.message || "Failed to create student");
+  return body.data;
+}
+
+export async function deleteStudent(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/v1/academic/students/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error?.message || "Failed to delete student");
+}
+
+export async function fetchRooms(): Promise<any[]> {
+  const res = await fetch(`${API_BASE}/api/v1/academic/rooms`, {
+    headers: getAuthHeaders(),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error?.message || "Failed to fetch rooms");
+  return body.data;
+}
+
+export async function createRoom(data: any): Promise<any> {
+  const res = await fetch(`${API_BASE}/api/v1/academic/rooms`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error?.message || "Failed to create room");
+  return body.data;
+}
+
+export async function deleteRoom(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/v1/academic/rooms/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error?.message || "Failed to delete room");
+}
+
+export async function fetchSubjects(): Promise<any[]> {
+  const res = await fetch(`${API_BASE}/api/v1/academic/subjects`, {
+    headers: getAuthHeaders(),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error?.message || "Failed to fetch subjects");
+  return body.data;
+}
+
+export async function createSubject(data: any): Promise<any> {
+  const res = await fetch(`${API_BASE}/api/v1/academic/subjects`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error?.message || "Failed to create subject");
+  return body.data;
+}
+
+export async function deleteSubject(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/v1/academic/subjects/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error?.message || "Failed to delete subject");
 }
