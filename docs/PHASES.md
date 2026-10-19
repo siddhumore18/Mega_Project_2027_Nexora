@@ -55,8 +55,12 @@ The synopsis proposes a 16-week plan. The phases below preserve its major module
 **Exit gate:** report totals reconcile with source data and permissions are strictly enforced. [PASSED]
 
 ## Phase 13 — Hardening and release (Completed)
-**Deliverables:** end-to-end integration and dual-validation test suite, high-density performance benchmark (50 exams, 1000 students verified in 11.2ms < 50ms gate, `backend/tests/performance_benchmark.test.ts`), strict input validation and corrupt data resilience, production Vite bundle build, 71 automated tests (64 Node + 7 Python) passing with 0 errors.
+**Deliverables:** end-to-end integration and dual-validation test suite, high-density performance benchmark (50 exams, 1000 students verified in under 50ms, `backend/tests/performance_benchmark.test.ts`), strict input validation and corrupt data resilience, production Vite bundle build, 79 automated tests (72 Node + 7 Python) passing with 0 errors.
 **Exit gate:** all phases validated, production build succeeds cleanly, release checklist verified. [PASSED]
+
+## Master Data Management — Institutional Repository (Completed)
+**Deliverables:** coordinator master data management for **Faculty / Teachers**, **Students**, **Examination Blocks & Halls**, and **Courses / Subjects** (`backend/src/services/master-data.service.ts`, `backend/src/controllers/academic.controller.ts`, `backend/src/routes/academic.routes.ts`), typed Zod contracts (`packages/contracts/src/academic.ts`), coordinator interface with live search and reactive validation forms (`frontend/src/components/MasterDataManager.tsx`), 8 integration tests (`backend/tests/master_data.test.ts`).
+**Exit gate:** all 4 core academic entities support conflict-free CRUD with unique constraints, audit logging, and RBAC enforcement. [PASSED]
 
 ## Suggested 16-week mapping (adjust after Phase 0)
 - Weeks 1–2: Phase 0–1
