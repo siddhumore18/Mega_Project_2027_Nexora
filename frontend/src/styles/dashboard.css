@@ -930,3 +930,226 @@
   margin-left: auto;
   white-space: nowrap;
 }
+
+/* ==========================================================================
+   OFFICIAL UNIVERSITY PRINT STYLES & PRINT DOCUMENT LAYOUT
+   ========================================================================== */
+
+/* Hidden completely during regular on-screen browsing */
+.nexora-print-document {
+  display: none !important;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm 12mm 12mm;
+  }
+
+  /* Reset global document styles for high-fidelity physical print */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 10pt !important;
+    line-height: 1.4 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ensure React root container does not clip or hide print contents */
+  #root {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+    display: block !important;
+  }
+
+  /* Hide all dashboard application UI chrome, navigation, buttons, and modals */
+  .dash-shell,
+  .dash-sidebar,
+  .dash-topbar,
+  .dash-nav,
+  .dash-btn,
+  .dash-modal-backdrop,
+  .dash-toast,
+  .dash-header-actions,
+  button,
+  input,
+  select,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Show only the dedicated university document */
+  .nexora-print-document,
+  #nexora-print-document {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-sizing: border-box !important;
+  }
+
+  /* University Official Header */
+  .print-univ-header {
+    text-align: center;
+    border-bottom: 2.5px solid #0f172a;
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+  }
+
+  .print-univ-title {
+    font-size: 17pt;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: #0f172a;
+    margin: 0 0 3px 0;
+  }
+
+  .print-office-title {
+    font-size: 11.5pt;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 3px 0;
+    letter-spacing: 0.3px;
+  }
+
+  .print-report-title {
+    font-size: 12.5pt;
+    font-weight: 700;
+    color: #1d4ed8;
+    text-transform: uppercase;
+    margin: 4px 0 2px 0;
+  }
+
+  .print-doc-meta-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 14px;
+    font-size: 8.5pt;
+  }
+
+  .print-doc-meta-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .print-doc-meta-label {
+    font-size: 7.5pt;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .print-doc-meta-val {
+    font-size: 9pt;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  /* Table Layout & Page Break Handling */
+  .print-doc-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 10px 0 16px 0 !important;
+    font-size: 8.5pt !important;
+  }
+
+  .print-doc-table thead {
+    display: table-header-group !important; /* Repeats table header at top of every printed page */
+  }
+
+  .print-doc-table tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .print-doc-table th {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+    border: 1px solid #94a3b8 !important;
+    padding: 6px 8px !important;
+    text-align: left !important;
+    vertical-align: middle !important;
+  }
+
+  .print-doc-table td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 5px 8px !important;
+    vertical-align: middle !important;
+    color: #1e293b !important;
+  }
+
+  .print-doc-table tr:nth-child(even) td {
+    background-color: #f8fafc !important;
+  }
+
+  .print-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border: 1px solid #94a3b8;
+    border-radius: 3px;
+    font-size: 7.5pt;
+    font-weight: 600;
+  }
+
+  /* Footer & Signatures Block */
+  .print-doc-footer {
+    margin-top: 30px;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .print-disclaimer {
+    font-size: 7.5pt;
+    color: #64748b;
+    border-top: 1px dashed #cbd5e1;
+    padding-top: 6px;
+    margin-bottom: 24px;
+  }
+
+  .print-signatures-grid {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-top: 10px;
+  }
+
+  .print-sig-box {
+    text-align: center;
+    width: 160px;
+  }
+
+  .print-sig-line {
+    border-top: 1.5px solid #334155;
+    margin-bottom: 4px;
+  }
+
+  .print-sig-title {
+    font-size: 8.5pt;
+    font-weight: 700;
+    color: #0f172a;
+  }
+
+  .print-sig-subtitle {
+    font-size: 7.5pt;
+    color: #64748b;
+  }
+}

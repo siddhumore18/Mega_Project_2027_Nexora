@@ -9,6 +9,7 @@ import {
   StudentRegistrationRecord,
   ConflictItem,
   YearOfStudy,
+  TimetableApprovalRecord,
 } from "../services/academicDataStore.js";
 import {
   LayoutDashboard,
@@ -118,6 +119,32 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
   const [setupDuration, setSetupDuration] = useState<number>(activeCycle.durationMinutes || 180);
   const [setupSessionWindow, setSetupSessionWindow] = useState<"Morning (09:30 - 12:30 IST)" | "Afternoon (14:00 - 17:00 IST)" | "Both Sessions">("Both Sessions");
 
+  // Synchronize Section 2 setup inputs with activeCycle from topbar / store
+  useEffect(() => {
+    if (activeCycle) {
+      setSetupAcademicYear(activeCycle.academicYear || "2026-27");
+      setSetupDept(activeCycle.department || "Computer Science & Engineering");
+      setSetupCycleName(activeCycle.name || "Winter 2026 Examination");
+      setSetupStartDate(activeCycle.startDate || "2026-11-10");
+      setSetupEndDate(activeCycle.endDate || "2026-11-25");
+      setSetupDuration(activeCycle.durationMinutes || 180);
+      setSetupExamType((activeCycle.examType as any) || "MSE");
+      if (activeCycle.sessionWindow) {
+        setSetupSessionWindow(activeCycle.sessionWindow as any);
+      }
+    }
+  }, [
+    activeCycle?.id,
+    activeCycle?.name,
+    activeCycle?.academicYear,
+    activeCycle?.department,
+    activeCycle?.startDate,
+    activeCycle?.endDate,
+    activeCycle?.durationMinutes,
+    activeCycle?.examType,
+    activeCycle?.sessionWindow,
+  ]);
+
   // Dependent Program list based on selected department
   const availableProgramsForDept = useMemo(() => {
     const deptRecord = storeState.departments.find((d) => d.name === setupDept || d.code === setupDept);
@@ -160,6 +187,8 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
       name: setupCycleName,
       academicYear: setupAcademicYear,
       department: setupDept,
+      yearLevel: `${setupYearOfStudy} Year` as any,
+      division: setupDivision,
       semesterType: setupSemesterCategory,
       examType: setupExamType,
       startDate: setupStartDate,
@@ -356,8 +385,193 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
   const [enforceHolidaysRule, setEnforceHolidaysRule] = useState(true);
   const [enforceAlternatingRule, setEnforceAlternatingRule] = useState(true);
   const [latestSolverResult, setLatestSolverResult] = useState<any>(null);
+  const [lastGeneratedConfigKey, setLastGeneratedConfigKey] = useState<string | null>(null);
+
+  // Real-time Selected Configuration Analysis & Department Data Binding
+  const activeDeptRecord = useMemo(() => {
+    return (
+      storeState.departments.find(
+        (d) => d.name === activeCycle.department || d.code === activeCycle.department
+      ) || { code: "CSE", name: activeCycle.department }
+    );
+  }, [storeState.departments, activeCycle.department]);
+
+  const activeDeptSubjects = useMemo(() => {
+    return storeState.subjects.filter((s) => {
+      const matchDept =
+        s.departmentCode === activeDeptRecord.code || s.departmentCode === activeCycle.department;
+      return matchDept && s.status === "Active";
+    });
+  }, [storeState.subjects, activeDeptRecord.code, activeCycle.department]);
+
+  const activeDeptStudents = useMemo(() => {
+    return storeState.studentRegistrations.filter((r) => {
+      return (
+        r.departmentCode === activeDeptRecord.code || r.departmentCode === activeCycle.department
+      );
+    });
+  }, [storeState.studentRegistrations, activeDeptRecord.code, activeCycle.department]);
+
+  const availableHalls = useMemo(() => {
+    return storeState.examHalls.filter((h) => h.status === "Available");
+  }, [storeState.examHalls]);
+
+  const totalAvailableSeats = useMemo(() => {
+    return availableHalls.reduce((sum, h) => sum + h.examCapacity, 0);
+  }, [availableHalls]);
+
+  const availableFaculty = useMemo(() => {
+    return storeState.invigilators.filter((f) => f.status === "Available");
+  }, [storeState.invigilators]);
+
+  const activeSessionSlots = useMemo(() => {
+    if (activeCycle.sessionWindow === "Morning (09:30 - 12:30 IST)") {
+      return ["09:30 - 12:30 IST"];
+    }
+    if (activeCycle.sessionWindow === "Afternoon (14:00 - 17:00 IST)") {
+      return ["14:00 - 17:00 IST"];
+    }
+    return ["09:30 - 12:30 IST", "14:00 - 17:00 IST"];
+  }, [activeCycle.sessionWindow]);
+
+  // Mandatory Pre-generation Validation Checklist
+  const pendingChecklist = useMemo(() => {
+    const items: { label: string; done: boolean; message: string }[] = [];
+
+    // 1. Department subjects check
+    if (activeDeptSubjects.length === 0) {
+      items.push({
+        label: "Curriculum Subjects",
+        done: false,
+        message: `Zero active curriculum subjects found for ${activeCycle.department}.`,
+      });
+    } else {
+      items.push({
+        label: "Curriculum Subjects",
+        done: true,
+        message: `${activeDeptSubjects.length} active subject(s) ready.`,
+      });
+    }
+
+    // 2. Exam dates check
+    const hasDates = !!activeCycle.startDate && !!activeCycle.endDate;
+    const datesValid = hasDates && new Date(activeCycle.startDate) <= new Date(activeCycle.endDate);
+    if (!datesValid) {
+      items.push({
+        label: "Exam Date Window",
+        done: false,
+        message: "Start or end date is missing or invalid in Academic Setup.",
+      });
+    } else {
+      items.push({
+        label: "Exam Date Window",
+        done: true,
+        message: `${activeCycle.startDate} to ${activeCycle.endDate}`,
+      });
+    }
+
+    // 3. Time slots check
+    if (activeSessionSlots.length === 0) {
+      items.push({
+        label: "Session Slots",
+        done: false,
+        message: "No daily session slots configured.",
+      });
+    } else {
+      items.push({
+        label: "Session Slots",
+        done: true,
+        message: `${activeSessionSlots.length} session(s)/day (${activeSessionSlots.join(", ")})`,
+      });
+    }
+
+    // 4. Examination halls check
+    if (availableHalls.length === 0) {
+      items.push({
+        label: "Venues & Capacity",
+        done: false,
+        message: "Zero examination halls are currently marked Available.",
+      });
+    } else {
+      items.push({
+        label: "Venues & Capacity",
+        done: true,
+        message: `${availableHalls.length} halls available (${totalAvailableSeats} safe exam seats)`,
+      });
+    }
+
+    // 5. Faculty invigilators check
+    if (availableFaculty.length === 0) {
+      items.push({
+        label: "Faculty Invigilators",
+        done: false,
+        message: "All faculty are marked On Leave or at maximum workload limit.",
+      });
+    } else {
+      items.push({
+        label: "Faculty Invigilators",
+        done: true,
+        message: `${availableFaculty.length} faculty available for invigilation.`,
+      });
+    }
+
+    return items;
+  }, [
+    activeDeptSubjects.length,
+    activeCycle.department,
+    activeCycle.startDate,
+    activeCycle.endDate,
+    activeSessionSlots,
+    availableHalls.length,
+    totalAvailableSeats,
+    availableFaculty.length,
+  ]);
+
+  const isConfigReadyToGenerate = useMemo(() => {
+    return pendingChecklist.every((item) => item.done);
+  }, [pendingChecklist]);
+
+  // Configuration snapshot key to detect if current timetable has become stale after generation
+  const currentConfigKey = useMemo(() => {
+    return `${activeCycle.id}_${activeCycle.department}_${activeCycle.startDate}_${activeCycle.endDate}_${activeCycle.sessionWindow}_${activeDeptSubjects.length}_${availableHalls.length}_${availableFaculty.length}`;
+  }, [
+    activeCycle.id,
+    activeCycle.department,
+    activeCycle.startDate,
+    activeCycle.endDate,
+    activeCycle.sessionWindow,
+    activeDeptSubjects.length,
+    availableHalls.length,
+    availableFaculty.length,
+  ]);
+
+  const isTimetableStale = useMemo(() => {
+    return (
+      (latestSolverResult !== null || storeState.coordinatorExams.length > 0) &&
+      lastGeneratedConfigKey !== null &&
+      lastGeneratedConfigKey !== currentConfigKey
+    );
+  }, [latestSolverResult, storeState.coordinatorExams.length, lastGeneratedConfigKey, currentConfigKey]);
+
+  const currentCycleTimetableStatus = useMemo(() => {
+    const matched = storeState.timetables.find((t) => t.cycleId === activeCycle.id);
+    if (matched) return matched.status;
+    const firstExamStatus = storeState.coordinatorExams[0]?.status;
+    if (firstExamStatus === "Submitted") return "Submitted";
+    if (firstExamStatus === "Published") return "Published";
+    if (firstExamStatus === "Approved") return "Approved";
+    return storeState.coordinatorExams.length > 0 ? "Draft" : "Not Generated";
+  }, [storeState.timetables, activeCycle.id, storeState.coordinatorExams]);
 
   const handleRunDeterministicSolver = () => {
+    if (isSolving) return;
+
+    if (!isConfigReadyToGenerate) {
+      const missingReason = pendingChecklist.find((p) => !p.done)?.message || "Please complete all required configuration settings.";
+      showToast(`Cannot generate timetable: ${missingReason}`, "error");
+      return;
+    }
+
     setIsSolving(true);
     setSolverProgress(15);
 
@@ -372,10 +586,20 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
       setSolverProgress(100);
       setIsSolving(false);
       setLatestSolverResult(result);
-      if (result.status === "OPTIMAL") {
-        showToast("Constraint Optimization Optimal: 0 room clashes, 0 student overlaps, all constraints satisfied!");
+      setLastGeneratedConfigKey(currentConfigKey);
+
+      if (result.success && result.status === "OPTIMAL") {
+        showToast(
+          `Timetable Generated (OPTIMAL): ${result.scheduledExams.length} subjects scheduled across ${result.stats.roomsUsed} halls with 0 clashes!`
+        );
+      } else if (result.success && result.status === "FEASIBLE") {
+        showToast(
+          `Timetable Generated with Warnings: ${result.scheduledExams.length} subjects scheduled, ${result.conflicts.length} conflict(s) detected.`,
+          "warning"
+        );
       } else {
-        showToast("Timetable generated with warnings. Review Conflict Resolution.", "warning");
+        const errorMsg = result.conflicts[0]?.description || "Timetable generation failed due to unsatisfiable constraints.";
+        showToast(errorMsg, "error");
       }
     }, 1100);
   };
@@ -424,11 +648,24 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
   // VIEW 12: Timetable Review & Submission State
   // ==========================================
   const activeSubmission = useMemo(() => {
-    return storeState.timetables.find((t) => t.cycleId === activeCycle.id) || storeState.timetables[0];
-  }, [storeState.timetables, activeCycle]);
+    return storeState.timetables.find((t) => t.cycleId === activeCycle.id) || null;
+  }, [storeState.timetables, activeCycle.id]);
 
   const handleSubmitForAdminApproval = () => {
-    AcademicDataStore.submitTimetable({
+    // Validate timetable consistency (room conflict and double booking check)
+    const val = AcademicDataStore.validateTimetableConsistency(activeCycle.id);
+    if (!val.valid) {
+      showToast(`Cannot submit: ${val.errors[0]}`, "error");
+      return;
+    }
+
+    const matchingExams = storeState.coordinatorExams.filter((e) => !e.cycleId || e.cycleId === activeCycle.id);
+    if (matchingExams.length === 0) {
+      showToast("Cannot submit: No timetable papers have been generated for this examination cycle.", "error");
+      return;
+    }
+
+    const res = AcademicDataStore.submitTimetable({
       cycleId: activeCycle.id,
       cycleName: `${activeCycle.name} - ${activeCycle.department.split(" ")[0]}`,
       department: activeCycle.department,
@@ -437,7 +674,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
       solverStatus: "OPTIMAL",
       clashesCount: storeState.conflicts.filter((c) => !c.resolved).length,
       roomUtilization: "84.2%",
-      exams: storeState.coordinatorExams.map((e) => ({
+      exams: matchingExams.map((e) => ({
         id: e.id,
         code: e.code,
         subject: e.subject,
@@ -448,11 +685,36 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
         enrolled: e.enrolled,
       })),
     });
-    showToast("Timetable successfully submitted to Administrator Approvals Queue.");
+
+    if (res.success) {
+      showToast("Timetable successfully submitted to Administrator Approvals Queue.");
+    } else {
+      showToast(res.error || "Submission failed.", "error");
+    }
   };
 
   const handlePublishTimetable = () => {
-    if (!activeSubmission) return;
+    if (!activeSubmission) {
+      showToast("Cannot publish: No timetable submission found for the active cycle.", "warning");
+      return;
+    }
+    if (activeSubmission.status !== "Approved") {
+      showToast(
+        `Cannot publish timetable: Current status is "${activeSubmission.status}". Admin approval is required prior to public release.`,
+        "warning"
+      );
+      return;
+    }
+    const hasUnsavedReschedules = storeState.coordinatorExams.some(
+      (e) => (!e.cycleId || e.cycleId === activeCycle.id) && e.status === "Draft"
+    );
+    if (hasUnsavedReschedules) {
+      showToast(
+        "Cannot publish: Schedule contains modified papers that require re-submission and Admin approval.",
+        "warning"
+      );
+      return;
+    }
     const res = AcademicDataStore.publishApprovedTimetable(activeSubmission.id);
     if (res.success) {
       showToast("Official Examination Timetable Published across University Portals!");
@@ -505,12 +767,24 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
     showToast(`Exported ${filename}.csv successfully.`);
   };
 
-  const handlePrintCurrentView = () => {
-    window.print();
+  // Dedicated University Printable Document Target State
+  const [printDocTarget, setPrintDocTarget] = useState<string>("auto");
+  const [selectedPrintTimetable, setSelectedPrintTimetable] = useState<TimetableApprovalRecord | null>(null);
+
+  const handlePrintDocument = (target: string = "auto", contextData?: TimetableApprovalRecord | null) => {
+    setPrintDocTarget(target);
+    if (contextData !== undefined) {
+      setSelectedPrintTimetable(contextData);
+    }
+    // Allow state update to render dedicated printable document before invoking browser print dialog
+    setTimeout(() => {
+      window.print();
+    }, 150);
   };
 
   return (
-    <div className="dash-shell">
+    <>
+      <div className="dash-shell">
       {/* =========================================================
           1. VERTICAL LEFT SIDEBAR — Original NEXORA Light Theme
           ========================================================= */}
@@ -1157,6 +1431,24 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                   </h3>
 
                   <div className="dash-form-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+                    <div className="dash-form-group" style={{ gridColumn: "span 3", background: "var(--bg-app)", padding: "12px 14px", borderRadius: "8px", border: "1px solid var(--border-default)", marginBottom: "4px" }}>
+                      <label className="dash-label" style={{ fontWeight: 700, color: "var(--brand-primary)" }}>
+                        Active Examination Cycle (Single Source of Truth) *
+                      </label>
+                      <select
+                        className="dash-select"
+                        value={selectedCycleId}
+                        onChange={(e) => setSelectedCycleId(e.target.value)}
+                        style={{ fontWeight: 600, fontSize: "13px" }}
+                      >
+                        {storeState.examCycles.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.academicYear}) · {c.examType} · {c.department}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
                     <div className="dash-form-group">
                       <label className="dash-label">Academic Year *</label>
                       <select
@@ -2464,46 +2756,150 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
 
               {/* 5-Step Solver Guided Workflow */}
               <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                {/* Step 1 & 2: Pre-flight Verification */}
+                {/* 1. Selected Timetable Configuration Summary */}
                 <div className="dash-card">
-                  <h3 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 14px" }}>
-                    Pre-Generation Resource & Constraint Checklist
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+                    <div>
+                      <h3 style={{ fontSize: "15px", fontWeight: 700, margin: 0 }}>
+                        Selected Examination Configuration Summary
+                      </h3>
+                      <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "3px 0 0" }}>
+                        Active academic parameters and verified capacity metrics for timetable generation
+                      </p>
+                    </div>
+                    <span className="dash-badge dash-badge-info" style={{ fontWeight: 600 }}>
+                      {activeDeptRecord.name} ({activeDeptRecord.code})
+                    </span>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
+                    <div style={{ padding: "12px", borderRadius: "8px", background: "var(--bg-app)", border: "1px solid var(--border-default)" }}>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>Department</div>
+                      <div style={{ fontSize: "13.5px", fontWeight: 700, marginTop: "4px" }}>{activeDeptRecord.name}</div>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>Code: {activeDeptRecord.code}</div>
+                    </div>
+
+                    <div style={{ padding: "12px", borderRadius: "8px", background: "var(--bg-app)", border: "1px solid var(--border-default)" }}>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>Academic Year & Term</div>
+                      <div style={{ fontSize: "13.5px", fontWeight: 700, marginTop: "4px" }}>{setupAcademicYear}</div>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>Semester {setupSemester} ({setupSemesterCategory})</div>
+                    </div>
+
+                    <div style={{ padding: "12px", borderRadius: "8px", background: "var(--bg-app)", border: "1px solid var(--border-default)" }}>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>Division & Exam Type</div>
+                      <div style={{ fontSize: "13.5px", fontWeight: 700, marginTop: "4px" }}>{setupExamType}</div>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>{setupDivision} · {setupYearOfStudy} Year</div>
+                    </div>
+
+                    <div style={{ padding: "12px", borderRadius: "8px", background: "var(--bg-app)", border: "1px solid var(--border-default)" }}>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>Curriculum Subjects</div>
+                      <div style={{ fontSize: "13.5px", fontWeight: 700, marginTop: "4px" }}>{activeDeptSubjects.length} Active Subjects</div>
+                      <div style={{ fontSize: "11px", color: activeDeptSubjects.length > 0 ? "#10b981" : "#ef4444", marginTop: "2px" }}>
+                        {activeDeptStudents.length} Registered Candidates
+                      </div>
+                    </div>
+
+                    <div style={{ padding: "12px", borderRadius: "8px", background: "var(--bg-app)", border: "1px solid var(--border-default)" }}>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>Date Window</div>
+                      <div style={{ fontSize: "13.5px", fontWeight: 700, marginTop: "4px" }}>{activeCycle.startDate}</div>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>to {activeCycle.endDate}</div>
+                    </div>
+
+                    <div style={{ padding: "12px", borderRadius: "8px", background: "var(--bg-app)", border: "1px solid var(--border-default)" }}>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>Daily Session Slots</div>
+                      <div style={{ fontSize: "13.5px", fontWeight: 700, marginTop: "4px" }}>{activeSessionSlots.length} Session(s) / Day</div>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>{activeSessionSlots.join(", ")}</div>
+                    </div>
+
+                    <div style={{ padding: "12px", borderRadius: "8px", background: "var(--bg-app)", border: "1px solid var(--border-default)" }}>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>Available Halls & Seats</div>
+                      <div style={{ fontSize: "13.5px", fontWeight: 700, marginTop: "4px" }}>{availableHalls.length} Available Halls</div>
+                      <div style={{ fontSize: "11px", color: availableHalls.length > 0 ? "#10b981" : "#ef4444", marginTop: "2px" }}>
+                        {totalAvailableSeats} Safe Exam Desks
+                      </div>
+                    </div>
+
+                    <div style={{ padding: "12px", borderRadius: "8px", background: "var(--bg-app)", border: "1px solid var(--border-default)" }}>
+                      <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>Available Faculty</div>
+                      <div style={{ fontSize: "13.5px", fontWeight: 700, marginTop: "4px" }}>{availableFaculty.length} Available Invigilators</div>
+                      <div style={{ fontSize: "11px", color: availableFaculty.length > 0 ? "#10b981" : "#ef4444", marginTop: "2px" }}>
+                        Rest gap & workload limits active
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Consolidated One-Line Summary Strip */}
+                  <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: "1px solid var(--border-default)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px", fontSize: "12.5px" }}>
+                    <div style={{ color: "var(--text-muted)" }}>
+                      <strong style={{ color: "var(--text-main)" }}>Active Scope:</strong> {setupAcademicYear} {setupExamType} · {activeDeptRecord.name} (Sem {setupSemester}, {setupDivision}) · {activeDeptSubjects.length} subjects from {activeCycle.startDate} to {activeCycle.endDate}
+                    </div>
+                    <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                      Workflow Status: <strong style={{ color: "var(--text-main)" }}>{currentCycleTimetableStatus}</strong>
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. Pre-flight Readiness & Missing Requirements */}
+                <div className="dash-card">
+                  <h3 style={{ fontSize: "15px", fontWeight: 700, margin: "0 0 12px" }}>
+                    Pre-Generation Readiness & Missing Requirements Check
                   </h3>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
-                    <div style={{ padding: "12px", borderRadius: "8px", background: "var(--bg-app)", border: "1px solid var(--border-default)" }}>
-                      <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontWeight: 500 }}>Active Cycle Window</div>
-                      <div style={{ fontSize: "14px", fontWeight: 700, marginTop: "4px" }}>{activeCycle.name}</div>
-                      <div style={{ fontSize: "11px", color: "#10b981", marginTop: "2px" }}>
-                        {activeCycle.startDate} to {activeCycle.endDate}
+                  {isConfigReadyToGenerate ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px", borderRadius: "8px", background: "#ecfdf5", border: "1px solid #a7f3d0", color: "#065f46" }}>
+                      <CheckCircle2 size={18} style={{ color: "#10b981", flexShrink: 0 }} />
+                      <div style={{ fontSize: "13.5px", fontWeight: 600 }}>
+                        ✓ Configuration complete — Ready to generate timetable.
                       </div>
                     </div>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "12px", padding: "14px 16px", borderRadius: "8px", background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b" }}>
+                      <AlertTriangle size={20} style={{ color: "#ef4444", flexShrink: 0, marginTop: "2px" }} />
+                      <div>
+                        <div style={{ fontSize: "13.5px", fontWeight: 700, marginBottom: "4px" }}>
+                          Configuration Incomplete — Generation Blocked
+                        </div>
+                        <div style={{ fontSize: "12px", marginBottom: "8px" }}>
+                          The following prerequisite requirement(s) must be resolved before generating the timetable:
+                        </div>
+                        <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "12px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                          {pendingChecklist
+                            .filter((item) => !item.done)
+                            .map((item, idx) => (
+                              <li key={idx}>
+                                <strong>{item.label}:</strong> {item.message}
+                              </li>
+                            ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
 
-                    <div style={{ padding: "12px", borderRadius: "8px", background: "var(--bg-app)", border: "1px solid var(--border-default)" }}>
-                      <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontWeight: 500 }}>Holidays Excluded</div>
-                      <div style={{ fontSize: "14px", fontWeight: 700, marginTop: "4px" }}>
-                        {storeState.collegeHolidays.filter((h) => h.date >= activeCycle.startDate && h.date <= activeCycle.endDate).length} Holidays
+                  {/* Stale Schedule Detection Alert */}
+                  {isTimetableStale && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 16px", borderRadius: "8px", background: "#fffbeb", border: "1px solid #fde68a", color: "#92400e", marginTop: "12px" }}>
+                      <AlertCircle size={18} style={{ color: "#f59e0b", flexShrink: 0 }} />
+                      <div style={{ fontSize: "12.5px" }}>
+                        <strong>Outdated Schedule Warning:</strong> Academic or resource configuration was modified after the last generation run. The displayed schedule no longer matches current department parameters. Please re-run the optimization engine below to refresh.
                       </div>
-                      <div style={{ fontSize: "11px", color: "#10b981", marginTop: "2px" }}>Diwali & Recess Blocked</div>
                     </div>
+                  )}
 
-                    <div style={{ padding: "12px", borderRadius: "8px", background: "var(--bg-app)", border: "1px solid var(--border-default)" }}>
-                      <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontWeight: 500 }}>Available Halls</div>
-                      <div style={{ fontSize: "14px", fontWeight: 700, marginTop: "4px" }}>
-                        {storeState.examHalls.filter((h) => h.status === "Available").length} Venues
+                  {/* Readiness Breakdown Checklist Grid */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px", marginTop: "14px", paddingTop: "14px", borderTop: "1px solid var(--border-default)" }}>
+                    {pendingChecklist.map((item, idx) => (
+                      <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "12px" }}>
+                        {item.done ? (
+                          <Check size={16} style={{ color: "#10b981", flexShrink: 0, marginTop: "1px" }} />
+                        ) : (
+                          <X size={16} style={{ color: "#ef4444", flexShrink: 0, marginTop: "1px" }} />
+                        )}
+                        <div>
+                          <div style={{ fontWeight: 600, color: item.done ? "var(--text-main)" : "#ef4444" }}>{item.label}</div>
+                          <div style={{ color: "var(--text-muted)", fontSize: "11px" }}>{item.message}</div>
+                        </div>
                       </div>
-                      <div style={{ fontSize: "11px", color: "#10b981", marginTop: "2px" }}>
-                        {storeState.examHalls.filter((h) => h.status === "Available").reduce((a, b) => a + b.examCapacity, 0)} Safe Seats
-                      </div>
-                    </div>
-
-                    <div style={{ padding: "12px", borderRadius: "8px", background: "var(--bg-app)", border: "1px solid var(--border-default)" }}>
-                      <div style={{ fontSize: "11.5px", color: "var(--text-muted)", fontWeight: 500 }}>Available Invigilators</div>
-                      <div style={{ fontSize: "14px", fontWeight: 700, marginTop: "4px" }}>
-                        {storeState.invigilators.filter((f) => f.status === "Available").length} Faculty
-                      </div>
-                      <div style={{ fontSize: "11px", color: "#10b981", marginTop: "2px" }}>Max 3 duties/faculty limit</div>
-                    </div>
+                    ))}
                   </div>
 
                   {/* Constraint Switches */}
@@ -2528,20 +2924,20 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                   </div>
                 </div>
 
-                {/* Generator Trigger Card */}
+                {/* 3. Generator Trigger Card */}
                 <div className="dash-card" style={{ textAlign: "center", padding: "28px" }}>
                   <Cpu size={36} style={{ color: "var(--brand-primary)", margin: "0 auto 12px" }} />
                   <h2 style={{ fontSize: "18px", fontWeight: 700, margin: "0 0 6px" }}>
                     Run Deterministic Optimization Engine
                   </h2>
-                  <p style={{ fontSize: "13px", color: "var(--text-muted)", maxWidth: "540px", margin: "0 auto 20px" }}>
-                    Assigns optimal non-clashing dates, session slots, venues, and invigilator duties using mathematical constraint optimization.
+                  <p style={{ fontSize: "13px", color: "var(--text-muted)", maxWidth: "560px", margin: "0 auto 20px" }}>
+                    Assigns optimal non-clashing dates, session slots, venues, and invigilator duties with rest-gap constraints using mathematical constraint optimization.
                   </p>
 
                   <button
                     type="button"
                     className="dash-btn dash-btn-primary"
-                    disabled={isSolving}
+                    disabled={isSolving || !isConfigReadyToGenerate}
                     onClick={handleRunDeterministicSolver}
                     style={{ padding: "10px 24px", fontSize: "14px", margin: "0 auto" }}
                   >
@@ -2558,6 +2954,12 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                     )}
                   </button>
 
+                  {!isConfigReadyToGenerate && (
+                    <div style={{ fontSize: "11.5px", color: "#ef4444", marginTop: "10px" }}>
+                      Complete all prerequisite requirements above to enable timetable generation.
+                    </div>
+                  )}
+
                   {isSolving && (
                     <div style={{ maxWidth: "400px", margin: "20px auto 0" }}>
                       <div style={{ height: "6px", background: "var(--border-default)", borderRadius: "3px", overflow: "hidden" }}>
@@ -2570,27 +2972,46 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                   )}
                 </div>
 
-                {/* Latest Solver Output Preview */}
-                {latestSolverResult && (
+                {/* 4. Latest Solver Output Preview & Generation Status */}
+                {(latestSolverResult || storeState.coordinatorExams.length > 0) && (
                   <div className="dash-card">
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
                       <div>
                         <h3 style={{ fontSize: "15px", fontWeight: 700, margin: 0 }}>
-                          Optimization Run Results: {latestSolverResult.runId}
+                          {latestSolverResult ? `Optimization Run Results: ${latestSolverResult.runId}` : `Current Timetable: ${activeCycle.name}`}
                         </h3>
-                        <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "2px 0 0" }}>
-                          Execution Time: {latestSolverResult.stats.executionTimeMs} ms · Venues Allocated:{" "}
-                          {latestSolverResult.stats.roomsUsed} · Faculty Assigned: {latestSolverResult.stats.invigilatorsAssigned}
+                        <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "3px 0 0" }}>
+                          Scheduled: {latestSolverResult?.stats.scheduledCount ?? storeState.coordinatorExams.length} / {latestSolverResult?.stats.totalSubjects ?? activeDeptSubjects.length} subjects · Halls: {latestSolverResult?.stats.roomsUsed ?? new Set(storeState.coordinatorExams.map(e => e.room)).size} · Faculty: {latestSolverResult?.stats.invigilatorsAssigned ?? new Set(storeState.coordinatorExams.map(e => e.invigilator)).size} · Conflicts: {latestSolverResult?.conflicts.length ?? storeState.conflicts.length}
                         </p>
                       </div>
-                      <span
-                        className={`dash-badge ${
-                          latestSolverResult.status === "OPTIMAL" ? "dash-badge-success" : "dash-badge-warning"
-                        }`}
-                        style={{ fontSize: "12px", padding: "4px 10px" }}
-                      >
-                        {latestSolverResult.status}
-                      </span>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>Workflow Status:</span>
+                        <span
+                          className={`dash-badge ${
+                            currentCycleTimetableStatus === "Published"
+                              ? "dash-badge-brand"
+                              : currentCycleTimetableStatus === "Approved"
+                              ? "dash-badge-success"
+                              : currentCycleTimetableStatus === "Submitted"
+                              ? "dash-badge-info"
+                              : "dash-badge-warning"
+                          }`}
+                          style={{ fontSize: "12px", padding: "4px 10px", fontWeight: 600 }}
+                        >
+                          {currentCycleTimetableStatus}
+                        </span>
+                        {latestSolverResult && (
+                          <span
+                            className={`dash-badge ${
+                              latestSolverResult.status === "OPTIMAL" ? "dash-badge-success" : "dash-badge-warning"
+                            }`}
+                            style={{ fontSize: "12px", padding: "4px 10px" }}
+                          >
+                            {latestSolverResult.status}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="dash-table-wrap">
@@ -2606,7 +3027,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                           </tr>
                         </thead>
                         <tbody>
-                          {latestSolverResult.scheduledExams.map((ex: CoordinatorExamEntry) => (
+                          {(latestSolverResult?.scheduledExams || storeState.coordinatorExams).map((ex: CoordinatorExamEntry) => (
                             <tr key={ex.id}>
                               <td>
                                 <div style={{ fontWeight: 700 }}>{ex.code}</div>
@@ -2684,7 +3105,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                   <button
                     type="button"
                     className="dash-btn dash-btn-outline"
-                    onClick={handlePrintCurrentView}
+                    onClick={() => handlePrintDocument("seating")}
                   >
                     <Printer size={15} />
                     <span>Print Door Slips</span>
@@ -2804,6 +3225,14 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                   </p>
                 </div>
                 <div className="dash-header-actions">
+                  <button
+                    type="button"
+                    className="dash-btn dash-btn-outline"
+                    onClick={() => handlePrintDocument("duty")}
+                  >
+                    <Printer size={15} />
+                    <span>Print Duty Chart</span>
+                  </button>
                   <button
                     type="button"
                     className="dash-btn dash-btn-outline"
@@ -3151,7 +3580,10 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {storeState.coordinatorExams.map((ex) => (
+                      {(
+                        activeSubmission?.exams ||
+                        storeState.coordinatorExams.filter((e) => !e.cycleId || e.cycleId === activeCycle.id)
+                      ).map((ex: any) => (
                         <tr key={ex.id}>
                           <td>
                             <div style={{ fontWeight: 700 }}>{ex.code}</div>
@@ -3165,10 +3597,22 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                           <td>{ex.invigilator}</td>
                           <td>{ex.enrolled}</td>
                           <td>
-                            <span className="dash-badge dash-badge-default">{ex.status}</span>
+                            <span className="dash-badge dash-badge-default">
+                              {ex.status || activeSubmission?.status || "Draft"}
+                            </span>
                           </td>
                         </tr>
                       ))}
+                      {(
+                        !activeSubmission?.exams?.length &&
+                        !storeState.coordinatorExams.some((e) => !e.cycleId || e.cycleId === activeCycle.id)
+                      ) && (
+                        <tr>
+                          <td colSpan={7} style={{ textAlign: "center", padding: "24px", color: "var(--text-muted)" }}>
+                            No examinations scheduled yet for {activeCycle.name}. Please generate a timetable first.
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -3252,6 +3696,14 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                         <button
                           type="button"
                           className="dash-btn dash-btn-outline"
+                          onClick={() => handlePrintDocument("timetable", t)}
+                        >
+                          <Printer size={14} />
+                          <span>Print Official Circular</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="dash-btn dash-btn-outline"
                           onClick={() =>
                             handleExportCSV(
                               `Official_Timetable_${t.cycleName.replace(/\s+/g, "_")}`,
@@ -3296,7 +3748,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                   <button
                     type="button"
                     className="dash-btn dash-btn-outline"
-                    onClick={handlePrintCurrentView}
+                    onClick={() => handlePrintDocument(`report-${selectedReportTab}`)}
                   >
                     <Printer size={15} />
                     <span>Print Report</span>
@@ -3832,5 +4284,411 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
         </main>
       </div>
     </div>
+
+    {/* =====================================================================
+        OFFICIAL UNIVERSITY PRINT DOCUMENT (ACTIVE ONLY IN @media print)
+        ===================================================================== */}
+    <div className="nexora-print-document" id="nexora-print-document" aria-hidden="true">
+      {(() => {
+        const effectiveTarget =
+          printDocTarget === "auto"
+            ? activeMenu === "seating-plan"
+              ? "seating"
+              : activeMenu === "duty-allocation"
+              ? "duty"
+              : activeMenu === "published-timetables"
+              ? "timetable"
+              : activeMenu === "reports-export"
+              ? `report-${selectedReportTab}`
+              : "timetable"
+            : printDocTarget;
+
+        const isTimetable = effectiveTarget === "timetable" || effectiveTarget === "report-1";
+        const isSubjectRoster = effectiveTarget === "report-2";
+        const isSeating = effectiveTarget === "seating" || effectiveTarget === "report-3";
+        const isStudentSchedule = effectiveTarget === "report-4";
+        const isDuty = effectiveTarget === "duty" || effectiveTarget === "report-5";
+        const isBacklog = effectiveTarget === "report-6";
+        const isConflicts = effectiveTarget === "report-7";
+        const isApprovals = effectiveTarget === "report-8";
+
+        // Target timetable: prioritize explicitly selected published circular, then matching activeCycle timetable, then approved/published timetable
+        const targetTimetable =
+          selectedPrintTimetable ||
+          storeState.timetables.find((t) => t.cycleId === activeCycle.id && (t.status === "Published" || t.status === "Approved")) ||
+          storeState.timetables.find((t) => t.cycleId === activeCycle.id) ||
+          storeState.timetables.find((t) => t.status === "Published" || t.status === "Approved");
+
+        const matchingCycleExams = storeState.coordinatorExams.filter(
+          (e) => !e.cycleId || e.cycleId === activeCycle.id
+        );
+
+        const examsToPrint = targetTimetable?.exams
+          ? targetTimetable.exams.map((e: any) => {
+              const full = storeState.coordinatorExams.find((ce) => ce.id === e.id || ce.code === e.code);
+              return {
+                id: e.id,
+                code: e.code,
+                subject: e.subject,
+                department: full?.department || targetTimetable.department,
+                date: e.date,
+                slot: e.slot,
+                room: e.room,
+                invigilator: e.invigilator,
+              };
+            })
+          : matchingCycleExams.length > 0
+          ? matchingCycleExams
+          : storeState.coordinatorExams;
+
+        const printCycleName = targetTimetable ? targetTimetable.cycleName : activeCycle.name;
+        const printDeptName = targetTimetable ? targetTimetable.department : activeCycle.department;
+        const printProgramName = targetTimetable ? targetTimetable.program : `${activeCycle.department} (${activeCycle.yearLevel})`;
+
+        const reportTitle = isTimetable
+          ? "Official Master Examination Timetable & Circular"
+          : isSubjectRoster
+          ? "Subject-wise Curriculum Examination Roster"
+          : isSeating
+          ? "Student Desk Allotment & Seating Plan (Door Slips)"
+          : isStudentSchedule
+          ? "Student-wise Examination Schedule & Verification"
+          : isDuty
+          ? "Faculty Invigilation Duty Allocation Chart"
+          : isBacklog
+          ? "Backlog & Makeup Candidate Eligibility Summary"
+          : isConflicts
+          ? "Examination Constraint & Clash Audit Dossier"
+          : isApprovals
+          ? "Timetable Submission, Audit & Approval History"
+          : "Official Examination Document";
+
+        const currentDateStr = new Date().toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
+        const currentTimeStr = new Date().toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+        return (
+          <div>
+            {/* University Official Header */}
+            <div className="print-univ-header">
+              <div className="print-univ-title">NEXORA UNIVERSITY</div>
+              <div className="print-office-title">OFFICE OF THE CONTROLLER OF EXAMINATIONS</div>
+              <div className="print-report-title">{reportTitle}</div>
+            </div>
+
+            {/* Document Metadata Strip */}
+            <div className="print-doc-meta-strip">
+              <div className="print-doc-meta-col">
+                <span className="print-doc-meta-label">Examination Cycle</span>
+                <span className="print-doc-meta-val">{printCycleName}</span>
+              </div>
+              <div className="print-doc-meta-col">
+                <span className="print-doc-meta-label">Academic Year / Type</span>
+                <span className="print-doc-meta-val">
+                  {activeCycle.academicYear} · {activeCycle.examType}
+                </span>
+              </div>
+              <div className="print-doc-meta-col">
+                <span className="print-doc-meta-label">Department</span>
+                <span className="print-doc-meta-val">{printDeptName}</span>
+              </div>
+              <div className="print-doc-meta-col">
+                <span className="print-doc-meta-label">Program Scope</span>
+                <span className="print-doc-meta-val">{printProgramName}</span>
+              </div>
+              <div className="print-doc-meta-col">
+                <span className="print-doc-meta-label">Date of Issue</span>
+                <span className="print-doc-meta-val">
+                  {currentDateStr} {currentTimeStr} IST
+                </span>
+              </div>
+            </div>
+
+            {/* Report 1 / Master Timetable */}
+            {isTimetable && (
+              <table className="print-doc-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: "10%" }}>Course Code</th>
+                    <th style={{ width: "26%" }}>Subject Title</th>
+                    <th style={{ width: "12%" }}>Department</th>
+                    <th style={{ width: "13%" }}>Exam Date</th>
+                    <th style={{ width: "15%" }}>Session Window</th>
+                    <th style={{ width: "12%" }}>Venue / Hall</th>
+                    <th style={{ width: "12%" }}>Supervising Faculty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {examsToPrint.map((e: any) => (
+                    <tr key={e.id}>
+                      <td style={{ fontWeight: 700 }}>{e.code}</td>
+                      <td>{e.subject}</td>
+                      <td>{e.department}</td>
+                      <td style={{ fontWeight: 600 }}>{e.date}</td>
+                      <td>{e.slot}</td>
+                      <td>{e.room}</td>
+                      <td>{e.invigilator}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+              {/* Report 2 / Subject Roster */}
+              {isSubjectRoster && (
+                <table className="print-doc-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "12%" }}>Subject Code</th>
+                      <th style={{ width: "32%" }}>Subject Title</th>
+                      <th style={{ width: "12%" }}>Department</th>
+                      <th style={{ width: "10%" }}>Semester</th>
+                      <th style={{ width: "12%" }}>Type</th>
+                      <th style={{ width: "10%" }}>Credits</th>
+                      <th style={{ width: "12%" }}>Enrolled</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {storeState.subjects.map((s) => (
+                      <tr key={s.id}>
+                        <td style={{ fontWeight: 700 }}>{s.code}</td>
+                        <td>{s.title}</td>
+                        <td>{s.departmentCode}</td>
+                        <td>Sem {s.semester}</td>
+                        <td>{s.type}</td>
+                        <td>{s.credits}</td>
+                        <td>{s.enrolledStudents} students</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {/* Report 3 / Seating Plan / Door Slips */}
+              {isSeating && (
+                <div>
+                  <div style={{ fontSize: "8.5pt", color: "#475569", marginBottom: "8px" }}>
+                    Filter Criteria: Venue [{seatingRoomFilter}] · Date [{seatingDateFilter}] · Total Desks Allocated: {filteredSeating.length}
+                  </div>
+                  <table className="print-doc-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: "12%" }}>Desk No</th>
+                        <th style={{ width: "16%" }}>Roll Number</th>
+                        <th style={{ width: "22%" }}>Candidate Name</th>
+                        <th style={{ width: "10%" }}>Branch</th>
+                        <th style={{ width: "12%" }}>Paper Code</th>
+                        <th style={{ width: "14%" }}>Assigned Venue</th>
+                        <th style={{ width: "14%" }}>Date & Slot</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSeating.map((seat) => (
+                        <tr key={seat.id}>
+                          <td style={{ fontWeight: 700, color: "#1d4ed8" }}>{seat.deskNo}</td>
+                          <td style={{ fontWeight: 600 }}>{seat.studentRoll}</td>
+                          <td>{seat.studentName}</td>
+                          <td>{seat.departmentCode}</td>
+                          <td style={{ fontWeight: 600 }}>{seat.subjectCode}</td>
+                          <td>Hall {seat.roomCode}</td>
+                          <td>{seat.date}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Report 4 / Student Schedule */}
+              {isStudentSchedule && (
+                <table className="print-doc-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "15%" }}>Roll Number</th>
+                      <th style={{ width: "25%" }}>Candidate Name</th>
+                      <th style={{ width: "12%" }}>Department</th>
+                      <th style={{ width: "14%" }}>Subject Code</th>
+                      <th style={{ width: "12%" }}>Attendance</th>
+                      <th style={{ width: "10%" }}>Fee Clearance</th>
+                      <th style={{ width: "12%" }}>Eligibility</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {storeState.studentRegistrations.map((r) => (
+                      <tr key={r.id}>
+                        <td style={{ fontWeight: 700 }}>{r.rollNo}</td>
+                        <td>{r.name}</td>
+                        <td>{r.departmentCode}</td>
+                        <td style={{ fontWeight: 600 }}>{r.subjectCode}</td>
+                        <td>{r.attendancePercentage}%</td>
+                        <td>{r.feesCleared ? "Cleared" : "Pending"}</td>
+                        <td style={{ fontWeight: 600, color: r.eligibilityStatus === "Eligible" ? "#047857" : "#b91c1c" }}>
+                          {r.eligibilityStatus}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {/* Report 5 / Duty Allocation */}
+              {isDuty && (
+                <table className="print-doc-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "12%" }}>Course Code</th>
+                      <th style={{ width: "24%" }}>Subject Title</th>
+                      <th style={{ width: "12%" }}>Date</th>
+                      <th style={{ width: "14%" }}>Session Slot</th>
+                      <th style={{ width: "14%" }}>Examination Hall</th>
+                      <th style={{ width: "24%" }}>Assigned Invigilator Faculty</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {storeState.coordinatorExams.map((ex) => (
+                      <tr key={ex.id}>
+                        <td style={{ fontWeight: 700 }}>{ex.code}</td>
+                        <td>{ex.subject}</td>
+                        <td style={{ fontWeight: 600 }}>{ex.date}</td>
+                        <td>{ex.slot}</td>
+                        <td>{ex.room}</td>
+                        <td style={{ fontWeight: 600 }}>{ex.invigilator}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {/* Report 6 / Backlog Summary */}
+              {isBacklog && (
+                <table className="print-doc-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "14%" }}>Roll No</th>
+                      <th style={{ width: "22%" }}>Candidate Name</th>
+                      <th style={{ width: "12%" }}>Department</th>
+                      <th style={{ width: "14%" }}>Subject Code</th>
+                      <th style={{ width: "12%" }}>Exam Type</th>
+                      <th style={{ width: "12%" }}>Attendance</th>
+                      <th style={{ width: "14%" }}>Eligibility</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {storeState.studentRegistrations
+                      .filter((r) => r.registrationType !== "Regular")
+                      .map((r) => (
+                        <tr key={r.id}>
+                          <td style={{ fontWeight: 700 }}>{r.rollNo}</td>
+                          <td>{r.name}</td>
+                          <td>{r.departmentCode}</td>
+                          <td style={{ fontWeight: 600 }}>{r.subjectCode}</td>
+                          <td>{r.registrationType}</td>
+                          <td>{r.attendancePercentage}%</td>
+                          <td style={{ fontWeight: 600, color: r.eligibilityStatus === "Eligible" ? "#047857" : "#b91c1c" }}>
+                            {r.eligibilityStatus}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+
+              {/* Report 7 / Conflict Audit */}
+              {isConflicts && (
+                <table className="print-doc-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "18%" }}>Conflict Category</th>
+                      <th style={{ width: "10%" }}>Severity</th>
+                      <th style={{ width: "12%" }}>Subject Code</th>
+                      <th style={{ width: "16%" }}>Resource Involved</th>
+                      <th style={{ width: "32%" }}>Conflict Description</th>
+                      <th style={{ width: "12%" }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {storeState.conflicts.map((c) => (
+                      <tr key={c.id}>
+                        <td style={{ fontWeight: 700 }}>{c.type}</td>
+                        <td>
+                          <span className="print-badge">{c.severity}</span>
+                        </td>
+                        <td style={{ fontWeight: 600 }}>{c.subjectCode}</td>
+                        <td>{c.resourceName}</td>
+                        <td>{c.description}</td>
+                        <td style={{ fontWeight: 600, color: c.resolved ? "#047857" : "#b91c1c" }}>
+                          {c.resolved ? "Resolved" : "Unresolved"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {/* Report 8 / Approvals History */}
+              {isApprovals && (
+                <table className="print-doc-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "18%" }}>Cycle / Schedule</th>
+                      <th style={{ width: "16%" }}>Department</th>
+                      <th style={{ width: "14%" }}>Submitted By</th>
+                      <th style={{ width: "14%" }}>Submission Date</th>
+                      <th style={{ width: "10%" }}>Optimization</th>
+                      <th style={{ width: "12%" }}>Status</th>
+                      <th style={{ width: "16%" }}>Decision Official</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {storeState.timetables.map((t) => (
+                      <tr key={t.id}>
+                        <td style={{ fontWeight: 700 }}>{t.cycleName}</td>
+                        <td>{t.department}</td>
+                        <td>{t.submittedBy}</td>
+                        <td>{t.submittedDate}</td>
+                        <td>{t.solverStatus}</td>
+                        <td style={{ fontWeight: 700 }}>{t.status}</td>
+                        <td>{t.decidedBy || "Pending Review"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {/* Official Signatures & Institutional Disclaimer */}
+              <div className="print-doc-footer">
+                <div className="print-disclaimer">
+                  CONFIDENTIAL & IMMUTABLE RECORD · This document is generated from NEXORA University Examination Management System.
+                  Any unauthorized tampering, overwriting, or redistribution without institutional authorization is strictly prohibited.
+                </div>
+                <div className="print-signatures-grid">
+                  <div className="print-sig-box">
+                    <div className="print-sig-line" />
+                    <div className="print-sig-title">{coordinatorName}</div>
+                    <div className="print-sig-subtitle">Exam Coordinator</div>
+                  </div>
+                  <div className="print-sig-box">
+                    <div className="print-sig-line" />
+                    <div className="print-sig-title">Head of Department</div>
+                    <div className="print-sig-subtitle">Department Review & Audit</div>
+                  </div>
+                  <div className="print-sig-box">
+                    <div className="print-sig-line" />
+                    <div className="print-sig-title">Controller of Examinations</div>
+                    <div className="print-sig-subtitle">University Examination Cell</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+    </>
   );
 };
