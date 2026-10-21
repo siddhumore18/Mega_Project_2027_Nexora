@@ -11,7 +11,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
   const { login, loginAsPreset } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.STUDENT);
+  const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.ADMIN);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -48,7 +48,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
     }, 400);
   };
 
-  const handleQuickLogin = (key: "student" | "faculty" | "coordinator" | "hod") => {
+  const handleQuickLogin = (key: "coordinator" | "admin") => {
     loginAsPreset(key);
     if (onSuccess) onSuccess();
   };
@@ -67,48 +67,30 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
           </div>
         </div>
 
-        {/* Demo Fast-Login Strip */}
+        {/* Demo Fast-Login Strip - Exposing Only Admin and Exam Coordinator */}
         <div className="demo-login-strip">
           <div className="demo-strip-label">
             <User size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />
             One-Click Evaluator Sign-In:
           </div>
-          <div className="demo-buttons-grid">
+          <div className="demo-buttons-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
             <button
               type="button"
-              onClick={() => handleQuickLogin("student")}
-              className="demo-role-btn student-badge-btn"
-              title="Sign in as Student Aarav Sharma (CS2023-042)"
+              onClick={() => handleQuickLogin("admin")}
+              className="demo-role-btn admin-badge-btn"
+              title="Sign in as System Admin Sanika Patil"
             >
-              <span className="demo-btn-role">Student</span>
-              <span className="demo-btn-name">Aarav Sharma</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("faculty")}
-              className="demo-role-btn faculty-badge-btn"
-              title="Sign in as Faculty Dr. A. Sharma (FAC-1082)"
-            >
-              <span className="demo-btn-role">Faculty</span>
-              <span className="demo-btn-name">Dr. A. Sharma</span>
+              <span className="demo-btn-role" style={{ color: "#065f46", fontWeight: "700" }}>System Admin</span>
+              <span className="demo-btn-name">Sanika Patil</span>
             </button>
             <button
               type="button"
               onClick={() => handleQuickLogin("coordinator")}
               className="demo-role-btn coord-badge-btn"
-              title="Sign in as Exam Coordinator"
+              title="Sign in as Exam Coordinator Dr. Sarah Jenkins"
             >
-              <span className="demo-btn-role">Coordinator</span>
-              <span className="demo-btn-name">Dr. S. Jenkins</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("hod")}
-              className="demo-role-btn hod-badge-btn"
-              title="Sign in as HOD CSE"
-            >
-              <span className="demo-btn-role">HOD</span>
-              <span className="demo-btn-name">Prof. Mehta</span>
+              <span className="demo-btn-role" style={{ color: "#1d4ed8", fontWeight: "700" }}>Exam Coordinator</span>
+              <span className="demo-btn-name">Dr. Sarah Jenkins</span>
             </button>
           </div>
         </div>
@@ -132,14 +114,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
             {/* Role Target Selector */}
             <div className="form-group">
               <label className="form-label" htmlFor="role-select">
-                Select Your Academic Role
+                Select Academic Role
               </label>
-              <div className="role-selector-radios">
+              <div className="role-selector-radios" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
                 {[
-                  { role: UserRole.STUDENT, label: "Student" },
-                  { role: UserRole.FACULTY, label: "Faculty / Invigilator" },
+                  { role: UserRole.ADMIN, label: "System Administrator" },
                   { role: UserRole.EXAM_COORDINATOR, label: "Exam Coordinator" },
-                  { role: UserRole.HOD, label: "Department HOD" },
                 ].map((item) => (
                   <label
                     key={item.role}

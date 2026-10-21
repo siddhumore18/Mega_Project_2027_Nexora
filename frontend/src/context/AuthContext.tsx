@@ -53,13 +53,23 @@ export const PRESET_USERS: Record<string, UserProfile> = {
     designation: "Head of Department, CSE",
     avatarInitials: "RM",
   },
+  admin: {
+    id: "usr-adm-001",
+    name: "Sanika Patil",
+    email: "admin@nexora.edu",
+    role: UserRole.ADMIN,
+    department: "Central University Administration",
+    identifier: "SYS-ADMIN-01",
+    designation: "Chief University Administrator",
+    avatarInitials: "SP",
+  },
 };
 
 interface AuthContextType {
   currentUser: UserProfile | null;
   isAuthenticated: boolean;
   login: (email: string, role?: UserRole) => boolean;
-  loginAsPreset: (key: "student" | "faculty" | "coordinator" | "hod") => void;
+  loginAsPreset: (key: "student" | "faculty" | "coordinator" | "hod" | "admin") => void;
   logout: () => void;
   switchRole: (role: UserRole) => void;
 }
@@ -67,15 +77,20 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Default to student view for evaluating User 1 responsibility, while persisting in localStorage
+  // Default to Admin view per Sanika's workspace requirements, while persisting in localStorage
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     try {
       const stored = localStorage.getItem("nexora_auth_user");
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.role === UserRole.ADMIN || parsed.role === UserRole.EXAM_COORDINATOR) {
+          return parsed;
+        }
+      }
     } catch (e) {
       // ignore
     }
-    return PRESET_USERS.student;
+    return PRESET_USERS.admin;
   });
 
   useEffect(() => {
@@ -111,7 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
-  const loginAsPreset = (key: "student" | "faculty" | "coordinator" | "hod") => {
+  const loginAsPreset = (key: "student" | "faculty" | "coordinator" | "hod" | "admin") => {
     if (PRESET_USERS[key]) {
       setCurrentUser(PRESET_USERS[key]);
     }
@@ -128,6 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     else if (role === UserRole.FACULTY) setCurrentUser(PRESET_USERS.faculty);
     else if (role === UserRole.EXAM_COORDINATOR) setCurrentUser(PRESET_USERS.coordinator);
     else if (role === UserRole.HOD) setCurrentUser(PRESET_USERS.hod);
+    else if (role === UserRole.ADMIN) setCurrentUser(PRESET_USERS.admin);
     else setCurrentUser({ ...currentUser, role });
   };
 
