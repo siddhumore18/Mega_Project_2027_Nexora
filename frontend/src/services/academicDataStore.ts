@@ -221,6 +221,7 @@ export interface InvigilatorRosterRecord {
 
 export interface CoordinatorExamEntry {
   id: string;
+  cycleId?: string;
   code: string;
   subject: string;
   department: string;
@@ -240,6 +241,7 @@ export interface CoordinatorExamEntry {
 
 export interface SeatingRecord {
   id: string;
+  cycleId?: string;
   examId: string;
   subjectCode: string;
   roomCode: string;
@@ -636,12 +638,12 @@ export const DEFAULT_INVIGILATORS: InvigilatorRosterRecord[] = [
 ];
 
 export const DEFAULT_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
-  { id: "ex-1", code: "CS701", subject: "Distributed Systems & Cloud Computing", department: "CSE", programCode: "BTECH-CSE", semester: 7, yearOfStudy: "Fourth", examType: "MSE", enrolled: 120, date: "2026-11-10", slot: "09:30 - 12:30 IST", room: "Examination Hall A-101", invigilator: "Dr. Arvind Sharma (CSE)", status: "Submitted", isIncluded: true, durationMinutes: 180 },
-  { id: "ex-2", code: "EC702", subject: "VLSI Architecture & Embedded Logic", department: "ECE", programCode: "BTECH-ECE", semester: 7, yearOfStudy: "Fourth", examType: "MSE", enrolled: 90, date: "2026-11-10", slot: "14:00 - 17:00 IST", room: "Examination Hall B-204", invigilator: "Prof. Rohini Iyer (ECE)", status: "Revision Requested", isIncluded: true, durationMinutes: 180 },
-  { id: "ex-3", code: "ME703", subject: "Finite Element Methods & Dynamics", department: "MECH", programCode: "BTECH-MECH", semester: 7, yearOfStudy: "Fourth", examType: "MSE", enrolled: 75, date: "2026-11-11", slot: "09:30 - 12:30 IST", room: "Engineering Hall C-301", invigilator: "Dr. Pramod Kulkarni (MECH)", status: "Approved", isIncluded: true, durationMinutes: 180 },
-  { id: "ex-4", code: "CS704", subject: "Cryptography & Network Security", department: "CSE", programCode: "BTECH-CSE", semester: 7, yearOfStudy: "Fourth", examType: "MSE", enrolled: 115, date: "2026-11-12", slot: "09:30 - 12:30 IST", room: "Examination Hall A-101", invigilator: "Prof. S. Patil (CSE)", status: "Draft", isIncluded: true, durationMinutes: 180 },
-  { id: "ex-5", code: "CS708L", subject: "Cloud Computing & DevOps Lab", department: "CSE", programCode: "BTECH-CSE", semester: 7, yearOfStudy: "Fourth", examType: "MSE", enrolled: 120, date: "2026-11-14", slot: "14:00 - 17:00 IST", room: "Computing Lab D-105", invigilator: "Dr. Arvind Sharma (CSE)", status: "Draft", isIncluded: true, durationMinutes: 180 },
-  { id: "ex-6", code: "AD701", subject: "Deep Learning & Neural Architectures", department: "AIDS", programCode: "BTECH-AIDS", semester: 7, yearOfStudy: "Fourth", examType: "MSE", enrolled: 110, date: "2026-11-16", slot: "09:30 - 12:30 IST", room: "Examination Hall B-204", invigilator: "Dr. T. Banerjee (AIDS)", status: "Draft", isIncluded: true, durationMinutes: 180 },
+  { id: "ex-1", cycleId: "cycle-1", code: "CS701", subject: "Distributed Systems & Cloud Computing", department: "CSE", programCode: "BTECH-CSE", semester: 7, yearOfStudy: "Fourth", examType: "MSE", enrolled: 120, date: "2026-11-10", slot: "09:30 - 12:30 IST", room: "Examination Hall A-101", invigilator: "Dr. Arvind Sharma (CSE)", status: "Submitted", isIncluded: true, durationMinutes: 180 },
+  { id: "ex-2", cycleId: "cycle-1", code: "EC702", subject: "VLSI Architecture & Embedded Logic", department: "ECE", programCode: "BTECH-ECE", semester: 7, yearOfStudy: "Fourth", examType: "MSE", enrolled: 90, date: "2026-11-10", slot: "14:00 - 17:00 IST", room: "Examination Hall B-204", invigilator: "Prof. Rohini Iyer (ECE)", status: "Revision Requested", isIncluded: true, durationMinutes: 180 },
+  { id: "ex-3", cycleId: "cycle-1", code: "ME703", subject: "Finite Element Methods & Dynamics", department: "MECH", programCode: "BTECH-MECH", semester: 7, yearOfStudy: "Fourth", examType: "MSE", enrolled: 75, date: "2026-11-11", slot: "09:30 - 12:30 IST", room: "Engineering Hall C-301", invigilator: "Dr. Pramod Kulkarni (MECH)", status: "Approved", isIncluded: true, durationMinutes: 180 },
+  { id: "ex-4", cycleId: "cycle-1", code: "CS704", subject: "Cryptography & Network Security", department: "CSE", programCode: "BTECH-CSE", semester: 7, yearOfStudy: "Fourth", examType: "MSE", enrolled: 115, date: "2026-11-12", slot: "09:30 - 12:30 IST", room: "Examination Hall A-101", invigilator: "Prof. S. Patil (CSE)", status: "Draft", isIncluded: true, durationMinutes: 180 },
+  { id: "ex-5", cycleId: "cycle-1", code: "CS708L", subject: "Cloud Computing & DevOps Lab", department: "CSE", programCode: "BTECH-CSE", semester: 7, yearOfStudy: "Fourth", examType: "MSE", enrolled: 120, date: "2026-11-14", slot: "14:00 - 17:00 IST", room: "Computing Lab D-105", invigilator: "Dr. Arvind Sharma (CSE)", status: "Draft", isIncluded: true, durationMinutes: 180 },
+  { id: "ex-6", cycleId: "cycle-1", code: "AD701", subject: "Deep Learning & Neural Architectures", department: "AIDS", programCode: "BTECH-AIDS", semester: 7, yearOfStudy: "Fourth", examType: "MSE", enrolled: 110, date: "2026-11-16", slot: "09:30 - 12:30 IST", room: "Examination Hall B-204", invigilator: "Dr. T. Banerjee (AIDS)", status: "Draft", isIncluded: true, durationMinutes: 180 },
 ];
 
 export const DEFAULT_SEATING_RECORDS: SeatingRecord[] = Array.from({ length: 24 }, (_, idx) => {
@@ -650,11 +652,12 @@ export const DEFAULT_SEATING_RECORDS: SeatingRecord[] = Array.from({ length: 24 
   const roll = isEven ? `CS2023-${String(10 + idx).padStart(3, "0")}` : `EC2023-${String(20 + idx).padStart(3, "0")}`;
   return {
     id: `seat-seed-${idx + 1}`,
+    cycleId: "cycle-1",
     examId: isEven ? "ex-1" : "ex-2",
     subjectCode: isEven ? "CS701" : "EC702",
-    roomCode: "A-101",
+    roomCode: isEven ? "A-101" : "B-204",
     date: "2026-11-10",
-    slot: "09:30 - 12:30 IST",
+    slot: isEven ? "09:30 - 12:30 IST" : "14:00 - 17:00 IST",
     deskNo: `Desk-${String(idx + 1).padStart(2, "0")}`,
     studentRoll: roll,
     studentName: isEven ? `Candidate CS-${idx + 1}` : `Candidate EC-${idx + 1}`,
@@ -1243,16 +1246,101 @@ export const AcademicDataStore = {
     return { success: true };
   },
 
+  // --- Timetable Consistency Validation ---
+  validateTimetableConsistency(cycleId?: string): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+    const targetExams = cycleId
+      ? currentState.coordinatorExams.filter((e) => e.cycleId === cycleId)
+      : currentState.coordinatorExams;
+
+    // 1. Check for room double-booking collisions
+    const bookedRoomsMap = new Map<string, string>(); // key: `${date}_${slot}_${roomIdentifier}` -> exam code
+    for (const ex of targetExams) {
+      const roomTokens = ex.room.split("&").map((r) => r.trim());
+      for (const roomToken of roomTokens) {
+        const hallObj = currentState.examHalls.find((h) => h.name === roomToken || h.code === roomToken);
+        const roomKey = hallObj ? hallObj.code : roomToken;
+        const lookup = `${ex.date}_${ex.slot}_${roomKey}`;
+        if (bookedRoomsMap.has(lookup)) {
+          const conflictingExam = bookedRoomsMap.get(lookup);
+          errors.push(
+            `Room conflict: Room "${roomToken}" (${roomKey}) is allocated to multiple examinations (${conflictingExam} and ${ex.code}) on ${ex.date} during ${ex.slot}.`
+          );
+        } else {
+          bookedRoomsMap.set(lookup, ex.code);
+        }
+      }
+    }
+
+    // 2. Check for student double-booking in multiple rooms
+    const targetSeating = cycleId
+      ? currentState.seatingRecords.filter((s) => s.cycleId === cycleId)
+      : currentState.seatingRecords;
+    const studentSessionMap = new Map<string, string>(); // key: `${date}_${slot}_${studentRoll}` -> roomCode
+    for (const seat of targetSeating) {
+      const studentSessionKey = `${seat.date}_${seat.slot}_${seat.studentRoll}`;
+      if (studentSessionMap.has(studentSessionKey)) {
+        const assignedRoom = studentSessionMap.get(studentSessionKey);
+        if (assignedRoom !== seat.roomCode) {
+          errors.push(
+            `Candidate double-booking: Student ${seat.studentRoll} (${seat.studentName}) is simultaneously assigned to multiple venues (${assignedRoom} and ${seat.roomCode}) on ${seat.date} (${seat.slot}).`
+          );
+        }
+      } else {
+        studentSessionMap.set(studentSessionKey, seat.roomCode);
+      }
+    }
+
+    return { valid: errors.length === 0, errors };
+  },
+
   // --- Timetable Approvals Workflow Actions ---
-  submitTimetable(submission: Omit<TimetableApprovalRecord, "id" | "status" | "submittedDate">, actor: string = "Dr. Sarah Jenkins"): { success: boolean } {
-    const newSub: TimetableApprovalRecord = {
-      ...submission,
-      id: `sub-${Date.now()}`,
-      status: "Submitted",
-      submittedDate: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) + " " + new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) + " IST",
-    };
-    currentState.timetables = [newSub, ...currentState.timetables];
-    this.logAction(actor, "EXAM_COORDINATOR", "SUBMIT_TIMETABLE", "Timetable", `Submitted ${newSub.cycleName} timetable (${newSub.exams.length} papers) for Admin Approval`, "SUCCESS", newSub.id);
+  submitTimetable(submission: Omit<TimetableApprovalRecord, "id" | "status" | "submittedDate">, actor: string = "Dr. Sarah Jenkins"): { success: boolean; error?: string } {
+    // Validate timetable consistency before submission
+    const validation = this.validateTimetableConsistency(submission.cycleId);
+    if (!validation.valid) {
+      return { success: false, error: validation.errors[0] };
+    }
+
+    const existingIdx = currentState.timetables.findIndex(
+      (t) => t.cycleId === submission.cycleId && (t.status === "Draft" || t.status === "Revision Requested" || t.status === "Submitted")
+    );
+
+    const nowTimestamp =
+      new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) +
+      " " +
+      new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) +
+      " IST";
+
+    let targetId: string;
+    if (existingIdx !== -1) {
+      targetId = currentState.timetables[existingIdx].id;
+      currentState.timetables[existingIdx] = {
+        ...currentState.timetables[existingIdx],
+        ...submission,
+        status: "Submitted",
+        submittedDate: nowTimestamp,
+        reviewNotes: undefined,
+      };
+    } else {
+      targetId = `sub-${Date.now()}`;
+      const newSub: TimetableApprovalRecord = {
+        ...submission,
+        id: targetId,
+        status: "Submitted",
+        submittedDate: nowTimestamp,
+      };
+      currentState.timetables = [newSub, ...currentState.timetables];
+    }
+
+    // Synchronize coordinatorExams statuses for matching cycle
+    currentState.coordinatorExams.forEach((e) => {
+      if (!e.cycleId || e.cycleId === submission.cycleId) {
+        e.status = "Submitted";
+      }
+    });
+
+    this.logAction(actor, "EXAM_COORDINATOR", "SUBMIT_TIMETABLE", "Timetable", `Submitted ${submission.cycleName} timetable (${submission.exams.length} papers) for Admin Approval`, "SUCCESS", targetId);
     notify();
     return { success: true };
   },
@@ -1271,7 +1359,9 @@ export const AcademicDataStore = {
 
     // Update corresponding coordinator exams status
     currentState.coordinatorExams.forEach((e) => {
-      e.status = nextStatus;
+      if (!e.cycleId || e.cycleId === t.cycleId) {
+        e.status = nextStatus;
+      }
     });
 
     this.logAction(actor, "ADMIN", publishNow ? "PUBLISH_TIMETABLE" : "APPROVE_TIMETABLE", "Timetable", `Approved & ${nextStatus} schedule for ${t.cycleName} as immutable v1.0`, "SUCCESS", id);
@@ -1289,10 +1379,22 @@ export const AcademicDataStore = {
       };
     }
 
+    const validation = this.validateTimetableConsistency(t.cycleId);
+    if (!validation.valid) {
+      return { success: false, error: validation.errors[0] };
+    }
+
     t.status = "Published";
     currentState.coordinatorExams.forEach((e) => {
-      e.status = "Published";
+      if (!e.cycleId || e.cycleId === t.cycleId) {
+        e.status = "Published";
+      }
     });
+
+    const cycle = currentState.examCycles.find((c) => c.id === t.cycleId);
+    if (cycle && cycle.status !== "Completed") {
+      cycle.status = "Completed";
+    }
 
     this.logAction(actor, "EXAM_COORDINATOR", "PUBLISH_TIMETABLE", "Timetable", `Published approved examination schedule: ${t.cycleName}`, "SUCCESS", submissionId);
     notify();
@@ -1464,25 +1566,53 @@ export const AcademicDataStore = {
       return { success: false, error: `Cannot reschedule to ${newDate}: This date is an official college holiday.` };
     }
 
+    // Resolve room code and hall object
+    const targetHall = currentState.examHalls.find((h) => h.name === newRoom || h.code === newRoom);
+    const resolvedRoomCode = targetHall ? targetHall.code : (newRoom.split(" ").pop() || newRoom);
+    const resolvedRoomName = targetHall ? targetHall.name : newRoom;
+
+    // Check room capacity
+    if (targetHall && targetHall.examCapacity < exam.enrolled) {
+      return {
+        success: false,
+        error: `Capacity violation: Venue ${targetHall.name} safe capacity (${targetHall.examCapacity}) is less than paper enrollment (${exam.enrolled} candidates).`,
+      };
+    }
+
     // Check room double booking
-    const roomOverlap = currentState.coordinatorExams.some(
-      (e) => e.id !== examId && e.date === newDate && e.slot === newSlot && e.room === newRoom
-    );
+    const roomOverlap = currentState.coordinatorExams.some((e) => {
+      if (e.id === examId) return false;
+      if (e.date !== newDate || e.slot !== newSlot) return false;
+      return e.room === resolvedRoomName || e.room === resolvedRoomCode || (targetHall && e.room.includes(targetHall.code));
+    });
     if (roomOverlap) {
       return { success: false, error: `Venue conflict: Room ${newRoom} is already assigned to another paper during ${newSlot} on ${newDate}.` };
     }
 
     exam.date = newDate;
     exam.slot = newSlot;
-    exam.room = newRoom;
+    exam.room = resolvedRoomName;
     exam.status = "Draft";
 
-    // Update seating allocations date and slot
+    // Update seating allocations date, slot, and room code
     currentState.seatingRecords.forEach((s) => {
       if (s.examId === examId) {
         s.date = newDate;
         s.slot = newSlot;
-        s.roomCode = newRoom.split(" ")[1] || newRoom;
+        s.roomCode = resolvedRoomCode;
+      }
+    });
+
+    // Synchronize timetable records to preserve single source of truth across views
+    currentState.timetables.forEach((t) => {
+      const matchExam = t.exams.find((e) => e.id === examId || e.code === exam.code);
+      if (matchExam) {
+        matchExam.date = newDate;
+        matchExam.slot = newSlot;
+        matchExam.room = newRoom;
+        if (t.status === "Approved" || t.status === "Submitted") {
+          t.status = "Draft"; // Invalidate stale approval/submission on reschedule edit
+        }
       }
     });
 
@@ -1517,6 +1647,14 @@ export const AcademicDataStore = {
       if (prevFaculty.status === "Max Assigned") prevFaculty.status = "Available";
     }
 
+    // Synchronize timetable records
+    currentState.timetables.forEach((t) => {
+      const matchExam = t.exams.find((e) => e.id === examId || e.code === exam.code);
+      if (matchExam) {
+        matchExam.invigilator = newInvigilatorName;
+      }
+    });
+
     this.logAction(actor, "EXAM_COORDINATOR", "REASSIGN_INVIGILATOR", "CoordinatorExam", `Reassigned ${exam.code} invigilation from ${previousInvigilator} to ${newInvigilatorName}`, "INFO", examId);
     notify();
     return { success: true };
@@ -1546,15 +1684,80 @@ export const AcademicDataStore = {
     const enforceHolidays = options.enforceHolidays !== false;
     const enforceAlternatingBranches = options.enforceAlternatingBranches !== false;
 
-    // 1. Candidate subjects
+    // 1. Candidate subjects strictly filtered by active department, semester type, and year level
     let candidateSubjects = currentState.subjects.filter((s) => s.status === "Active");
     if (cycle.department && cycle.department !== "All Departments") {
       const deptCode = currentState.departments.find((d) => d.name === cycle.department)?.code || cycle.department;
-      const deptFiltered = candidateSubjects.filter((s) => s.departmentCode === deptCode || s.departmentCode === cycle.department);
-      if (deptFiltered.length > 0) candidateSubjects = deptFiltered;
+      candidateSubjects = candidateSubjects.filter(
+        (s) => s.departmentCode === deptCode || s.departmentCode === cycle.department
+      );
     }
-    if (candidateSubjects.length > 8) {
-      candidateSubjects = candidateSubjects.slice(0, 8);
+    // Filter by semesterType if configured
+    if (cycle.semesterType === "Odd Semester") {
+      const oddSubs = candidateSubjects.filter((s) => s.semester % 2 === 1);
+      if (oddSubs.length > 0) candidateSubjects = oddSubs;
+    } else if (cycle.semesterType === "Even Semester") {
+      const evenSubs = candidateSubjects.filter((s) => s.semester % 2 === 0);
+      if (evenSubs.length > 0) candidateSubjects = evenSubs;
+    }
+    // Filter by yearLevel if configured
+    if (cycle.yearLevel && cycle.yearLevel !== "All Years") {
+      const yearMap: Record<string, YearOfStudy> = {
+        "1st Year": "First",
+        "2nd Year": "Second",
+        "3rd Year": "Third",
+        "4th Year": "Fourth",
+      };
+      const targetYear = yearMap[cycle.yearLevel];
+      if (targetYear) {
+        const yearSubs = candidateSubjects.filter(
+          (s) => s.yearOfStudy === targetYear || getYearFromSemester(s.semester) === targetYear
+        );
+        if (yearSubs.length > 0) candidateSubjects = yearSubs;
+      }
+    }
+
+    if (candidateSubjects.length === 0) {
+      const runId = `RUN-ERR-${Date.now()}`;
+      return {
+        success: false,
+        runId,
+        status: "INFEASIBLE",
+        scheduledExams: [],
+        seatingRecords: [],
+        conflicts: [
+          {
+            id: `conf-empty-sub-${Date.now()}`,
+            type: "UNSCHEDULED_SUBJECT",
+            severity: "HIGH",
+            examId: "none",
+            subjectCode: "NONE",
+            date: cycle.startDate,
+            slot: "N/A",
+            resourceName: cycle.department,
+            description: `No active curriculum subjects found for department "${cycle.department}". Please register subjects in Programs & Subjects Manager before generating timetable.`,
+            suggestedAlternatives: [
+              "Register or activate curriculum subjects for this department in Programs & Subjects Manager",
+              "Select an examination cycle with active registered subjects",
+            ],
+            resolved: false,
+          },
+        ],
+        stats: {
+          totalSubjects: 0,
+          scheduledCount: 0,
+          unscheduledCount: 0,
+          totalSeatsAllocated: 0,
+          roomsUsed: 0,
+          invigilatorsAssigned: 0,
+          clashesCount: 1,
+          executionTimeMs: 12,
+        },
+      };
+    }
+
+    if (candidateSubjects.length > 10) {
+      candidateSubjects = candidateSubjects.slice(0, 10);
     }
 
     // 2. Generate available exam dates
@@ -1582,8 +1785,54 @@ export const AcademicDataStore = {
       availableDates.push(cycle.startDate);
     }
 
-    const slots = ["09:30 - 12:30 IST", "14:00 - 17:00 IST"];
+    // Respect cycle.sessionWindow configuration
+    const slots =
+      cycle.sessionWindow === "Morning (09:30 - 12:30 IST)"
+        ? ["09:30 - 12:30 IST"]
+        : cycle.sessionWindow === "Afternoon (14:00 - 17:00 IST)"
+        ? ["14:00 - 17:00 IST"]
+        : ["09:30 - 12:30 IST", "14:00 - 17:00 IST"];
+
     const activeHalls = currentState.examHalls.filter((h) => h.status === "Available");
+
+    if (activeHalls.length === 0) {
+      const runId = `RUN-ERR-${Date.now()}`;
+      return {
+        success: false,
+        runId,
+        status: "INFEASIBLE",
+        scheduledExams: [],
+        seatingRecords: [],
+        conflicts: [
+          {
+            id: `conf-nohalls-${Date.now()}`,
+            type: "CAPACITY_OVERFLOW",
+            severity: "HIGH",
+            examId: "none",
+            subjectCode: "NONE",
+            date: cycle.startDate,
+            slot: "N/A",
+            resourceName: "Examination Halls",
+            description: `Zero examination halls are currently in "Available" status. At least one hall must be available to seat candidates.`,
+            suggestedAlternatives: [
+              "Mark one or more examination halls as Available in Room Capacity Manager",
+            ],
+            resolved: false,
+          },
+        ],
+        stats: {
+          totalSubjects: candidateSubjects.length,
+          scheduledCount: 0,
+          unscheduledCount: candidateSubjects.length,
+          totalSeatsAllocated: 0,
+          roomsUsed: 0,
+          invigilatorsAssigned: 0,
+          clashesCount: 1,
+          executionTimeMs: 15,
+        },
+      };
+    }
+
     const activeFaculty = [...currentState.invigilators];
 
     // Reset temporary assignments for fresh solve calculation
@@ -1602,6 +1851,10 @@ export const AcademicDataStore = {
     const bookedFaculty = new Set<string>();
     const bookedStudentSlots = new Set<string>();
 
+    // Faculty session tracking to prevent consecutive assignments and balance workload
+    const facultyAssignedSessions = new Map<string, number[]>();
+    const facultyAssignedDates = new Map<string, string[]>();
+
     let dateIdx = 0;
     let slotIdx = 0;
 
@@ -1609,6 +1862,7 @@ export const AcademicDataStore = {
       let assignedDate = "";
       let assignedSlot = "";
       let assignedRoom = "";
+      let assignedHallsList: ExamHallRecord[] = [];
       let assignedFaculty = "";
 
       let attempts = 0;
@@ -1618,35 +1872,130 @@ export const AcademicDataStore = {
         const d = availableDates[dateIdx % availableDates.length];
         const s = slots[slotIdx % slots.length];
         const studentSlotKey = `${d}_${s}_${sub.semester}`;
+        const currentSessionGlobalIndex =
+          availableDates.indexOf(d) * slots.length + (slots.indexOf(s) >= 0 ? slots.indexOf(s) : 0);
 
         if (!bookedStudentSlots.has(studentSlotKey)) {
-          const suitableHall = activeHalls.find((h) => {
-            const rKey = `${d}_${s}_${h.name}`;
-            return !bookedRooms.has(rKey) && h.examCapacity >= sub.enrolledStudents;
+          // Check if single available hall fits enrollment
+          const singleHall = activeHalls.find((h) => {
+            const key1 = `${d}_${s}_${h.name}`;
+            const key2 = `${d}_${s}_${h.code}`;
+            return !bookedRooms.has(key1) && !bookedRooms.has(key2) && h.examCapacity >= sub.enrolledStudents;
           });
 
-          const suitableFaculty = activeFaculty.find((f) => {
+          // If no single hall fits, check for legitimate multi-room partition
+          let multiHalls: ExamHallRecord[] | null = null;
+          if (!singleHall) {
+            const availableForSession = activeHalls.filter((h) => {
+              const key1 = `${d}_${s}_${h.name}`;
+              const key2 = `${d}_${s}_${h.code}`;
+              return !bookedRooms.has(key1) && !bookedRooms.has(key2);
+            });
+            let runningCapacity = 0;
+            const chosenRooms: ExamHallRecord[] = [];
+            for (const h of availableForSession) {
+              chosenRooms.push(h);
+              runningCapacity += h.examCapacity;
+              if (runningCapacity >= sub.enrolledStudents) {
+                multiHalls = chosenRooms;
+                break;
+              }
+            }
+          }
+
+          const candidateHalls = singleHall ? [singleHall] : multiHalls;
+
+          // Filter candidates who are not on leave, have remaining quota, and are not double-booked
+          const eligibleFacultyCandidates = activeFaculty.filter((f) => {
             const fKey = `${d}_${s}_${f.name}`;
-            return (
-              f.status === "Available" &&
-              !bookedFaculty.has(fKey) &&
-              f.assignedDuties < f.maxDuties
-            );
+            if (f.status === "On Leave") return false;
+            if (f.leaveDates && f.leaveDates.includes(d)) return false;
+            if (f.assignedDuties >= f.maxDuties) return false;
+            if (bookedFaculty.has(fKey)) return false;
+            return true;
           });
 
-          if (suitableHall && suitableFaculty) {
+          let chosenFaculty: InvigilatorRosterRecord | null = null;
+          let hadToViolateConsecutiveGap = false;
+
+          if (eligibleFacultyCandidates.length > 0) {
+            // Tier 1: Satisfies >= 1 session gap AND not already assigned on the same date d
+            const tier1Candidates = eligibleFacultyCandidates.filter((f) => {
+              const assignedSessions = facultyAssignedSessions.get(f.id) || [];
+              const isConsecutive = assignedSessions.some(
+                (prevSession) => Math.abs(prevSession - currentSessionGlobalIndex) <= 1
+              );
+              const assignedOnDate = (facultyAssignedDates.get(f.id) || []).includes(d);
+              return !isConsecutive && !assignedOnDate;
+            });
+
+            // Tier 2: Satisfies >= 1 session gap (not consecutive), even if assigned on another non-adjacent slot on date d
+            const tier2Candidates = eligibleFacultyCandidates.filter((f) => {
+              const assignedSessions = facultyAssignedSessions.get(f.id) || [];
+              const isConsecutive = assignedSessions.some(
+                (prevSession) => Math.abs(prevSession - currentSessionGlobalIndex) <= 1
+              );
+              return !isConsecutive;
+            });
+
+            if (tier1Candidates.length > 0) {
+              tier1Candidates.sort((a, b) => a.assignedDuties - b.assignedDuties);
+              chosenFaculty = tier1Candidates[0];
+            } else if (tier2Candidates.length > 0) {
+              tier2Candidates.sort((a, b) => a.assignedDuties - b.assignedDuties);
+              chosenFaculty = tier2Candidates[0];
+            } else {
+              eligibleFacultyCandidates.sort((a, b) => a.assignedDuties - b.assignedDuties);
+              chosenFaculty = eligibleFacultyCandidates[0];
+              hadToViolateConsecutiveGap = true;
+            }
+          }
+
+          if (candidateHalls && candidateHalls.length > 0 && chosenFaculty) {
             assignedDate = d;
             assignedSlot = s;
-            assignedRoom = suitableHall.name;
-            assignedFaculty = `${suitableFaculty.name} (${suitableFaculty.departmentCode})`;
-            bookedStudentSlots.add(studentSlotKey);
-            bookedRooms.add(`${d}_${s}_${suitableHall.name}`);
-            bookedFaculty.add(`${d}_${s}_${suitableFaculty.name}`);
+            assignedHallsList = candidateHalls;
+            assignedRoom =
+              candidateHalls.length === 1 ? candidateHalls[0].name : candidateHalls.map((h) => h.name).join(" & ");
+            assignedFaculty = `${chosenFaculty.name} (${chosenFaculty.departmentCode})`;
 
-            suitableFaculty.assignedDuties += 1;
-            if (suitableFaculty.assignedDuties >= suitableFaculty.maxDuties) {
-              suitableFaculty.status = "Max Assigned";
+            bookedStudentSlots.add(studentSlotKey);
+            for (const h of candidateHalls) {
+              bookedRooms.add(`${d}_${s}_${h.name}`);
+              bookedRooms.add(`${d}_${s}_${h.code}`);
             }
+            bookedFaculty.add(`${d}_${s}_${chosenFaculty.name}`);
+
+            chosenFaculty.assignedDuties += 1;
+            if (chosenFaculty.assignedDuties >= chosenFaculty.maxDuties) {
+              chosenFaculty.status = "Max Assigned";
+            }
+
+            // Track assigned sessions and dates
+            const currentSessions = facultyAssignedSessions.get(chosenFaculty.id) || [];
+            facultyAssignedSessions.set(chosenFaculty.id, [...currentSessions, currentSessionGlobalIndex]);
+            const currentDates = facultyAssignedDates.get(chosenFaculty.id) || [];
+            facultyAssignedDates.set(chosenFaculty.id, [...currentDates, d]);
+
+            if (hadToViolateConsecutiveGap) {
+              detectedConflicts.push({
+                id: `conf-faculty-gap-${Date.now()}-${sub.code}`,
+                type: "FACULTY_OVERLAP",
+                severity: "HIGH",
+                examId: `ex-${sub.code.toLowerCase()}`,
+                subjectCode: sub.code,
+                date: d,
+                slot: s,
+                resourceName: chosenFaculty.name,
+                description: `Consecutive session assignment warning: Faculty member ${chosenFaculty.name} is scheduled for consecutive exam sessions on ${d} (${s}) due to insufficient available faculty in the roster. Minimum 1-session rest gap could not be satisfied.`,
+                suggestedAlternatives: [
+                  `Add additional available faculty invigilators to the roster`,
+                  `Adjust faculty leave dates or shift ${sub.code} to a different day`,
+                ],
+                resolved: false,
+              });
+            }
+
             foundSlot = true;
             break;
           }
@@ -1658,32 +2007,31 @@ export const AcademicDataStore = {
       }
 
       if (!foundSlot) {
-        assignedDate = availableDates[0];
-        assignedSlot = slots[0];
-        assignedRoom = activeHalls[0]?.name || "Examination Hall A-101";
-        assignedFaculty = activeFaculty[0]?.name || "Dr. Arvind Sharma (CSE)";
-
+        // Record clear conflict without double-booking rooms or creating colliding duplicate allocations
         detectedConflicts.push({
-          id: `conf-${Date.now()}-${sub.code}`,
+          id: `conf-capacity-${Date.now()}-${sub.code}`,
           type: "CAPACITY_OVERFLOW",
           severity: "HIGH",
           examId: `ex-${sub.code.toLowerCase()}`,
           subjectCode: sub.code,
-          date: assignedDate,
-          slot: assignedSlot,
-          resourceName: assignedRoom,
-          description: `Tight scheduling density for ${sub.code} (${sub.title}): assigned without optimal safety margin.`,
+          date: availableDates[0] || cycle.startDate,
+          slot: slots[0] || "09:30 - 12:30 IST",
+          resourceName: "Examination Halls",
+          description: `Venue Capacity Shortage: No non-conflicting venue with safe capacity >= ${sub.enrolledStudents} students could be scheduled within available calendar dates (${availableDates[0]} to ${availableDates[availableDates.length - 1]}).`,
           suggestedAlternatives: [
-            `Shift ${sub.code} to afternoon session on ${availableDates[1] || assignedDate}`,
-            `Split candidates across Hall B-204 and Central Auditorium 1`,
+            `Add additional examination halls in Room Capacity Manager`,
+            `Extend the examination date window in Academic Setup`,
+            `Split candidate cohort across additional session slots`,
           ],
           resolved: false,
         });
+        continue;
       }
 
       const entryId = `ex-gen-${Date.now()}-${sub.code}`;
       const examEntry: CoordinatorExamEntry = {
         id: entryId,
+        cycleId: cycle.id,
         code: sub.code,
         subject: sub.title,
         department: sub.departmentCode,
@@ -1703,17 +2051,24 @@ export const AcademicDataStore = {
 
       scheduled.push(examEntry);
 
-      // Generate Seating Desks for this exam
+      // Generate Seating Desks for this exam, partitioned cleanly across assignedHallsList
       const deskCount = Math.min(24, Math.max(12, Math.floor(sub.enrolledStudents / 5)));
       for (let i = 1; i <= deskCount; i++) {
         const isAlt = enforceAlternatingBranches && i % 2 === 0;
         const branchCode = isAlt ? (sub.departmentCode === "CSE" ? "ECE" : "CSE") : sub.departmentCode;
         const rollPrefix = branchCode === "CSE" ? "CS2023" : (branchCode === "ECE" ? "EC2023" : "ME2024");
+
+        // Clean multi-room partitioning: distribute candidates across assignedHallsList
+        const hallIdx = Math.floor((i - 1) / Math.ceil(deskCount / assignedHallsList.length));
+        const hallForDesk = assignedHallsList[Math.min(hallIdx, assignedHallsList.length - 1)];
+        const targetRoomCode = hallForDesk ? hallForDesk.code : "A-101";
+
         newSeating.push({
           id: `seat-${entryId}-${i}`,
+          cycleId: cycle.id,
           examId: entryId,
           subjectCode: sub.code,
-          roomCode: assignedRoom.split(" ")[1] || assignedRoom,
+          roomCode: targetRoomCode,
           date: assignedDate,
           slot: assignedSlot,
           deskNo: `Desk-${String(i).padStart(2, "0")}`,
@@ -1732,12 +2087,19 @@ export const AcademicDataStore = {
     const runId = `RUN-${Date.now()}-${cycle.academicYear.replace("-", "")}`;
     const solverStatus = detectedConflicts.length === 0 ? "OPTIMAL" : "FEASIBLE";
 
-    currentState.coordinatorExams = scheduled;
-    currentState.seatingRecords = newSeating;
+    // Retain exams and seating records from other examination cycles
+    currentState.coordinatorExams = [
+      ...currentState.coordinatorExams.filter((e) => e.cycleId && e.cycleId !== cycle.id),
+      ...scheduled,
+    ];
+    currentState.seatingRecords = [
+      ...currentState.seatingRecords.filter((s) => s.cycleId && s.cycleId !== cycle.id),
+      ...newSeating,
+    ];
     currentState.conflicts = detectedConflicts;
     currentState.invigilators = activeFaculty;
 
-    const existingSubmission = currentState.timetables.find((t) => t.cycleId === cycle.id && t.status === "Draft");
+    const existingSubmission = currentState.timetables.find((t) => t.cycleId === cycle.id && (t.status === "Draft" || t.status === "Revision Requested"));
     if (existingSubmission) {
       existingSubmission.exams = scheduled.map((e) => ({
         id: e.id,
@@ -1751,11 +2113,15 @@ export const AcademicDataStore = {
       }));
       existingSubmission.solverStatus = solverStatus;
       existingSubmission.clashesCount = detectedConflicts.length;
+      existingSubmission.cycleName = `${cycle.name} - ${cycle.department.split(" ")[0]}`;
+      existingSubmission.department = cycle.department;
+      existingSubmission.program = `${cycle.department} (${cycle.yearLevel})`;
+      existingSubmission.status = "Draft";
     } else {
       const newDraftSubmission: TimetableApprovalRecord = {
         id: `sub-draft-${Date.now()}`,
         cycleId: cycle.id,
-        cycleName: `${cycle.name} - Draft`,
+        cycleName: `${cycle.name} - ${cycle.department.split(" ")[0]}`,
         department: cycle.department,
         program: `${cycle.department} (${cycle.yearLevel})`,
         submittedBy: "Dr. Sarah Jenkins (Coordinator)",
