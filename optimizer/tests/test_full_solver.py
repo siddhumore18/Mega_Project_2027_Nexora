@@ -174,3 +174,53 @@ def test_optimizer_avoids_same_day_exams_when_alternatives_exist():
     # One exam must be on Day 2, avoiding same day!
     assigned_slots = set(slot_map.values())
     assert "ts-d2-1" in assigned_slots
+
+
+def test_strict_daily_limit_prevents_backlog_same_day_collision():
+    # Student has regular paper and Cycle 2 backlog paper.
+    # When strictDailyLimit is true and only 1 day exists with multiple slots, solver must reject as INFEASIBLE!
+    snapshot = {
+        "snapshotVersion": 1,
+        "examCycleId": "cycle-backlog-test",
+        "strictDailyLimit": True,
+        "exams": [
+            {"id": "e-regular", "code": "CS301", "enrolledStudents": ["student-backlog"]},
+            {"id": "e-backlog", "code": "CS101", "enrolledStudents": ["student-backlog"]},
+        ],
+        "timeSlots": [
+            {"id": "ts-d1-morn", "date": "2026-09-22", "dayIndex": 1, "slotIndexInDay": 1},
+            {"id": "ts-d1-aftn", "date": "2026-09-22", "dayIndex": 1, "slotIndexInDay": 2},
+        ],
+        "rooms": [
+            {"id": "r-1", "code": "HALL-1", "capacity": 100}
+        ],
+    }
+
+    result = solve_schedule(snapshot)
+    assert result["status"] == "INFEASIBLE"
+    assert any("Maximum 1 exam per student per day is enforced" in d for d in result["diagnostics"])
+
+
+def test_holiday_blackout_slot_exclusion():
+    # Slot 1 is on a declared holiday (2026-09-25)
+    # Solver must assign exam to Slot 2 (2026-09-26), not the holiday!
+    snapshot = {
+        "snapshotVersion": 1,
+        "examCycleId": "cycle-holiday-test",
+        "holidays": ["2026-09-25"],
+        "exams": [
+            {"id": "e-math", "code": "MATH101", "enrolledStudents": ["student-1"]},
+        ],
+        "timeSlots": [
+            {"id": "ts-holiday", "date": "2026-09-25", "dayIndex": 1, "slotIndexInDay": 1},
+            {"id": "ts-valid", "date": "2026-09-26", "dayIndex": 2, "slotIndexInDay": 1},
+        ],
+        "rooms": [
+            {"id": "r-1", "code": "HALL-1", "capacity": 50}
+        ],
+    }
+
+    result = solve_schedule(snapshot)
+    assert result["status"] in ("OPTIMAL", "FEASIBLE")
+    assert result["assignments"][0]["timeSlotId"] == "ts-valid"
+

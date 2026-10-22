@@ -1,0 +1,726 @@
+/* =====================================================================
+   AUTONOMOUS EXAMINATION CIRCULAR STYLESHEET
+   Replica of KIT's College of Engineering (Autonomous), Kolhapur
+   Exam Time Table Circular Design & Print Format
+   ===================================================================== */
+
+.autonomous-circular-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 20px 48px;
+  box-sizing: border-box;
+}
+
+/* 1. Action Toolbar — Interactive on-screen controls */
+.circular-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 18px;
+  background: var(--bg-surface, #ffffff);
+  border: 1px solid var(--border-default, #e2e8f0);
+  border-radius: 10px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.circular-toolbar .toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.circular-toolbar .badge-official {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #bfdbfe;
+}
+
+.circular-toolbar .toolbar-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.circular-toolbar .filter-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary, #475569);
+  font-weight: 500;
+}
+
+.circular-toolbar .filter-item select,
+.circular-toolbar .filter-item input {
+  padding: 6px 10px;
+  font-size: 12.5px;
+  border: 1px solid var(--border-default, #cbd5e1);
+  border-radius: 6px;
+  background: var(--bg-app, #f8fafc);
+  color: var(--text-primary, #0f172a);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.circular-toolbar .filter-item select:focus,
+.circular-toolbar .filter-item input:focus {
+  border-color: #2563eb;
+  background: #ffffff;
+}
+
+.circular-toolbar .search-input-box {
+  display: flex;
+  align-items: center;
+  position: relative;
+  border: 1px solid var(--border-default, #cbd5e1);
+  border-radius: 6px;
+  background: var(--bg-app, #f8fafc);
+  padding: 0 8px;
+}
+
+.circular-toolbar .search-input-box input {
+  border: none;
+  background: transparent;
+  padding: 6px 4px;
+}
+
+/* 2. Official Circular Document — Paper Preview (Screen) */
+.circular-document {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 36px 40px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+
+/* Header Section */
+.circular-header {
+  text-align: center;
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+}
+
+.college-crest-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.college-crest-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #1e3a8a;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: 1px;
+  border: 2px solid #3b82f6;
+  box-shadow: 0 2px 6px rgba(30, 58, 138, 0.25);
+}
+
+.college-affiliation {
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: #334155;
+  text-transform: uppercase;
+}
+
+.college-name {
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  color: #0f172a;
+  margin: 4px 0 2px;
+  text-transform: uppercase;
+}
+
+.college-accreditation {
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #475569;
+  margin-bottom: 12px;
+}
+
+.circular-title {
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #0f172a;
+  margin: 10px 0 8px;
+  text-transform: uppercase;
+}
+
+.circular-meta-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 8px 0 10px;
+}
+
+.circular-subtext {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 6px;
+}
+
+.circular-branches-note {
+  font-size: 10.5px;
+  color: #475569;
+  margin-top: 8px;
+  line-height: 1.45;
+  text-align: justify;
+}
+
+/* Table Section */
+.circular-table-wrapper {
+  margin: 16px 0;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.circular-timetable-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 11px;
+  color: #0f172a;
+}
+
+.circular-timetable-table th,
+.circular-timetable-table td {
+  border: 1px solid #0f172a;
+  padding: 4px 3px;
+  vertical-align: middle;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.circular-timetable-table th {
+  background: #f1f5f9;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.circular-timetable-table td.cell-date {
+  font-weight: 700;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.circular-timetable-table td.cell-day {
+  text-align: center;
+  font-weight: 600;
+}
+
+.circular-timetable-table td.cell-year {
+  text-align: center;
+  font-weight: 700;
+}
+
+.circular-timetable-table td.cell-programme {
+  text-align: center;
+}
+
+.circular-timetable-table td.cell-structure {
+  text-align: center;
+}
+
+.structure-tag {
+  display: inline-block;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.tag-nep {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
+.tag-cycle {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.circular-timetable-table td.cell-time {
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+.circular-timetable-table td.cell-mae {
+  text-align: center;
+}
+
+.mae-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.mae-m {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+
+.mae-a {
+  background: #fef08a;
+  color: #854d0e;
+  border: 1px solid #fde047;
+}
+
+.mae-e {
+  background: #fbcfe8;
+  color: #9d174d;
+  border: 1px solid #f472b6;
+}
+
+.circular-timetable-table td.cell-sem {
+  text-align: center;
+  font-weight: 700;
+}
+
+.circular-timetable-table td.cell-code {
+  font-family: monospace;
+  font-weight: 700;
+  text-align: center;
+}
+
+.circular-timetable-table td.cell-name {
+  font-weight: 600;
+  text-align: left;
+  line-height: 1.25;
+  padding: 4px 6px;
+}
+
+/* Instructions Section */
+.circular-instructions-section {
+  border-top: 1.5px solid #0f172a;
+  margin-top: 24px;
+  padding-top: 14px;
+  page-break-inside: avoid;
+}
+
+.instructions-header {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: #0f172a;
+  margin-bottom: 10px;
+}
+
+.circular-instructions-list {
+  padding-left: 20px;
+  margin: 0;
+  font-size: 10.5px;
+  color: #1e293b;
+  line-height: 1.55;
+}
+
+.circular-instructions-list li {
+  margin-bottom: 5px;
+}
+
+.instructions-footer-note {
+  margin-top: 8px;
+  font-size: 10px;
+  color: #475569;
+}
+
+/* Signatures Section */
+.circular-signatures-section {
+  margin-top: 36px;
+  padding-top: 16px;
+  page-break-inside: avoid;
+}
+
+.signatures-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  align-items: flex-end;
+  text-align: center;
+}
+
+.sig-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sig-line {
+  width: 100%;
+  border-bottom: 1px solid #0f172a;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  height: 28px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.sig-handwritten {
+  font-family: 'Brush Script MT', cursive, serif;
+  font-size: 16px;
+  color: #1e3a8a;
+}
+
+.sig-name {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.sig-title {
+  font-size: 9.5px;
+  color: #475569;
+  line-height: 1.25;
+  margin-top: 2px;
+}
+
+.seal-block {
+  justify-content: center;
+}
+
+.exam-cell-seal {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px dashed #dc2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #dc2626;
+  font-size: 9.5px;
+  font-weight: 800;
+  transform: rotate(-10deg);
+  text-transform: uppercase;
+}
+
+/* 3. Physical A4 Print Media Stylesheet */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 6mm 7mm 8mm 7mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 8pt !important;
+    line-height: 1.25 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .no-print,
+  .circular-toolbar,
+  .dash-sidebar,
+  .dash-topbar,
+  .dash-btn {
+    display: none !important;
+  }
+
+  /* Support autonomous circular printing inside dash-shell */
+  .dash-shell.circular-mode,
+  .dash-shell.circular-mode .dash-body,
+  .dash-shell.circular-mode .dash-main,
+  .dash-shell.circular-mode .circular-view-wrapper {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  .autonomous-circular-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  .circular-document {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    display: block !important;
+    visibility: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Compact Header for A4 Print */
+  .circular-header {
+    border-bottom: 1.5pt solid #000000 !important;
+    padding-bottom: 4px !important;
+    margin-bottom: 6px !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  .college-crest-container {
+    margin-bottom: 2px !important;
+  }
+
+  .college-crest-logo {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 11pt !important;
+    border-width: 1.5pt !important;
+    box-shadow: none !important;
+  }
+
+  .college-affiliation {
+    font-size: 7.5pt !important;
+    letter-spacing: 0.5px !important;
+    color: #000000 !important;
+  }
+
+  .college-name {
+    font-size: 11pt !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.3px !important;
+    color: #000000 !important;
+    margin: 1px 0 !important;
+  }
+
+  .college-accreditation {
+    font-size: 7.5pt !important;
+    font-weight: 800 !important;
+    color: #000000 !important;
+    margin-bottom: 2px !important;
+  }
+
+  .circular-title {
+    font-size: 8.5pt !important;
+    font-weight: 800 !important;
+    color: #000000 !important;
+    margin: 3px 0 !important;
+  }
+
+  .circular-meta-strip {
+    font-size: 7.5pt !important;
+    padding: 2px 6px !important;
+    margin: 3px 0 !important;
+    background: #f8fafc !important;
+    border: 0.5pt solid #000000 !important;
+    color: #000000 !important;
+  }
+
+  .circular-subtext {
+    font-size: 7.5pt !important;
+    font-weight: 700 !important;
+    margin-top: 2px !important;
+    color: #000000 !important;
+  }
+
+  .circular-branches-note {
+    font-size: 6pt !important;
+    line-height: 1.2 !important;
+    margin-top: 2px !important;
+    color: #333333 !important;
+  }
+
+  /* 10-Column Table Fitted to Printable Page Width */
+  .circular-table-wrapper {
+    margin: 6px 0 !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  .circular-timetable-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    font-size: 7pt !important;
+    line-height: 1.15 !important;
+    page-break-inside: auto !important;
+  }
+
+  .circular-timetable-table tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  .circular-timetable-table th,
+  .circular-timetable-table td {
+    border: 0.75pt solid #000000 !important;
+    padding: 2.5px 2px !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    vertical-align: middle !important;
+  }
+
+  .circular-timetable-table th {
+    background-color: #f1f5f9 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    font-size: 6.5pt !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    text-align: center !important;
+    padding: 3px 2px !important;
+  }
+
+  .circular-timetable-table td.cell-date {
+    font-size: 6.5pt !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+
+  .circular-timetable-table td.cell-day,
+  .circular-timetable-table td.cell-year,
+  .circular-timetable-table td.cell-programme,
+  .circular-timetable-table td.cell-structure,
+  .circular-timetable-table td.cell-time,
+  .circular-timetable-table td.cell-mae,
+  .circular-timetable-table td.cell-sem,
+  .circular-timetable-table td.cell-code {
+    text-align: center !important;
+    font-size: 6.5pt !important;
+  }
+
+  .circular-timetable-table td.cell-name {
+    text-align: left !important;
+    font-size: 6.5pt !important;
+    font-weight: 600 !important;
+    padding-left: 3px !important;
+  }
+
+  .structure-tag,
+  .mae-indicator {
+    display: inline !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    font-weight: 700 !important;
+    color: #000000 !important;
+    font-size: 6.5pt !important;
+    box-shadow: none !important;
+  }
+
+  /* Compact Instructions Section */
+  .circular-instructions-section {
+    margin-top: 6px !important;
+    padding-top: 4px !important;
+    border-top: 0.75pt solid #000000 !important;
+    page-break-inside: avoid !important;
+  }
+
+  .instructions-heading {
+    font-size: 7pt !important;
+    margin-bottom: 2px !important;
+  }
+
+  .instructions-list {
+    font-size: 5.5pt !important;
+    line-height: 1.2 !important;
+    margin: 2px 0 4px 12px !important;
+    padding: 0 !important;
+  }
+
+  .instructions-list li {
+    margin-bottom: 1.5px !important;
+  }
+
+  /* Compact 5-Signatory Strip */
+  .circular-signatures-section {
+    margin-top: 6px !important;
+    padding-top: 4px !important;
+    page-break-inside: avoid !important;
+  }
+
+  .signatures-strip {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-end !important;
+  }
+
+  .sig-block {
+    text-align: center !important;
+  }
+
+  .sig-line {
+    height: 14px !important;
+    margin-bottom: 2px !important;
+    border-bottom: 0.75pt solid #000000 !important;
+  }
+
+  .sig-handwritten {
+    font-size: 10pt !important;
+  }
+
+  .sig-name {
+    font-size: 6.5pt !important;
+    font-weight: 700 !important;
+  }
+
+  .sig-title {
+    font-size: 5.5pt !important;
+    color: #333333 !important;
+  }
+
+  .exam-cell-seal {
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 6pt !important;
+    border: 1.5pt dashed #dc2626 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

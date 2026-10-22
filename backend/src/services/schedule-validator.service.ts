@@ -204,6 +204,49 @@ export class ScheduleValidatorService {
       }
     }
 
+    // H7: Holiday & Institutional Recess Blackout Validation
+    if (snapshot.holidays && snapshot.holidays.length > 0) {
+      const holidaySet = new Set(snapshot.holidays);
+      for (const assignment of assignments) {
+        const slot = timeSlotMap.get(assignment.timeSlotId);
+        if (slot && holidaySet.has(slot.date)) {
+          const exam = examMap.get(assignment.examId);
+          hardViolations.push({
+            type: HardViolationType.HOLIDAY_CLASH,
+            description: `Exam ${exam?.code ?? assignment.examId} is scheduled on declared holiday date ${slot.date}.`,
+            details: {
+              examId: assignment.examId,
+              examCode: exam?.code,
+              date: slot.date,
+              timeSlotId: slot.id,
+            },
+          });
+        }
+      }
+    }
+
+    // H6: Strict Backlog & Regular Daily Separation (Max 1 Exam Per Student Per Day)
+    if (snapshot.strictDailyLimit) {
+      for (const [studentId, dayMap] of studentDaySlots.entries()) {
+        for (const [dayIndex, rawSlots] of dayMap.entries()) {
+          if (rawSlots.length > 1) {
+            const conflictingExamIds = rawSlots.map((s) => s.examId);
+            const examCodes = conflictingExamIds.map((id) => examMap.get(id)?.code ?? id);
+            hardViolations.push({
+              type: HardViolationType.STUDENT_SAME_DAY_CONFLICT,
+              description: `Student ${studentId} has ${rawSlots.length} exams scheduled on day ${dayIndex} (${examCodes.join(", ")}). Max 1 exam per student per calendar day enforced.`,
+              details: {
+                studentId,
+                dayIndex,
+                examIds: conflictingExamIds,
+                examCodes,
+              },
+            });
+          }
+        }
+      }
+    }
+
     let consecutiveOccurrences = 0;
     let multipleSameDayOccurrences = 0;
 
@@ -234,7 +277,7 @@ export class ScheduleValidatorService {
       });
     }
 
-    if (multipleSameDayOccurrences > 0) {
+    if (multipleSameDayOccurrences > 0 && !snapshot.strictDailyLimit) {
       const score = multipleSameDayOccurrences * weights.twoExamsSameDayPenalty;
       softPenalties.push({
         type: SoftPenaltyType.MULTIPLE_EXAMS_SAME_DAY,

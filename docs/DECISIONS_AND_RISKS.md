@@ -17,19 +17,38 @@
 14. **Deployment needs operational detail:** environments, database migrations, backups, restore drills, logs, health checks, monitoring, and rollback.
 15. **References require verification:** confirm cited papers, dates, bibliographic metadata, and official OR-Tools documentation before academic submission.
 
-## Decisions to resolve with the guide / exam cell
-- What exactly makes a student eligible for a given exam?
-- How are backlogs and repeat attempts represented?
-- Are exam registrations student-driven, admin-driven, or imported?
-- Are there fixed exam slots or can the solver choose arbitrary start times?
-- Are multiple papers allowed in the same room/time under any circumstances?
-- What room features and accessibility accommodations must be modeled?
-- What are maximum invigilation duties per day and minimum rest intervals?
-- Must the HOD approve department schedules?
-- Which notification channels are available and approved?
-- What data may be shown to each role, and for how long is it retained?
-- What is the expected maximum scale (students, papers, rooms, faculty)?
-- Is this a prototype for demonstration or intended for real institutional use?
+## Decisions Resolved with Exam Cell & Institutional Practice (October 2026)
+- **Canonical Roles & Governance Boundaries:**
+  1. `ADMIN`: Institutional system admin. Manages user provisioning (authorized to create and manage accounts for **Students**, **Faculty**, **Departmental Coordinators**, and **Exam Coordinators**). Supervises institutional health statistics, room capacity utilization, system policies, and immutable audit logs. *Admin does not approve, publish, or download examination timetables.*
+  2. `EXAM_COORDINATOR`: Chief Controller of Examinations. **Sole institutional authority** to configure examination cycles, manage holiday calendars and study preparation recesses, run the CP-SAT optimization solver, formally verify, **approve**, **publish**, and **download/print** the official Autonomous Examination Circular PDF.
+  3. `DEPARTMENTAL_COORDINATOR`: Faculty member designated for their academic department (CSE, CVL, MECH, ELE, ETC, etc.) — registers & manages department faculty, students across all undergraduate tiers (F.Y., S.Y., T.Y., Final Year), course syllabi with curriculum structures (**NEP**, **CYCLE 1**, **CYCLE 2**, **CYCLE 3**), and backlog student registrations.
+  4. `HOD`: Department Head — reviews department course syllabi and verifies equitable faculty invigilation assignments.
+  5. `FACULTY`: Faculty member / invigilator — reviews individual invigilation duties, assigned examination halls, and logs unavailability.
+  6. `STUDENT`: Candidate — views personalized multi-year/backlog exam schedule, hall ticket, seating hall, and desk allocations.
+
+- **Exam Structure & Multi-Year/Cycle Support:**
+  - Years: First Year (`F.Y.B.TECH`), Second Year (`S.Y.B.TECH`), Third Year (`T.Y.B.TECH`), Final Year (`FINAL YR B.TECH`).
+  - Curriculum Structures: `NEP` (Regular curriculum) alongside `CYCLE 1`, `CYCLE 2`, `CYCLE 3` (autonomous backlog curriculums).
+  - Daily Slots:
+    - Morning (`M`): 10:00 AM – 11:30 AM (F.Y. & S.Y. in separate designated halls)
+    - Afternoon (`A`): 12:30 PM – 02:00 PM (T.Y.)
+    - Evening (`E`): 03:00 PM – 04:30 PM (Final Year)
+
+- **Backlog No-Collision Hard Constraint (Strict H6):**
+  - **No student can have more than one examination on the same calendar day.**
+  - If a 2nd-year student is registered for a 1st-year backlog in Cycle 1/2/3, the solver strictly forbids scheduling both exams on the same calendar date, preventing fatigue and exam clashes.
+
+- **Holiday & Recess Handling (Hard Constraint H7):**
+  - Academic calendar pre-populates official gazetted and institutional holidays (Sundays + festival/national holidays + study recesses).
+  - Exam Coordinator can sync the official academic calendar or add local holidays.
+  - The scheduling engine strictly excludes all holiday dates from generated exam dates.
+
+- **Timetable Approval, Publication & Circular PDF Generation (Sole Authority: Exam Coordinator):**
+  - Timetable verification, locking, formal approval, publication, and circular generation are performed exclusively by the Examination Coordinator.
+  - Complete digital replica of institutional exam circular (KIT College of Engineering Autonomous format).
+  - Includes college header logo, circular metadata, Date, Day, Year, Programme, Structure (NEP/Cycle), Time, M/A/E, Sem, Course Code, Course Name.
+  - Includes 9 standardized student examination instructions and 5 administrative signatory blocks (Dy. Registrars Pre/On/Post Exam, Dean Examinations, Director).
+  - Provides in-app interactive printable circular preview with one-click browser print-to-PDF, plus direct PDF/CSV downloads.
 
 ## Risk register
 | Risk | Impact | Mitigation |

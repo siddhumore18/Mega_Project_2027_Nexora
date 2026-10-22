@@ -294,11 +294,11 @@ scheduleRouter.post(
   }
 );
 
-// Formally approve a version
+// Formally approve a version (Exclusive Authority: Examination Coordinator)
 scheduleRouter.post(
   "/versions/:versionId/approve",
   authenticateToken,
-  requireRole(UserRole.EXAM_COORDINATOR, UserRole.ADMIN),
+  requireRole(UserRole.EXAM_COORDINATOR),
   async (req: Request, res: Response) => {
     try {
       const version = await ScheduleVersionService.approveVersion(
@@ -324,11 +324,11 @@ scheduleRouter.post(
   }
 );
 
-// Publish approved version (Strict Gate: must be APPROVED)
+// Publish approved version (Strict Gate: must be APPROVED, exclusive to Examination Coordinator)
 scheduleRouter.post(
   "/versions/:versionId/publish",
   authenticateToken,
-  requireRole(UserRole.EXAM_COORDINATOR, UserRole.ADMIN),
+  requireRole(UserRole.EXAM_COORDINATOR),
   async (req: Request, res: Response) => {
     try {
       const published = await ScheduleVersionService.publishVersion(

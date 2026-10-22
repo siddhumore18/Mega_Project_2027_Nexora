@@ -23,6 +23,24 @@ export const ScheduleVersionStatus = {
 export type ScheduleVersionStatus =
   (typeof ScheduleVersionStatus)[keyof typeof ScheduleVersionStatus];
 
+export const CurriculumStructure = {
+  NEP: "NEP",
+  CYCLE_1: "CYCLE 1",
+  CYCLE_2: "CYCLE 2",
+  CYCLE_3: "CYCLE 3",
+} as const;
+
+export type CurriculumStructure = (typeof CurriculumStructure)[keyof typeof CurriculumStructure];
+
+export const YearTier = {
+  FY: "F.Y.B.TECH",
+  SY: "S.Y.B.TECH",
+  TY: "T.Y.B.TECH",
+  FINAL: "FINAL YR B.TECH",
+} as const;
+
+export type YearTier = (typeof YearTier)[keyof typeof YearTier];
+
 // Phase 6 Scheduling Problem Model Schemas
 
 export const ExamInputSchema = z.object({
@@ -32,6 +50,10 @@ export const ExamInputSchema = z.object({
   durationMinutes: z.number().int().positive(),
   enrolledStudents: z.array(z.string()), // student IDs
   requiredFeatures: z.array(z.string()).default([]),
+  curriculumStructure: z.enum(["NEP", "CYCLE 1", "CYCLE 2", "CYCLE 3"]).default("NEP"),
+  yearOfStudy: z.string().optional(),
+  semester: z.number().int().optional(),
+  programme: z.string().optional(),
 });
 
 export type ExamInput = z.infer<typeof ExamInputSchema>;
@@ -65,6 +87,8 @@ export const SchedulingProblemSnapshotSchema = z.object({
   exams: z.array(ExamInputSchema),
   timeSlots: z.array(TimeSlotInputSchema),
   rooms: z.array(RoomInputSchema),
+  holidays: z.array(z.string()).default([]), // YYYY-MM-DD holiday dates
+  strictDailyLimit: z.boolean().default(false), // H6: strictly max 1 exam per student per calendar day
   weights: z
     .object({
       consecutiveExamsPenalty: z.number().default(10),
@@ -88,6 +112,8 @@ export type ScheduledAssignment = z.infer<typeof ScheduledAssignmentSchema>;
 
 export const HardViolationType = {
   STUDENT_OVERLAP: "STUDENT_OVERLAP",
+  STUDENT_SAME_DAY_CONFLICT: "STUDENT_SAME_DAY_CONFLICT",
+  HOLIDAY_CLASH: "HOLIDAY_CLASH",
   ROOM_DOUBLE_BOOKED: "ROOM_DOUBLE_BOOKED",
   ROOM_CAPACITY_EXCEEDED: "ROOM_CAPACITY_EXCEEDED",
   EXAM_UNSCHEDULED: "EXAM_UNSCHEDULED",

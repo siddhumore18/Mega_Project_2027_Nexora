@@ -12,27 +12,27 @@ This is a constraint optimization problem, not automatically a machine-learning 
 - Institution policy and configured hard/soft constraints.
 - A versioned input snapshot.
 
-## Hard constraints (illustrative; confirm policy)
+## Hard constraints (Enforced by CP-SAT & Domain Layer)
 - Every required exam is assigned exactly once in a complete schedule.
-- No student has overlapping exams.
-- No room is double-booked.
-- A room meets capacity and required feature constraints.
-- No invigilator is assigned to overlapping duties.
-- Assigned invigilators are available and meet configured requirements.
-- Exam duration fits the assigned slot and operating window.
-- No forbidden date/session assignments.
+- No student has overlapping exams in the same time slot (`STUDENT_OVERLAP`).
+- **No student has more than one exam on the same calendar day** (`STUDENT_SAME_DAY_CONFLICT`), ensuring backlog papers (Cycle 1, 2, 3) never collide with regular year papers.
+- **No exams scheduled on holidays or recesses** (`HOLIDAY_CLASH`): Gazetted/institutional holidays and Sundays are strictly blacked out.
+- No room is double-booked (`ROOM_DOUBLE_BOOKED`).
+- Room meets enrolled student capacity (`ROOM_CAPACITY_EXCEEDED`).
+- No invigilator is assigned to overlapping duties (`INVIGILATOR_OVERLAP`).
+- Faculty cannot invigilate their own subject examination.
+- Multi-Year distribution matches institutional session windows:
+  - Morning (`M` / 10:00 - 11:30 AM): F.Y. & S.Y. in distinct designated examination halls.
+  - Afternoon (`A` / 12:30 - 02:00 PM): T.Y.
+  - Evening (`E` / 03:00 - 04:30 PM): Final Year.
+- Supports curriculum structures: `NEP` (regular) and `CYCLE 1`, `CYCLE 2`, `CYCLE 3` (backlogs).
 
 Hard constraints cannot be broken in a published schedule.
 
-## Soft constraints (illustrative)
-- Avoid too many exams for a cohort on the same day.
-- Avoid consecutive exams or minimize short gaps, according to policy.
-- Balance invigilation workload.
-- Prefer specific sessions/dates where possible.
-- Improve room utilization without sacrificing mandatory constraints.
-- Minimize disruption when rescheduling an already-published timetable.
-
-Each soft constraint needs a weight, owner, rationale, and acceptance test. Avoid arbitrary weights without measuring trade-offs.
+## Soft constraints & Optimization Priorities
+- **Exam Spacing:** Provide study/rest intervals between difficult theoretical subjects for the same student cohort.
+- **Hall Utilization:** Maximize room packing efficiency and minimize vacant seating in large auditoriums.
+- **Invigilator Equity:** Equitably balance invigilation duties across all active departmental faculty.
 
 ## Suggested API contract
 `POST /api/v1/schedule-runs`

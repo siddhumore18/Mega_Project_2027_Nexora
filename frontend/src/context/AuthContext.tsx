@@ -63,13 +63,23 @@ export const PRESET_USERS: Record<string, UserProfile> = {
     designation: "Chief University Administrator",
     avatarInitials: "SP",
   },
+  deptCoordinator: {
+    id: "usr-dept-coord-01",
+    name: "Prof. Rajesh Kulkarni",
+    email: "coordinator.cse@nexora.edu",
+    role: UserRole.DEPARTMENTAL_COORDINATOR,
+    department: "Computer Science & Engineering",
+    identifier: "FAC-1044",
+    designation: "Associate Professor & Departmental Exam Coordinator",
+    avatarInitials: "RK",
+  },
 };
 
 interface AuthContextType {
   currentUser: UserProfile | null;
   isAuthenticated: boolean;
   login: (email: string, role?: UserRole) => boolean;
-  loginAsPreset: (key: "student" | "faculty" | "coordinator" | "hod" | "admin") => void;
+  loginAsPreset: (key: "student" | "faculty" | "coordinator" | "hod" | "admin" | "deptCoordinator") => void;
   logout: () => void;
   switchRole: (role: UserRole) => void;
 }
@@ -83,7 +93,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const stored = localStorage.getItem("nexora_auth_user");
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed.role === UserRole.ADMIN || parsed.role === UserRole.EXAM_COORDINATOR) {
+        if (
+          parsed.role === UserRole.ADMIN ||
+          parsed.role === UserRole.EXAM_COORDINATOR ||
+          parsed.role === UserRole.DEPARTMENTAL_COORDINATOR
+        ) {
           return parsed;
         }
       }
@@ -126,7 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
-  const loginAsPreset = (key: "student" | "faculty" | "coordinator" | "hod" | "admin") => {
+  const loginAsPreset = (key: "student" | "faculty" | "coordinator" | "hod" | "admin" | "deptCoordinator") => {
     if (PRESET_USERS[key]) {
       setCurrentUser(PRESET_USERS[key]);
     }
@@ -142,6 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (role === UserRole.STUDENT) setCurrentUser(PRESET_USERS.student);
     else if (role === UserRole.FACULTY) setCurrentUser(PRESET_USERS.faculty);
     else if (role === UserRole.EXAM_COORDINATOR) setCurrentUser(PRESET_USERS.coordinator);
+    else if (role === UserRole.DEPARTMENTAL_COORDINATOR) setCurrentUser(PRESET_USERS.deptCoordinator);
     else if (role === UserRole.HOD) setCurrentUser(PRESET_USERS.hod);
     else if (role === UserRole.ADMIN) setCurrentUser(PRESET_USERS.admin);
     else setCurrentUser({ ...currentUser, role });

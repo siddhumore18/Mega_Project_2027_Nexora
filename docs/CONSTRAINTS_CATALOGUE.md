@@ -63,28 +63,31 @@ $$\forall i \in I, \quad \forall t \in T: \quad \sum_{e \in E} \sum_{r \in R} in
 - **Violation Code:** `INVIGILATOR_OVERLAP`
 - **Diagnostic Output:** Identifies faculty ID, time slot ID, and conflicting assignments.
 
+### H6: Strict Backlog & Regular Daily Separation (Max 1 Exam Per Student Per Day)
+A student (whether regular or repeating backlog courses in Cycle 1, 2, or 3) **must never have more than one examination on the same calendar day**. If a student in 2nd year takes a 1st-year backlog paper, that backlog paper cannot occur on the same day as their 2nd-year paper.
+$$\forall s \in S, \quad \forall d \in D: \quad \sum_{t \in T_d} \sum_{e \in E_s} y_{e, t} \le 1$$
+- **Violation Code:** `STUDENT_SAME_DAY_CONFLICT`
+- **Diagnostic Output:** Identifies student roll number, conflicting calendar date, and the list of scheduled exams $[e_1 (\text{Regular}), e_2 (\text{Backlog Cycle})]$.
+
+### H7: Holiday & Institutional Recess Blackout
+No examination session can be scheduled on official Gazetted Holidays, Institutional Holidays, or Sundays.
+$$\forall t \in T_{\text{holidays}}: \quad \sum_{e \in E} y_{e, t} = 0$$
+- **Violation Code:** `HOLIDAY_CLASH`
+- **Diagnostic Output:** Identifies conflicting holiday title, blocked date, and scheduled exam offering.
+
 ---
 
 ## 3. Soft Constraints & Objective Function
 
 Soft constraints do not invalidate feasibility, but penalize poor scheduling quality. The objective is to minimize total penalty:
-$$\min \quad Z = W_{\text{consec}} \cdot \mathcal{P}_{\text{consec}} + W_{\text{sameday}} \cdot \mathcal{P}_{\text{sameday}} + W_{\text{util}} \cdot \mathcal{P}_{\text{util}}$$
+$$\min \quad Z = W_{\text{spacing}} \cdot \mathcal{P}_{\text{spacing}} + W_{\text{util}} \cdot \mathcal{P}_{\text{util}}$$
 
-### S1: Consecutive Exams Penalty ($W_{\text{consec}} = 10$)
-Penalizes students having exams in consecutive slots on the same day (e.g., Morning slot followed immediately by Afternoon slot).
-- For consecutive slots $t_a, t_b$ with $day(t_a) = day(t_b)$ and $index(t_b) = index(t_a) + 1$:
-  $$\mathcal{P}_{\text{consec}} = \sum_{s \in S} \sum_{(t_a, t_b)} \left( \sum_{e \in E_s} y_{e, t_a} \cdot \sum_{e' \in E_s} y_{e', t_b} \right)$$
-- **Penalty Type:** `CONSECUTIVE_EXAMS_SAME_DAY`
-- **Penalty Score:** Weight $\times$ number of student consecutive occurrences.
+### S1: Exam Spacing & Rest Days ($W_{\text{spacing}} = 10$)
+Favors schedules that provide students at least 1 study/rest day between consecutive major theoretical examinations.
+- **Penalty Type:** `INSUFFICIENT_EXAM_SPACING`
+- **Penalty Score:** Weight $\times$ occurrences of consecutive examination days for the same student cohort.
 
-### S2: Multiple Exams on Same Day ($W_{\text{sameday}} = 25$)
-Penalizes any student scheduled for 2 or more exams on the same calendar day, even if not strictly consecutive (e.g. Slot 1 and Slot 3).
-- For day $d$:
-  $$\mathcal{P}_{\text{sameday}} = \sum_{s \in S} \sum_{d} \max\left(0, \sum_{t \in T_d} \sum_{e \in E_s} y_{e, t} - 1\right)$$
-- **Penalty Type:** `MULTIPLE_EXAMS_SAME_DAY`
-- **Penalty Score:** Weight $\times$ each additional same-day exam beyond the first.
-
-### S3: Room Utilization & Wasted Capacity ($W_{\text{util}} = 5$)
+### S2: Room Utilization & Wasted Capacity ($W_{\text{util}} = 5$)
 Penalizes scheduling small cohorts in massive halls when smaller matching rooms are available, leaving halls underutilized.
 $$\mathcal{P}_{\text{util}} = \sum_{e \in E} \sum_{r \in R} \sum_{t \in T} x_{e, t, r} \cdot \max(0, cap(r) - 2 \cdot |S_e|)$$
 - **Penalty Type:** `ROOM_CAPACITY_UNDERUTILIZED`
