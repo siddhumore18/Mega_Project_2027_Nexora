@@ -105,6 +105,9 @@ def solve_schedule(snapshot: Dict[str, Any], max_time_seconds: float = 15.0) -> 
             "generatedAt": datetime.now(timezone.utc).isoformat(),
         }
 
+    strict_daily_limit = snapshot.get("strictDailyLimit", False)
+    holidays = set(snapshot.get("holidays", []))
+
     # Student conflict feasibility check (Pigeonhole: student exams > total slots)
     student_exams_map: Dict[str, List[str]] = {}
     for exam in exams:
@@ -138,6 +141,41 @@ def solve_schedule(snapshot: Dict[str, Any], max_time_seconds: float = 15.0) -> 
             "generatedAt": datetime.now(timezone.utc).isoformat(),
         }
 
+    # Group time slots by dayIndex
+    day_slots_map: Dict[int, List[Dict[str, Any]]] = {}
+    for slot in time_slots:
+        # Exclude declared holiday slots from valid exam scheduling days
+        if slot.get("date") not in holidays:
+            d_idx = slot.get("dayIndex", 1)
+            day_slots_map.setdefault(d_idx, []).append(slot)
+
+    # Pigeonhole check for strict daily limit (Max 1 exam per student per calendar day)
+    if strict_daily_limit:
+        day_pigeonhole_failures = []
+        for s_id, e_list in student_exams_map.items():
+            if len(e_list) > len(day_slots_map):
+                day_pigeonhole_failures.append(
+                    f"Student {s_id} is registered for {len(e_list)} exams, but only {len(day_slots_map)} non-holiday examination days exist. Maximum 1 exam per student per day is enforced."
+                )
+        if day_pigeonhole_failures:
+            return {
+                "scheduleRunId": snapshot.get("examCycleId", "run-day-pigeonhole"),
+                "status": "INFEASIBLE",
+                "objectiveScore": None,
+                "assignments": [],
+                "hardViolations": [
+                    {
+                        "type": "STUDENT_SAME_DAY_CONFLICT",
+                        "description": msg,
+                        "details": {"availableDays": len(day_slots_map)},
+                    }
+                    for msg in day_pigeonhole_failures
+                ],
+                "softPenalties": [],
+                "diagnostics": day_pigeonhole_failures,
+                "generatedAt": datetime.now(timezone.utc).isoformat(),
+            }
+
     # Build CP-SAT Model
     model = cp_model.CpModel()
 
@@ -170,6 +208,10 @@ def solve_schedule(snapshot: Dict[str, Any], max_time_seconds: float = 15.0) -> 
             # y[e, s] is 1 if any x[e, s, r] == 1, 0 otherwise
             model.Add(sum(slot_vars) == y_var)
 
+            # Hard Constraint H7: Blackout declared holidays
+            if slot.get("date") in holidays:
+                model.Add(y_var == 0)
+
     # Hard Constraint H4: Each exam must be scheduled in exactly one time slot and room
     for exam in exams:
         e_id = exam["id"]
@@ -195,15 +237,8 @@ def solve_schedule(snapshot: Dict[str, Any], max_time_seconds: float = 15.0) -> 
                 s_id_slot = slot["id"]
                 model.Add(sum(y[(e_id, s_id_slot)] for e_id in e_list) <= 1)
 
-    # Objective: Minimize Soft Penalties
+    # Hard Constraint H6 / Soft Constraint S2: Student Same-Day Limits
     objective_terms = []
-
-    # Soft Constraint S2: Multiple Exams Same Day
-    # Group time slots by dayIndex
-    day_slots_map: Dict[int, List[Dict[str, Any]]] = {}
-    for slot in time_slots:
-        d_idx = slot.get("dayIndex", 1)
-        day_slots_map.setdefault(d_idx, []).append(slot)
 
     for s_id, e_list in student_exams_map.items():
         if len(e_list) > 1:
@@ -212,12 +247,17 @@ def solve_schedule(snapshot: Dict[str, Any], max_time_seconds: float = 15.0) -> 
                     y[(e_id, sl["id"])]
                     for e_id in e_list
                     for sl in d_slots
+                    if (e_id, sl["id"]) in y
                 ]
                 if day_exam_vars:
-                    # excess_var = max(0, sum(day_exam_vars) - 1)
-                    excess_var = model.NewIntVar(0, len(day_exam_vars), f"excess_{s_id}_d{d_idx}")
-                    model.Add(excess_var >= sum(day_exam_vars) - 1)
-                    objective_terms.append(excess_var * w_sameday)
+                    if strict_daily_limit:
+                        # Hard Constraint H6: Max 1 exam per student per calendar day (backlog paper protection)
+                        model.Add(sum(day_exam_vars) <= 1)
+                    else:
+                        # Soft Penalty S2
+                        excess_var = model.NewIntVar(0, len(day_exam_vars), f"excess_{s_id}_d{d_idx}")
+                        model.Add(excess_var >= sum(day_exam_vars) - 1)
+                        objective_terms.append(excess_var * w_sameday)
 
     # Soft Constraint S1: Consecutive Exams Same Day
     for s_id, e_list in student_exams_map.items():

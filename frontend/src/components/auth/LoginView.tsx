@@ -48,7 +48,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
     }, 400);
   };
 
-  const handleQuickLogin = (key: "coordinator" | "admin") => {
+  const handleQuickLogin = (key: "coordinator" | "admin" | "deptCoordinator") => {
     loginAsPreset(key);
     if (onSuccess) onSuccess();
   };
@@ -67,13 +67,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
           </div>
         </div>
 
-        {/* Demo Fast-Login Strip - Exposing Only Admin and Exam Coordinator */}
+        {/* Demo Fast-Login Strip - Exposing Admin, Exam Coordinator, and Departmental Coordinator */}
         <div className="demo-login-strip">
           <div className="demo-strip-label">
             <User size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />
             One-Click Evaluator Sign-In:
           </div>
-          <div className="demo-buttons-grid" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+          <div className="demo-buttons-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
             <button
               type="button"
               onClick={() => handleQuickLogin("admin")}
@@ -91,6 +91,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
             >
               <span className="demo-btn-role" style={{ color: "#1d4ed8", fontWeight: "700" }}>Exam Coordinator</span>
               <span className="demo-btn-name">Dr. Sarah Jenkins</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickLogin("deptCoordinator")}
+              className="demo-role-btn dept-coord-badge-btn"
+              style={{ borderColor: "#8b5cf6", backgroundColor: "#f5f3ff" }}
+              title="Sign in as Departmental Coordinator Prof. Rajesh Kulkarni (CSE)"
+            >
+              <span className="demo-btn-role" style={{ color: "#7c3aed", fontWeight: "700" }}>Dept Coordinator</span>
+              <span className="demo-btn-name">Prof. R. Kulkarni</span>
             </button>
           </div>
         </div>

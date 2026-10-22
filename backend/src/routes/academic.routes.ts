@@ -50,13 +50,13 @@ academicRouter.get("/subjects", getSubjects);
 academicRouter.post(
   "/subjects",
   authenticateToken,
-  requireRole(UserRole.EXAM_COORDINATOR, UserRole.ADMIN),
+  requireRole(UserRole.DEPARTMENTAL_COORDINATOR, UserRole.EXAM_COORDINATOR, UserRole.ADMIN),
   createSubjectHandler
 );
 academicRouter.delete(
   "/subjects/:id",
   authenticateToken,
-  requireRole(UserRole.EXAM_COORDINATOR, UserRole.ADMIN),
+  requireRole(UserRole.DEPARTMENTAL_COORDINATOR, UserRole.EXAM_COORDINATOR, UserRole.ADMIN),
   deleteSubjectHandler
 );
 
@@ -67,13 +67,13 @@ academicRouter.get("/faculty", getFacultyHandler);
 academicRouter.post(
   "/faculty",
   authenticateToken,
-  requireRole(UserRole.EXAM_COORDINATOR, UserRole.ADMIN),
+  requireRole(UserRole.DEPARTMENTAL_COORDINATOR, UserRole.EXAM_COORDINATOR, UserRole.ADMIN),
   createFacultyHandler
 );
 academicRouter.delete(
   "/faculty/:id",
   authenticateToken,
-  requireRole(UserRole.EXAM_COORDINATOR, UserRole.ADMIN),
+  requireRole(UserRole.DEPARTMENTAL_COORDINATOR, UserRole.EXAM_COORDINATOR, UserRole.ADMIN),
   deleteFacultyHandler
 );
 
@@ -84,13 +84,13 @@ academicRouter.get("/students", getStudentsHandler);
 academicRouter.post(
   "/students",
   authenticateToken,
-  requireRole(UserRole.EXAM_COORDINATOR, UserRole.ADMIN),
+  requireRole(UserRole.DEPARTMENTAL_COORDINATOR, UserRole.EXAM_COORDINATOR, UserRole.ADMIN),
   createStudentHandler
 );
 academicRouter.delete(
   "/students/:id",
   authenticateToken,
-  requireRole(UserRole.EXAM_COORDINATOR, UserRole.ADMIN),
+  requireRole(UserRole.DEPARTMENTAL_COORDINATOR, UserRole.EXAM_COORDINATOR, UserRole.ADMIN),
   deleteStudentHandler
 );
 

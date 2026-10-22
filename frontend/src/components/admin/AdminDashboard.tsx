@@ -34,10 +34,14 @@ import {
   XCircle,
   Eye,
   Download,
+  Upload,
+  UserPlus,
+  FileSpreadsheet,
   X,
   ChevronDown,
   RotateCcw,
   ShieldCheck,
+  Info,
 } from "lucide-react";
 
 interface AdminDashboardProps {
@@ -134,6 +138,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // --- Modals State ---
   // Users
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showAddFacultyCoordinatorModal, setShowAddFacultyCoordinatorModal] = useState(false);
+  const [showBulkAddFacultyModal, setShowBulkAddFacultyModal] = useState(false);
+  const [bulkFacultyText, setBulkFacultyText] = useState("");
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
   const [deletingUser, setDeletingUser] = useState<UserRecord | null>(null);
 
@@ -182,6 +189,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return {
       [UserRole.ADMIN]: storeState.users.filter((u) => u.role === UserRole.ADMIN).length,
       [UserRole.EXAM_COORDINATOR]: storeState.users.filter((u) => u.role === UserRole.EXAM_COORDINATOR).length,
+      [UserRole.DEPARTMENTAL_COORDINATOR]: storeState.users.filter((u) => u.role === UserRole.DEPARTMENTAL_COORDINATOR).length,
       [UserRole.HOD]: storeState.users.filter((u) => u.role === UserRole.HOD).length,
       [UserRole.FACULTY]: storeState.users.filter((u) => u.role === UserRole.FACULTY).length,
       [UserRole.STUDENT]: storeState.users.filter((u) => u.role === UserRole.STUDENT).length,
@@ -191,6 +199,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const roleLabelMap: Record<UserRole, string> = {
     [UserRole.ADMIN]: "Admin",
     [UserRole.EXAM_COORDINATOR]: "Exam Coordinator",
+    [UserRole.DEPARTMENTAL_COORDINATOR]: "Dept Coordinator",
     [UserRole.HOD]: "Department HOD",
     [UserRole.FACULTY]: "Faculty",
     [UserRole.STUDENT]: "Student",
@@ -309,7 +318,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Derived counts for Overview
   const totalStudents = storeState.users.filter((u) => u.role === UserRole.STUDENT).length * 310; // realistic strength
-  const pendingApprovalsCount = storeState.timetables.filter((t) => t.status === "Submitted").length;
 
   // CSV Exporter
   const handleExportCSV = (filename: string, headers: string[], rows: (string | number)[][]) => {
@@ -324,6 +332,128 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     showToast(`Exported ${filename}.csv successfully.`);
+  };
+
+  const currentAdminName = auth.currentUser?.name || "Sanika Patil";
+
+  // Faculty & Coordinator Template Downloader
+  const handleDownloadFacultyTemplate = () => {
+    const headers = [
+      "Employee ID",
+      "Full Name",
+      "Email",
+      "Department",
+      "Role",
+      "Designation",
+      "Max Duties",
+    ];
+
+    const sampleRows = [
+      ["FAC-CSE-101", "Dr. Sneha Kulkarni", "sneha.kulkarni@nexora.edu", "Computer Science & Engineering", "DEPARTMENTAL_COORDINATOR", "Associate Professor", "4"],
+      ["FAC-CSE-102", "Prof. Amit Deshpande", "amit.deshpande@nexora.edu", "Computer Science & Engineering", "FACULTY", "Assistant Professor", "3"],
+      ["FAC-MECH-101", "Dr. Ramesh Patil", "ramesh.patil@nexora.edu", "Mechanical Engineering", "DEPARTMENTAL_COORDINATOR", "Professor & HOD", "4"],
+      ["FAC-ECE-101", "Prof. Sunita Rao", "sunita.rao@nexora.edu", "Electronics & Communication Engineering", "FACULTY", "Assistant Professor", "3"],
+      ["FAC-CIVIL-101", "Dr. S. K. Joshi", "sk.joshi@nexora.edu", "Civil & Environmental Engineering", "DEPARTMENTAL_COORDINATOR", "Associate Professor", "4"],
+    ];
+
+    const csvContent = [headers.join(","), ...sampleRows.map((r) => r.join(","))].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Standard_Faculty_Coordinator_Template.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast("Faculty & Coordinator standard Excel template downloaded.", "success");
+  };
+
+  // Live parser for bulk faculty
+  const parsedFacultyRows = useMemo(() => {
+    if (!bulkFacultyText.trim()) return [];
+
+    const lines = bulkFacultyText
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    if (lines.length === 0) return [];
+
+    const firstLineLower = lines[0].toLowerCase();
+    const hasHeader =
+      firstLineLower.includes("employee") ||
+      firstLineLower.includes("name") ||
+      firstLineLower.includes("role") ||
+      firstLineLower.includes("fac");
+
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+
+    return dataLines.map((line) => {
+      const isTab = line.includes("\t");
+      const parts = isTab ? line.split("\t") : line.split(",");
+      const cleanParts = parts.map((p) => p.trim().replace(/^["']|["']$/g, ""));
+
+      const identifier = (cleanParts[0] || "").toUpperCase();
+      const name = cleanParts[1] || "";
+      const email = cleanParts[2] || (identifier ? `${identifier.toLowerCase()}@nexora.edu` : "");
+      const deptRaw = cleanParts[3] || "Computer Science & Engineering";
+      const roleRaw = (cleanParts[4] || "").toUpperCase();
+
+      let role: UserRole = UserRole.FACULTY;
+      if (roleRaw.includes("COORDINATOR") || roleRaw.includes("DEPT")) {
+        role = UserRole.DEPARTMENTAL_COORDINATOR;
+      } else if (roleRaw.includes("HOD")) {
+        role = UserRole.HOD;
+      }
+
+      const designation = cleanParts[5] || "Assistant Professor";
+      const maxDuties = parseInt(cleanParts[6] || "4", 10) || 4;
+
+      const isDuplicate = storeState.users.some(
+        (u) => u.identifier.toUpperCase() === identifier || u.email.toLowerCase() === email.toLowerCase()
+      );
+      const isValid = Boolean(identifier && name && email);
+
+      return {
+        identifier,
+        name,
+        email,
+        department: deptRaw,
+        role,
+        designation,
+        maxDuties,
+        isDuplicate,
+        isValid,
+        error: !identifier ? "Missing Employee ID" : !name ? "Missing Name" : !email ? "Missing Email" : undefined,
+      };
+    });
+  }, [bulkFacultyText, storeState.users]);
+
+  const handleConfirmBulkFacultyImport = () => {
+    const validRows = parsedFacultyRows.filter((r) => r.isValid);
+    if (validRows.length === 0) {
+      showToast("No valid faculty rows found to import.", "error");
+      return;
+    }
+
+    const payload = validRows.map((r) => ({
+      name: r.name,
+      identifier: r.identifier,
+      email: r.email,
+      departmentCode: r.department,
+      role: r.role,
+      designation: r.designation,
+      maxDuties: r.maxDuties,
+    }));
+
+    const result = AcademicDataStore.bulkAddFaculty(payload, currentAdminName);
+    showToast(
+      `Bulk provisioned ${result.addedCount} faculty/coordinators (${result.updatedCount} updated).`,
+      "success"
+    );
+    setShowBulkAddFacultyModal(false);
+    setBulkFacultyText("");
   };
 
   return (
@@ -394,22 +524,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             onClick={() => handleMenuSelect("approvals")}
           >
             <CalendarCheck2 size={17} className="dash-nav-item-icon" />
-            <span>Timetable Approvals</span>
-            {pendingApprovalsCount > 0 && (
-              <span
-                style={{
-                  marginLeft: "auto",
-                  backgroundColor: "var(--brand-primary)",
-                  color: "#ffffff",
-                  fontSize: "11px",
-                  fontWeight: "700",
-                  padding: "1px 7px",
-                  borderRadius: "9999px",
-                }}
-              >
-                {pendingApprovalsCount}
-              </span>
-            )}
+            <span>Timetable Oversight</span>
+            <span
+              style={{
+                marginLeft: "auto",
+                backgroundColor: "var(--bg-subtle)",
+                color: "var(--text-secondary)",
+                fontSize: "11px",
+                fontWeight: "700",
+                padding: "1px 7px",
+                borderRadius: "9999px",
+                border: "1px solid var(--border-default)",
+              }}
+            >
+              {storeState.timetables.length}
+            </span>
           </button>
 
           <button
@@ -501,6 +630,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               >
                 Coordinator
               </button>
+              <button
+                type="button"
+                className="dash-role-btn"
+                onClick={() => auth.switchRole(UserRole.DEPARTMENTAL_COORDINATOR)}
+                title="Open Department Coordinator Portal"
+              >
+                Dept Coordinator
+              </button>
             </div>
 
             {/* User Profile Pill */}
@@ -546,7 +683,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   {activeMenu === "departments" && "Academic Departments Roster"}
                   {activeMenu === "programs" && "Programs & Subject Curriculum Catalog"}
                   {activeMenu === "cycles" && "Examination Cycles Configuration"}
-                  {activeMenu === "approvals" && "Timetable Verification & Approval Queue"}
+                  {activeMenu === "approvals" && "Institutional Timetable Oversight & Statistics"}
                   {activeMenu === "grievances" && "Examination Grievance & Redressal Desk"}
                   {activeMenu === "reports" && "Institutional Analytics & Data Export"}
                   {activeMenu === "audit" && "System Audit Log & Immutable Trails (FR-20)"}
@@ -654,27 +791,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div
                   className="dash-stat-card"
                   onClick={() => handleMenuSelect("approvals")}
-                  title="Click to review Pending Timetable Approvals"
-                  style={{
-                    borderColor: pendingApprovalsCount > 0 ? "var(--brand-primary)" : "var(--border-default)",
-                    backgroundColor: pendingApprovalsCount > 0 ? "#f8faff" : "#ffffff",
-                  }}
+                  title="Click to view Institutional Timetable Statistics"
                 >
                   <div
                     className="dash-stat-icon-wrapper"
                     style={{
-                      backgroundColor: pendingApprovalsCount > 0 ? "#eff6ff" : "#f1f5f9",
-                      color: pendingApprovalsCount > 0 ? "#2563eb" : "#64748b",
+                      backgroundColor: "#eff6ff",
+                      color: "#2563eb",
                     }}
                   >
                     <CalendarCheck2 size={22} />
                   </div>
                   <div className="dash-stat-content">
-                    <span className="dash-stat-title">Pending Approvals</span>
-                    <span className="dash-stat-value" style={{ color: pendingApprovalsCount > 0 ? "#2563eb" : "#0f172a" }}>
-                      {pendingApprovalsCount}
+                    <span className="dash-stat-title">Active Timetables</span>
+                    <span className="dash-stat-value" style={{ color: "#2563eb" }}>
+                      {storeState.timetables.length}
                     </span>
-                    <span className="dash-stat-desc">Coordinator timetable submissions</span>
+                    <span className="dash-stat-desc">Governed by Examination Cell</span>
                   </div>
                 </div>
               </div>
@@ -748,19 +881,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                 </div>
 
-                {/* Pending Timetable Approvals Queue */}
+                {/* Institutional Timetable Status Overview */}
                 <div className="dash-card" style={{ margin: 0 }}>
                   <div className="dash-card-header">
                     <div className="dash-card-title-group">
-                      <h3 className="dash-card-title">Pending Timetable Approvals</h3>
-                      <p className="dash-card-subtitle">Schedules awaiting administrative verification</p>
+                      <h3 className="dash-card-title">Institutional Timetable Status</h3>
+                      <p className="dash-card-subtitle">Exam schedules managed and approved by Examination Coordinator</p>
                     </div>
                     <button
                       type="button"
                       className="dash-btn-sm dash-btn-secondary"
                       onClick={() => handleMenuSelect("approvals")}
                     >
-                      Open Queue
+                      View All
                     </button>
                   </div>
 
@@ -769,7 +902,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <thead>
                         <tr>
                           <th>Cycle / Dept</th>
-                          <th>Submitted By</th>
+                          <th>Coordinator In-Charge</th>
                           <th>Solver</th>
                           <th>Status</th>
                           <th>Action</th>
@@ -805,7 +938,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <td>
                               <button
                                 type="button"
-                                className="dash-btn-sm dash-btn-primary"
+                                className="dash-btn-sm dash-btn-secondary"
                                 style={{ padding: "5px 10px", fontSize: "12px" }}
                                 onClick={() => {
                                   setSelectedTimetableForReview(t);
@@ -813,7 +946,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   setShowRejectionForm(false);
                                 }}
                               >
-                                Review
+                                Inspect Stats
                               </button>
                             </td>
                           </tr>
@@ -949,7 +1082,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     Role-segregated directory for Admin, Exam Coordinator, HOD, Faculty, and Student accounts
                   </p>
                 </div>
-                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                  <button
+                    type="button"
+                    className="dash-btn-sm dash-btn-outline"
+                    style={{ borderColor: "var(--brand-primary, #2563eb)", color: "var(--brand-primary, #2563eb)", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                    onClick={() => setShowAddFacultyCoordinatorModal(true)}
+                    title="Provision a new Departmental Coordinator or Faculty member"
+                  >
+                    <UserPlus size={14} />
+                    + Add Faculty / Coordinator
+                  </button>
+                  <button
+                    type="button"
+                    className="dash-btn-sm dash-btn-primary"
+                    style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                    onClick={() => setShowBulkAddFacultyModal(true)}
+                    title="Bulk provision multiple faculty members and department coordinators via spreadsheet"
+                  >
+                    <Upload size={14} />
+                    Bulk Add Faculty / Coordinators
+                  </button>
                   <button
                     type="button"
                     className="dash-btn-sm dash-btn-secondary"
@@ -991,6 +1144,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {[
                   { role: UserRole.ADMIN, label: "Admin" },
                   { role: UserRole.EXAM_COORDINATOR, label: "Exam Coordinator" },
+                  { role: UserRole.DEPARTMENTAL_COORDINATOR, label: "Dept Coordinator" },
                   { role: UserRole.HOD, label: "HOD" },
                   { role: UserRole.FACULTY, label: "Faculty" },
                   { role: UserRole.STUDENT, label: "Student" },
@@ -2069,15 +2223,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {/* =========================================================================
               VIEW 6: TIMETABLE APPROVALS (Actionable Review, Approve, Revision, Reject)
              ========================================================================= */}
+          {/* =========================================================================
+              VIEW 6: TIMETABLE OVERSIGHT (View-only monitoring for Administrator)
+             ========================================================================= */}
           {activeMenu === "approvals" && (
             <div className="dash-card">
               <div className="dash-card-header">
                 <div className="dash-card-title-group">
-                  <h3 className="dash-card-title">Timetable Approvals Queue</h3>
+                  <h3 className="dash-card-title">Institutional Timetable Oversight & Statistics</h3>
                   <p className="dash-card-subtitle">
-                    Actionable verification of Exam Coordinator submissions with clash validation
+                    Supervisory status monitor for exam schedules managed and approved by the Examination Coordinator
                   </p>
                 </div>
+              </div>
+
+              {/* Informational Policy Banner */}
+              <div
+                style={{
+                  margin: "14px 20px 0",
+                  padding: "12px 16px",
+                  borderRadius: "8px",
+                  background: "#eff6ff",
+                  border: "1px solid #bfdbfe",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  fontSize: "12.5px",
+                  color: "#1e40af",
+                }}
+              >
+                <Info size={18} style={{ flexShrink: 0 }} />
+                <span>
+                  <strong>Institutional Governance Policy:</strong> Examination timetables are generated, verified, approved, published, and downloaded exclusively by the <strong>Examination Coordinator</strong>. The System Administrator maintains supervisory status monitoring, room capacity metrics, and audit log oversight.
+                </span>
               </div>
 
               <div className="dash-table-container">
@@ -2085,7 +2263,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <thead>
                     <tr>
                       <th>Cycle / Department</th>
-                      <th>Submitted By</th>
+                      <th>Coordinator In-Charge</th>
                       <th>Solver Result</th>
                       <th>Clashes Detected</th>
                       <th>Room Utilization</th>
@@ -2135,14 +2313,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <td>
                           <button
                             type="button"
-                            className="dash-btn-sm dash-btn-primary"
+                            className="dash-btn-sm dash-btn-secondary"
                             onClick={() => {
                               setSelectedTimetableForReview(t);
                               setShowRevisionForm(false);
                               setShowRejectionForm(false);
                             }}
                           >
-                            Review & Decide
+                            Inspect Stats
                           </button>
                         </td>
                       </tr>
@@ -2742,6 +2920,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <select name="userRole" className="dash-select" defaultValue={activeUserRoleTab} key={activeUserRoleTab}>
                       <option value={UserRole.ADMIN}>System Administrator</option>
                       <option value={UserRole.EXAM_COORDINATOR}>Exam Coordinator</option>
+                      <option value={UserRole.DEPARTMENTAL_COORDINATOR}>Departmental Coordinator</option>
                       <option value={UserRole.HOD}>Department HOD</option>
                       <option value={UserRole.FACULTY}>Faculty / Invigilator</option>
                       <option value={UserRole.STUDENT}>Student</option>
@@ -2771,6 +2950,301 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD FACULTY / DEPARTMENT COORDINATOR */}
+      {showAddFacultyCoordinatorModal && (
+        <div className="dash-modal-backdrop" onClick={() => setShowAddFacultyCoordinatorModal(false)}>
+          <div className="dash-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="dash-modal-header">
+              <h3 className="dash-modal-title">Add Faculty / Departmental Coordinator</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddFacultyCoordinatorModal(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.currentTarget;
+                const name = (form.elements.namedItem("fcName") as HTMLInputElement).value;
+                const email = (form.elements.namedItem("fcEmail") as HTMLInputElement).value;
+                const identifier = (form.elements.namedItem("fcIdentifier") as HTMLInputElement).value;
+                const department = (form.elements.namedItem("fcDepartment") as HTMLSelectElement).value;
+                const role = (form.elements.namedItem("fcRole") as HTMLSelectElement).value as UserRole;
+                const designation = (form.elements.namedItem("fcDesignation") as HTMLInputElement).value;
+                const maxDuties = Number((form.elements.namedItem("fcMaxDuties") as HTMLInputElement).value) || 4;
+
+                const res = AcademicDataStore.addFaculty(
+                  {
+                    name,
+                    email,
+                    identifier,
+                    departmentCode: department,
+                    role,
+                    designation,
+                    maxDuties,
+                  },
+                  currentAdminName
+                );
+
+                if (!res.success) {
+                  showToast(res.error || "Failed to register faculty/coordinator.", "error");
+                  return;
+                }
+
+                showToast(`Registered ${name} (${identifier}) successfully.`);
+                setShowAddFacultyCoordinatorModal(false);
+              }}
+            >
+              <div className="dash-modal-body">
+                <div className="dash-form-group">
+                  <label className="dash-label">Full Name *</label>
+                  <input name="fcName" type="text" required placeholder="e.g. Dr. Rajesh Kulkarni" className="dash-input" />
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div className="dash-form-group">
+                    <label className="dash-label">Employee Code / ID *</label>
+                    <input name="fcIdentifier" type="text" required placeholder="e.g. FAC-CSE-101" className="dash-input font-mono" />
+                  </div>
+
+                  <div className="dash-form-group">
+                    <label className="dash-label">Institutional Email *</label>
+                    <input name="fcEmail" type="email" required placeholder="name@nexora.edu" className="dash-input" />
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div className="dash-form-group">
+                    <label className="dash-label">Institutional Role *</label>
+                    <select name="fcRole" className="dash-select" defaultValue={UserRole.DEPARTMENTAL_COORDINATOR}>
+                      <option value={UserRole.DEPARTMENTAL_COORDINATOR}>Departmental Coordinator</option>
+                      <option value={UserRole.FACULTY}>Faculty / Invigilator</option>
+                      <option value={UserRole.HOD}>Department HOD</option>
+                    </select>
+                  </div>
+
+                  <div className="dash-form-group">
+                    <label className="dash-label">Department *</label>
+                    <select name="fcDepartment" className="dash-select">
+                      {storeState.departments.map((d) => (
+                        <option key={d.code} value={d.name}>
+                          {d.name} ({d.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div className="dash-form-group">
+                    <label className="dash-label">Academic Designation</label>
+                    <input name="fcDesignation" type="text" defaultValue="Associate Professor" placeholder="e.g. Professor, Assistant Professor" className="dash-input" />
+                  </div>
+
+                  <div className="dash-form-group">
+                    <label className="dash-label">Max Exam Duties / Cycle</label>
+                    <input name="fcMaxDuties" type="number" min={1} max={10} defaultValue={4} className="dash-input" />
+                  </div>
+                </div>
+
+                <div style={{ backgroundColor: "#eff6ff", padding: "10px 14px", borderRadius: "6px", fontSize: "12px", color: "#1e40af" }}>
+                  <strong>Synchronized Directory:</strong> Provisioning this account automatically creates both their login credentials and registers them into the active Department Faculty Invigilation roster.
+                </div>
+              </div>
+
+              <div className="dash-modal-footer">
+                <button type="button" className="dash-btn-sm dash-btn-secondary" onClick={() => setShowAddFacultyCoordinatorModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="dash-btn-sm dash-btn-primary">
+                  Register Faculty / Coordinator
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: BULK ADD FACULTY & COORDINATORS */}
+      {showBulkAddFacultyModal && (
+        <div className="dash-modal-backdrop" onClick={() => setShowBulkAddFacultyModal(false)}>
+          <div className="dash-modal" style={{ maxWidth: "840px", width: "100%", maxHeight: "90vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div className="dash-modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <FileSpreadsheet size={20} color="var(--brand-primary, #2563eb)" />
+                <h3 className="dash-modal-title">Bulk Provision Faculty & Department Coordinators</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkAddFacultyModal(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="dash-modal-body">
+              {/* Step 1: Download Standard Template */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "#f0fdf4", border: "1px solid #bbf7d0", padding: "12px 16px", borderRadius: "8px", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+                <div>
+                  <div style={{ fontSize: "13px", fontWeight: "700", color: "#166534" }}>
+                    Step 1: Download Standard Excel Format for Faculty & Coordinators
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#15803d", marginTop: "2px" }}>
+                    Required columns: Employee ID, Full Name, Email, Department, Role, Designation, Max Duties
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="dash-btn-sm dash-btn-outline"
+                  style={{ backgroundColor: "#ffffff", borderColor: "#86efac", color: "#166534", fontWeight: "600" }}
+                  onClick={handleDownloadFacultyTemplate}
+                >
+                  <FileSpreadsheet size={14} color="#16a34a" />
+                  <span>Download Standard Template (.csv)</span>
+                </button>
+              </div>
+
+              {/* Step 2: Upload or Paste */}
+              <div style={{ marginBottom: "16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <label className="dash-label" style={{ margin: 0, fontWeight: "700" }}>
+                    Step 2: Upload File or Paste CSV / TSV Rows
+                  </label>
+                  <label
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                      color: "var(--brand-primary, #2563eb)",
+                      fontWeight: "600",
+                    }}
+                  >
+                    <Upload size={13} />
+                    <span>Upload CSV / Excel Text</span>
+                    <input
+                      type="file"
+                      accept=".csv,.tsv,.txt"
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const text = ev.target?.result as string;
+                            if (text) setBulkFacultyText(text);
+                          };
+                          reader.readAsText(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <textarea
+                  className="dash-input font-mono"
+                  rows={5}
+                  placeholder="Paste rows here: Employee ID, Full Name, Email, Department, Role, Designation, Max Duties..."
+                  value={bulkFacultyText}
+                  onChange={(e) => setBulkFacultyText(e.target.value)}
+                  style={{ width: "100%", fontSize: "12px", padding: "10px", lineHeight: "1.5" }}
+                />
+              </div>
+
+              {/* Step 3: Live Preview Table */}
+              {parsedFacultyRows.length > 0 && (
+                <div style={{ marginBottom: "16px" }}>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "12.5px", fontWeight: "700", color: "#0f172a" }}>
+                      Preview & Validation
+                    </span>
+                    <span style={{ fontSize: "11px", backgroundColor: "#e2e8f0", padding: "2px 8px", borderRadius: "10px", fontWeight: "600" }}>
+                      {parsedFacultyRows.length} Total Rows
+                    </span>
+                    <span style={{ fontSize: "11px", backgroundColor: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: "10px", fontWeight: "600" }}>
+                      {parsedFacultyRows.filter((r) => r.isValid && !r.isDuplicate).length} New
+                    </span>
+                    {parsedFacultyRows.some((r) => r.isDuplicate) && (
+                      <span style={{ fontSize: "11px", backgroundColor: "#fef3c7", color: "#92400e", padding: "2px 8px", borderRadius: "10px", fontWeight: "600" }}>
+                        {parsedFacultyRows.filter((r) => r.isDuplicate).length} Update Existing
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ maxHeight: "220px", overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "6px" }}>
+                    <table className="dash-table" style={{ width: "100%", fontSize: "12px", margin: 0 }}>
+                      <thead>
+                        <tr>
+                          <th>Status</th>
+                          <th>Employee ID</th>
+                          <th>Full Name</th>
+                          <th>Email</th>
+                          <th>Department</th>
+                          <th>Role</th>
+                          <th>Max Duties</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {parsedFacultyRows.map((row, idx) => (
+                          <tr key={idx} style={{ backgroundColor: !row.isValid ? "#fef2f2" : row.isDuplicate ? "#fffbeb" : "inherit" }}>
+                            <td>
+                              {!row.isValid ? (
+                                <span style={{ fontSize: "10.5px", color: "#dc2626", fontWeight: "700" }}>Invalid: {row.error}</span>
+                              ) : row.isDuplicate ? (
+                                <span style={{ fontSize: "10.5px", color: "#d97706", fontWeight: "700" }}>Update Existing</span>
+                              ) : (
+                                <span style={{ fontSize: "10.5px", color: "#16a34a", fontWeight: "700" }}>Ready</span>
+                              )}
+                            </td>
+                            <td className="font-mono font-bold">{row.identifier || "—"}</td>
+                            <td className="font-semibold">{row.name || "—"}</td>
+                            <td className="text-muted">{row.email || "—"}</td>
+                            <td>{row.department}</td>
+                            <td>
+                              <span style={{ fontSize: "10.5px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", backgroundColor: row.role === UserRole.DEPARTMENTAL_COORDINATOR ? "var(--brand-surface, #eff6ff)" : "var(--bg-subtle, #f1f5f9)", color: row.role === UserRole.DEPARTMENTAL_COORDINATOR ? "var(--brand-primary, #2563eb)" : "var(--text-secondary, #475569)" }}>
+                                {row.role === UserRole.DEPARTMENTAL_COORDINATOR ? "Coordinator" : "Faculty"}
+                              </span>
+                            </td>
+                            <td>{row.maxDuties} / cycle</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="dash-modal-footer">
+              <button
+                type="button"
+                className="dash-btn-sm dash-btn-secondary"
+                onClick={() => {
+                  setShowBulkAddFacultyModal(false);
+                  setBulkFacultyText("");
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="dash-btn-sm dash-btn-primary"
+                disabled={parsedFacultyRows.filter((r) => r.isValid).length === 0}
+                onClick={handleConfirmBulkFacultyImport}
+              >
+                Confirm & Bulk Provision {parsedFacultyRows.filter((r) => r.isValid).length} Accounts
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -3630,51 +4104,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               )}
             </div>
 
-            <div className="dash-modal-footer">
+            <div className="dash-modal-footer" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "12px", color: "var(--text-muted)", fontStyle: "italic" }}>
+                Authorized Coordinator: {selectedTimetableForReview.submittedBy} · Governed by Examination Cell
+              </span>
               <button
                 type="button"
                 className="dash-btn-sm dash-btn-secondary"
                 onClick={() => setSelectedTimetableForReview(null)}
               >
-                Close
+                Close Oversight
               </button>
-
-              {!showRevisionForm && !showRejectionForm && (
-                <>
-                  <button
-                    type="button"
-                    className="dash-btn-sm dash-btn-danger"
-                    onClick={() => setShowRejectionForm(true)}
-                  >
-                    Reject Schedule
-                  </button>
-
-                  <button
-                    type="button"
-                    className="dash-btn-sm"
-                    style={{ backgroundColor: "var(--status-warning-bg)", color: "var(--status-warning-text)", borderColor: "var(--status-warning-border)" }}
-                    onClick={() => setShowRevisionForm(true)}
-                  >
-                    Request Revisions
-                  </button>
-
-                  <button
-                    type="button"
-                    className="dash-btn-sm dash-btn-primary"
-                    onClick={() => {
-                      const res = AcademicDataStore.approveTimetable(selectedTimetableForReview.id, true);
-                      if (!res.success) {
-                        showToast(res.error || "Cannot approve.", "error");
-                        return;
-                      }
-                      showToast(`Schedule ${selectedTimetableForReview.cycleName} approved & published.`);
-                      setSelectedTimetableForReview(null);
-                    }}
-                  >
-                    Approve & Publish Timetable
-                  </button>
-                </>
-              )}
             </div>
           </div>
         </div>

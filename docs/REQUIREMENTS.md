@@ -1,19 +1,20 @@
-# Requirements and Acceptance Criteria
-
 ## Actors and permissions
-| Capability | Student | Faculty | HOD | Exam Coordinator | System Admin |
-|---|---:|---:|---:|---:|---:|
-| View own published timetable | Yes | N/A | N/A | Yes | Yes |
-| View own registration/eligibility | Yes | N/A | N/A | Yes | Yes |
-| Manage own availability | No | Policy-based | Policy-based | Yes | Yes |
-| View assigned invigilation | No | Yes | Yes, scoped | Yes | Yes |
-| Manage department data | No | No | Scoped | Yes | Yes |
-| Create exam cycle/configuration | No | No | Request/review | Yes | Yes |
-| Generate candidate timetable | No | No | Review | Yes | Yes |
-| Approve/publish timetable | No | No | Optional approval | Yes, subject to policy | Yes |
-| Manage users/global settings | No | No | No | Limited | Yes |
+| Capability | Student | Faculty | Departmental Coordinator | HOD | Exam Coordinator | System Admin |
+|---|---:|---:|---:|---:|---:|---:|
+| View own published timetable | Yes | N/A | N/A | N/A | Yes | Yes |
+| View own registration/eligibility | Yes | N/A | N/A | N/A | Yes | Yes |
+| Manage own availability | No | Policy-based | Policy-based | Policy-based | Yes | Yes |
+| View assigned invigilation | No | Yes | Yes | Yes, scoped | Yes | Yes |
+| Manage department students & faculty | No | No | Yes (Scoped) | Yes (Scoped) | Yes (All) | Yes (All) |
+| Manage department subjects & backlogs | No | No | Yes (Scoped) | Yes (Scoped) | Yes (All) | Yes (All) |
+| Manage holiday calendar & recesses | No | No | No | No | Yes | View only |
+| Create exam cycle / config | No | No | Request | Request | Yes | View only |
+| Run constraint solver & scheduling | No | No | No | Review | Yes | View stats |
+| Approve / publish timetable | No | No | No | Review | Yes (Exclusive) | No (View stats) |
+| Export / download official circular PDF | Yes (view) | Yes (view) | Yes (view) | Yes (view) | Yes (Exclusive) | No (View stats) |
+| Manage users (Students, Faculty, Coordinators) | No | No | No | No | Limited | Yes (Full) |
 
-**Policy decision required:** whether HOD approval is mandatory before publication and whether coordinators can publish without a second approver. Enforce the final policy in the API.
+---
 
 ## Functional requirements
 - FR-01: Users can authenticate and sign out securely.
@@ -28,14 +29,19 @@
 - FR-10: A scheduling input snapshot is validated before optimization.
 - FR-11: The optimizer returns a candidate schedule, status, objective score, and diagnostics.
 - FR-12: The API independently validates all hard constraints.
-- FR-13: Coordinator can review, adjust where permitted, and approve a candidate.
+- FR-13: Examination Coordinator exclusively reviews, locks, approves, and publishes the candidate schedule as the official institutional timetable.
 - FR-14: Room and seating allocation respects room capacity and student/subject rules.
 - FR-15: Invigilator allocation respects availability, qualification/policy, conflicts, and workload bounds.
-- FR-16: Publication creates an immutable version and a publication timestamp.
+- FR-16: Publication by Examination Coordinator creates an immutable version, publication timestamp, and authorized printable circular.
 - FR-17: Rescheduling creates a draft version and identifies impacted users/resources.
 - FR-18: Notifications are generated only for relevant affected users and can be retried safely.
 - FR-19: Authorized users can export approved reports.
 - FR-20: Important administrative and scheduling actions are audit logged.
+- FR-21: Multi-Year Scheduling: Generates timetables covering all undergraduate tiers (F.Y.B.TECH, S.Y.B.TECH, T.Y.B.TECH, and FINAL YR B.TECH).
+- FR-22: Curriculum Structure Differentiation: Distinguishes between standard `NEP` curriculum and autonomous backlog structures (`CYCLE 1`, `CYCLE 2`, `CYCLE 3`).
+- FR-23: Strict Backlog Day Separation: Prevents any student from being scheduled for both a regular exam and a backlog cycle exam on the same calendar date.
+- FR-24: Academic Holiday Calendar: Integrates standard academic calendar holidays (Sundays, national & festival holidays) with Exam Coordinator override to add local recesses and blackout dates.
+- FR-25: High-Fidelity Circular PDF Generation: Renders and exports the official Autonomous Examination Circular conforming to institution standards (KIT College of Engineering template with logo, 9 instructions, and 5-tier signatory strip).
 
 ## Non-functional requirements
 - Security: least privilege, password hashing, server-side validation, rate limiting, secure cookies/token handling, safe error responses.

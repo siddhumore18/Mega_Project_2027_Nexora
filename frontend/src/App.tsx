@@ -5,6 +5,7 @@ import { Navbar } from "./components/navigation/Navbar.js";
 import { LoginView } from "./components/auth/LoginView.js";
 import { AdminDashboard } from "./components/admin/AdminDashboard.js";
 import { CoordinatorDashboard } from "./components/CoordinatorDashboard.js";
+import { DepartmentCoordinatorDashboard } from "./components/department/DepartmentCoordinatorDashboard.js";
 import { RoleViews } from "./components/RoleViews.js";
 import { fetchHealth } from "./services/api.js";
 
@@ -43,6 +44,16 @@ const MainContent: React.FC = () => {
     return (
       <CoordinatorDashboard
         onSwitchToAdmin={() => switchRole(UserRole.ADMIN)}
+        onLogout={logout}
+      />
+    );
+  }
+
+  // 3. Dedicated Departmental Coordinator Dashboard (Faculty who adds students, faculty, subjects, backlogs)
+  if (currentUser.role === UserRole.DEPARTMENTAL_COORDINATOR) {
+    return (
+      <DepartmentCoordinatorDashboard
+        onSwitchToExamCoordinator={() => switchRole(UserRole.EXAM_COORDINATOR)}
         onLogout={logout}
       />
     );
