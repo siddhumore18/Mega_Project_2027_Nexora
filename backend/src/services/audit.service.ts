@@ -11,9 +11,20 @@ export interface CreateAuditEntry {
 
 export async function logAuditEvent(entry: CreateAuditEntry): Promise<void> {
   try {
+    let validActorId = entry.actorId ?? null;
+    if (validActorId) {
+      const userExists = await prisma.user.findUnique({
+        where: { id: validActorId },
+        select: { id: true },
+      });
+      if (!userExists) {
+        validActorId = null;
+      }
+    }
+
     await prisma.auditLog.create({
       data: {
-        actorId: entry.actorId ?? null,
+        actorId: validActorId,
         action: entry.action,
         entityType: entry.entityType,
         entityId: entry.entityId ?? null,

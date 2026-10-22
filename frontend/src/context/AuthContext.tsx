@@ -93,11 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const stored = localStorage.getItem("nexora_auth_user");
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (
-          parsed.role === UserRole.ADMIN ||
-          parsed.role === UserRole.EXAM_COORDINATOR ||
-          parsed.role === UserRole.DEPARTMENTAL_COORDINATOR
-        ) {
+        if (Object.values(UserRole).includes(parsed.role)) {
           return parsed;
         }
       }

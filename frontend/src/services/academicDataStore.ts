@@ -1439,6 +1439,10 @@ export const AcademicDataStore = {
     return currentState;
   },
 
+  getSnapshot(): StoreState {
+    return currentState;
+  },
+
   resetToDefaults(): void {
     currentState = {
       users: DEFAULT_USERS,
@@ -3358,6 +3362,10 @@ export const AcademicDataStore = {
   },
 
   // --- Grievances Actions ---
+  submitGrievance(grvData: Omit<GrievanceRecord, "id" | "ticketNumber" | "date" | "internalNotes" | "history">, actor: string = "Campus Desk"): { success: boolean; error?: string } {
+    return this.addGrievance(grvData, actor);
+  },
+
   addGrievance(grvData: Omit<GrievanceRecord, "id" | "ticketNumber" | "date" | "internalNotes" | "history">, actor: string = "Campus Desk"): { success: boolean; error?: string } {
     if (!grvData.title.trim() || !grvData.description.trim()) {
       return { success: false, error: "Grievance title and description are required." };

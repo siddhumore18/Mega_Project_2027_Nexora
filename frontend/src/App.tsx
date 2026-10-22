@@ -1,35 +1,27 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { UserRole } from "@nexora/contracts";
 import { AuthProvider, useAuth } from "./context/AuthContext.js";
-import { Navbar } from "./components/navigation/Navbar.js";
 import { LoginView } from "./components/auth/LoginView.js";
 import { AdminDashboard } from "./components/admin/AdminDashboard.js";
 import { CoordinatorDashboard } from "./components/CoordinatorDashboard.js";
 import { DepartmentCoordinatorDashboard } from "./components/department/DepartmentCoordinatorDashboard.js";
-import { RoleViews } from "./components/RoleViews.js";
-import { fetchHealth } from "./services/api.js";
+import { HODDashboard } from "./components/hod/HODDashboard.js";
+import { FacultyDashboard } from "./components/faculty/FacultyDashboard.js";
+import { StudentDashboard } from "./components/student/StudentDashboard.js";
 
 const MainContent: React.FC = () => {
   const { currentUser, isAuthenticated, logout, switchRole } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>("overview");
-  const [apiStatus, setApiStatus] = useState<"connected" | "connecting" | "offline">("connecting");
-
-  useEffect(() => {
-    fetchHealth()
-      .then(() => setApiStatus("connected"))
-      .catch(() => setApiStatus("offline"));
-  }, []);
 
   // If user is not authenticated, show the Login View
   if (!isAuthenticated || !currentUser) {
     return (
-      <main className="main-content" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#f3f4f6" }}>
+      <main className="main-content" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0f172a" }}>
         <LoginView onSuccess={() => {}} />
       </main>
     );
   }
 
-  // 1. Dedicated Admin Dashboard (New Reference Layout: Dark-Green Sidebar + Topbar)
+  // 1. Dedicated Admin Dashboard (Unified .dash-shell Layout)
   if (currentUser.role === UserRole.ADMIN) {
     return (
       <AdminDashboard
@@ -39,7 +31,7 @@ const MainContent: React.FC = () => {
     );
   }
 
-  // 2. Dedicated Exam Coordinator Dashboard (Matching Visual Design Reference)
+  // 2. Dedicated Exam Coordinator Dashboard (Unified .dash-shell Layout)
   if (currentUser.role === UserRole.EXAM_COORDINATOR) {
     return (
       <CoordinatorDashboard
@@ -49,7 +41,7 @@ const MainContent: React.FC = () => {
     );
   }
 
-  // 3. Dedicated Departmental Coordinator Dashboard (Faculty who adds students, faculty, subjects, backlogs)
+  // 3. Dedicated Departmental Coordinator Dashboard (Unified .dash-shell Layout)
   if (currentUser.role === UserRole.DEPARTMENTAL_COORDINATOR) {
     return (
       <DepartmentCoordinatorDashboard
@@ -59,19 +51,32 @@ const MainContent: React.FC = () => {
     );
   }
 
-  // Fallback for preserved teammate views (Student, Faculty, HOD)
-  return (
-    <div className="app-container">
-      <Navbar
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        apiStatus={apiStatus}
-        onShowLogin={() => {}}
+  // 4. Dedicated Head of Department (HOD) Dashboard (Unified .dash-shell Layout)
+  if (currentUser.role === UserRole.HOD) {
+    return (
+      <HODDashboard
+        onSwitchRole={switchRole}
+        onLogout={logout}
       />
-      <main className="main-content">
-        <RoleViews role={currentUser.role} activeTab={activeTab} onTabChange={setActiveTab} />
-      </main>
-    </div>
+    );
+  }
+
+  // 5. Dedicated Faculty Dashboard (Unified .dash-shell Layout)
+  if (currentUser.role === UserRole.FACULTY) {
+    return (
+      <FacultyDashboard
+        onSwitchRole={switchRole}
+        onLogout={logout}
+      />
+    );
+  }
+
+  // 6. Dedicated Student Dashboard (Unified .dash-shell Layout)
+  return (
+    <StudentDashboard
+      onSwitchRole={switchRole}
+      onLogout={logout}
+    />
   );
 };
 
