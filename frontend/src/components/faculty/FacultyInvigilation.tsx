@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SeatingChartModal } from "./SeatingChartModal.js";
+import { useAuth } from "../../context/AuthContext.js";
+import { AcademicDataStore, CoordinatorExamEntry } from "../../services/academicDataStore.js";
 import {
   Clock,
   MapPin,
@@ -26,52 +28,46 @@ interface InvigilationDuty {
 }
 
 export const FacultyInvigilation: React.FC = () => {
-  const [duties, setDuties] = useState<InvigilationDuty[]>([
-    {
-      id: "duty-1",
-      date: "Nov 10, 2026",
-      timeSlot: "09:30 - 12:30 IST",
-      duration: "3.0 Hours",
-      hall: "Hall A-101",
-      hallCapacity: 150,
-      expectedCandidates: 120,
-      courseCode: "CS701",
-      courseTitle: "Distributed Systems & Cloud Computing",
-      dutyRole: "Chief Invigilator",
-      status: "APPROVED",
-      acknowledgedAt: "Oct 15, 2026 10:15 IST",
-      assistantInvigilator: "Prof. S. Rane (Maths)",
-    },
-    {
-      id: "duty-2",
-      date: "Nov 12, 2026",
-      timeSlot: "09:30 - 12:30 IST",
-      duration: "3.0 Hours",
-      hall: "Hall A-101",
-      hallCapacity: 150,
-      expectedCandidates: 115,
-      courseCode: "CS704",
-      courseTitle: "Cryptography & Network Security",
-      dutyRole: "Chief Invigilator",
-      status: "APPROVED",
-      acknowledgedAt: "Oct 15, 2026 10:15 IST",
-      assistantInvigilator: "Dr. K. Saxena (ECE)",
-    },
-    {
-      id: "duty-3",
-      date: "Nov 17, 2026",
-      timeSlot: "14:00 - 17:00 IST",
-      duration: "3.0 Hours",
-      hall: "Hall B-204",
-      hallCapacity: 100,
-      expectedCandidates: 88,
-      courseCode: "EC702",
-      courseTitle: "VLSI Architecture & Embedded Logic",
-      dutyRole: "Hall Invigilator",
-      status: "PENDING_ACK",
-      assistantInvigilator: "Chief: Prof. R. Iyer (ECE)",
-    },
-  ]);
+  const { currentUser } = useAuth();
+  const facultyName = currentUser?.name || "Dr. Arvind Sharma";
+
+  const [duties, setDuties] = useState<InvigilationDuty[]>([]);
+
+  useEffect(() => {
+    const updateDutiesFromStore = () => {
+      const state = AcademicDataStore.getSnapshot();
+      const allExams = state.coordinatorExams || [];
+      const cleanUserName = facultyName.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+
+      const matched = allExams.filter((ex: CoordinatorExamEntry) => {
+        if (!ex.invigilator) return false;
+        const cleanInvig = ex.invigilator.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+        return cleanInvig === cleanUserName || cleanInvig.includes(cleanUserName) || cleanUserName.includes(cleanInvig);
+      });
+
+      if (matched.length > 0) {
+        const mapped: InvigilationDuty[] = matched.map((ex, idx) => ({
+          id: ex.id,
+          date: ex.date,
+          timeSlot: ex.slot,
+          duration: `${(ex.durationMinutes ? ex.durationMinutes / 60 : 2.5).toFixed(1)} Hours`,
+          hall: ex.room,
+          hallCapacity: (ex.enrolled || 60) + 15,
+          expectedCandidates: ex.enrolled || 60,
+          courseCode: ex.code,
+          courseTitle: ex.subject,
+          dutyRole: idx === 0 ? "Chief Invigilator" : "Hall Invigilator",
+          status: "APPROVED",
+          acknowledgedAt: "Confirmed in Master Schedule",
+          assistantInvigilator: "Relief: Exam Control Room",
+        }));
+        setDuties(mapped);
+      }
+    };
+
+    updateDutiesFromStore();
+    return AcademicDataStore.subscribe(updateDutiesFromStore);
+  }, [facultyName]);
 
   const [activeModalDuty, setActiveModalDuty] = useState<InvigilationDuty | null>(null);
 

@@ -271,7 +271,7 @@ export interface SeatingRecord {
 
 export interface ConflictItem {
   id: string;
-  type: "ROOM_DOUBLE_BOOKING" | "CAPACITY_OVERFLOW" | "FACULTY_OVERLAP" | "FACULTY_ON_LEAVE" | "HOLIDAY_CLASH" | "STUDENT_OVERLAP" | "UNSCHEDULED_SUBJECT";
+  type: "ROOM_DOUBLE_BOOKING" | "CAPACITY_OVERFLOW" | "FACULTY_OVERLAP" | "FACULTY_ON_LEAVE" | "HOLIDAY_CLASH" | "STUDENT_OVERLAP" | "UNSCHEDULED_SUBJECT" | "SAME_DEPT_INVIGILATOR" | "SAME_SUBJECT_INVIGILATOR";
   severity: "CRITICAL" | "HIGH" | "MEDIUM";
   examId: string;
   subjectCode: string;
@@ -281,6 +281,35 @@ export interface ConflictItem {
   description: string;
   suggestedAlternatives: string[];
   resolved: boolean;
+}
+
+export interface EmergencyStandbyCandidate {
+  facultyId: string;
+  name: string;
+  identifier: string;
+  departmentCode: string;
+  email: string;
+  assignedDuties: number;
+  maxDuties: number;
+  status: "Available" | "Max Assigned" | "On Leave";
+  isTomorrowDuty: boolean;
+  tomorrowExam?: {
+    id: string;
+    code: string;
+    subject: string;
+    slot: string;
+    room: string;
+    date: string;
+  };
+}
+
+export interface EmergencyStandbyPoolResult {
+  currentDate: string;
+  tomorrowDate: string | null;
+  currentExam?: CoordinatorExamEntry;
+  currentInvigilatorName: string;
+  tomorrowStandbyFaculty: EmergencyStandbyCandidate[];
+  lowDutyFallbackFaculty: EmergencyStandbyCandidate[];
 }
 
 // --- Initial Seed Data ---
@@ -634,32 +663,32 @@ export const DEFAULT_STUDENT_REGISTRATIONS: StudentRegistrationRecord[] = [
 ];
 
 export const DEFAULT_EXAM_HALLS: ExamHallRecord[] = [
-  { id: "hall-1", name: "Examination Hall A-101", code: "A-101", building: "Academic Block A", capacity: 150, examCapacity: 120, allocatedStudents: 120, type: "Lecture Hall", hasAC: true, isAccessible: true, floor: "Ground Floor", status: "Available" },
-  { id: "hall-2", name: "Examination Hall B-204", code: "B-204", building: "Academic Block B", capacity: 110, examCapacity: 90, allocatedStudents: 90, type: "Lecture Hall", hasAC: true, isAccessible: true, floor: "2nd Floor", status: "Available" },
-  { id: "hall-3", name: "Engineering Hall C-301", code: "C-301", building: "Mechanical Block", capacity: 90, examCapacity: 75, allocatedStudents: 75, type: "Lecture Hall", hasAC: false, isAccessible: false, floor: "3rd Floor", status: "Available" },
-  { id: "hall-4", name: "Computing Lab D-105", code: "D-105", building: "Computing Complex", capacity: 70, examCapacity: 60, allocatedStudents: 60, type: "Computer Lab", hasAC: true, isAccessible: true, floor: "Ground Floor", status: "Available" },
-  { id: "hall-5", name: "Computing Lab D-106", code: "D-106", building: "Computing Complex", capacity: 70, examCapacity: 60, allocatedStudents: 0, type: "Computer Lab", hasAC: true, isAccessible: true, floor: "Ground Floor", status: "Available" },
-  { id: "hall-6", name: "Central Auditorium 1", code: "AUDI-1", building: "Administrative Block", capacity: 260, examCapacity: 200, allocatedStudents: 0, type: "Auditorium", hasAC: true, isAccessible: true, floor: "Ground Floor", status: "Available" },
-  { id: "hall-7", name: "Drawing Hall E-201", code: "E-201", building: "Architecture Block", capacity: 80, examCapacity: 60, allocatedStudents: 0, type: "Drawing Hall", hasAC: false, isAccessible: true, floor: "2nd Floor", status: "Available" },
-  { id: "hall-8", name: "Seminar Hall 2", code: "SEM-2", building: "Science & Tech Block", capacity: 90, examCapacity: 70, allocatedStudents: 0, type: "Lecture Hall", hasAC: true, isAccessible: true, floor: "1st Floor", status: "Available" },
-  { id: "hall-9", name: "Hall F-102", code: "F-102", building: "Annex Block", capacity: 60, examCapacity: 45, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: true, floor: "Ground Floor", status: "Available" },
-  { id: "hall-10", name: "Lab G-301", code: "G-301", building: "Electronics Block", capacity: 50, examCapacity: 40, allocatedStudents: 0, type: "Computer Lab", hasAC: true, isAccessible: false, floor: "3rd Floor", status: "Available" },
-  { id: "hall-11", name: "Examination Hall A-102", code: "A-102", building: "Academic Block A", capacity: 130, examCapacity: 100, allocatedStudents: 0, type: "Lecture Hall", hasAC: true, isAccessible: true, floor: "Ground Floor", status: "Available" },
-  { id: "hall-12", name: "Examination Hall A-103", code: "A-103", building: "Academic Block A", capacity: 110, examCapacity: 85, allocatedStudents: 0, type: "Lecture Hall", hasAC: true, isAccessible: true, floor: "1st Floor", status: "Available" },
-  { id: "hall-13", name: "Examination Hall B-201", code: "B-201", building: "Academic Block B", capacity: 120, examCapacity: 95, allocatedStudents: 0, type: "Lecture Hall", hasAC: true, isAccessible: true, floor: "2nd Floor", status: "Available" },
-  { id: "hall-14", name: "Examination Hall B-205", code: "B-205", building: "Academic Block B", capacity: 100, examCapacity: 80, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: true, floor: "2nd Floor", status: "Available" },
-  { id: "hall-15", name: "Engineering Hall C-302", code: "C-302", building: "Mechanical Block", capacity: 95, examCapacity: 75, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: false, floor: "3rd Floor", status: "Available" },
-  { id: "hall-16", name: "Engineering Hall C-303", code: "C-303", building: "Mechanical Block", capacity: 90, examCapacity: 75, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: false, floor: "3rd Floor", status: "Available" },
-  { id: "hall-17", name: "Computing Lab D-107", code: "D-107", building: "Computing Complex", capacity: 70, examCapacity: 60, allocatedStudents: 0, type: "Computer Lab", hasAC: true, isAccessible: true, floor: "Ground Floor", status: "Available" },
-  { id: "hall-18", name: "Computing Lab D-108", code: "D-108", building: "Computing Complex", capacity: 70, examCapacity: 60, allocatedStudents: 0, type: "Computer Lab", hasAC: true, isAccessible: true, floor: "1st Floor", status: "Available" },
-  { id: "hall-19", name: "Central Auditorium 2", code: "AUDI-2", building: "Administrative Block", capacity: 220, examCapacity: 180, allocatedStudents: 0, type: "Auditorium", hasAC: true, isAccessible: true, floor: "1st Floor", status: "Available" },
-  { id: "hall-20", name: "Drawing Hall E-202", code: "E-202", building: "Architecture Block", capacity: 80, examCapacity: 60, allocatedStudents: 0, type: "Drawing Hall", hasAC: false, isAccessible: true, floor: "2nd Floor", status: "Available" },
-  { id: "hall-21", name: "Seminar Hall 1", code: "SEM-1", building: "Science & Tech Block", capacity: 100, examCapacity: 80, allocatedStudents: 0, type: "Lecture Hall", hasAC: true, isAccessible: true, floor: "1st Floor", status: "Available" },
-  { id: "hall-22", name: "Hall F-101", code: "F-101", building: "Annex Block", capacity: 70, examCapacity: 55, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: true, floor: "Ground Floor", status: "Available" },
-  { id: "hall-23", name: "Hall F-103", code: "F-103", building: "Annex Block", capacity: 60, examCapacity: 50, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: true, floor: "1st Floor", status: "Available" },
-  { id: "hall-24", name: "Lab G-302", code: "G-302", building: "Electronics Block", capacity: 60, examCapacity: 50, allocatedStudents: 0, type: "Computer Lab", hasAC: true, isAccessible: false, floor: "3rd Floor", status: "Available" },
-  { id: "hall-25", name: "Lecture Hall H-101", code: "H-101", building: "Civil Block", capacity: 90, examCapacity: 75, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: true, floor: "Ground Floor", status: "Available" },
-  { id: "hall-26", name: "Lecture Hall H-102", code: "H-102", building: "Civil Block", capacity: 90, examCapacity: 75, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: true, floor: "1st Floor", status: "Available" },
+  { id: "hall-1", name: "Examination Hall A-101", code: "A-101", building: "Academic Block A", capacity: 40, examCapacity: 40, allocatedStudents: 35, type: "Lecture Hall", hasAC: true, isAccessible: true, floor: "Ground Floor", status: "Available" },
+  { id: "hall-2", name: "Examination Hall B-204", code: "B-204", building: "Academic Block B", capacity: 40, examCapacity: 40, allocatedStudents: 35, type: "Lecture Hall", hasAC: true, isAccessible: true, floor: "2nd Floor", status: "Available" },
+  { id: "hall-3", name: "Engineering Hall C-301", code: "C-301", building: "Mechanical Block", capacity: 40, examCapacity: 35, allocatedStudents: 35, type: "Lecture Hall", hasAC: false, isAccessible: false, floor: "3rd Floor", status: "Available" },
+  { id: "hall-4", name: "Computing Lab D-105", code: "D-105", building: "Computing Complex", capacity: 40, examCapacity: 35, allocatedStudents: 35, type: "Computer Lab", hasAC: true, isAccessible: true, floor: "Ground Floor", status: "Available" },
+  { id: "hall-5", name: "Computing Lab D-106", code: "D-106", building: "Computing Complex", capacity: 40, examCapacity: 35, allocatedStudents: 0, type: "Computer Lab", hasAC: true, isAccessible: true, floor: "Ground Floor", status: "Available" },
+  { id: "hall-6", name: "Central Auditorium 1", code: "AUDI-1", building: "Administrative Block", capacity: 40, examCapacity: 40, allocatedStudents: 0, type: "Auditorium", hasAC: true, isAccessible: true, floor: "Ground Floor", status: "Available" },
+  { id: "hall-7", name: "Drawing Hall E-201", code: "E-201", building: "Architecture Block", capacity: 40, examCapacity: 38, allocatedStudents: 0, type: "Drawing Hall", hasAC: false, isAccessible: true, floor: "2nd Floor", status: "Available" },
+  { id: "hall-8", name: "Seminar Hall 2", code: "SEM-2", building: "Science & Tech Block", capacity: 40, examCapacity: 35, allocatedStudents: 0, type: "Lecture Hall", hasAC: true, isAccessible: true, floor: "1st Floor", status: "Available" },
+  { id: "hall-9", name: "Hall F-102", code: "F-102", building: "Annex Block", capacity: 40, examCapacity: 35, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: true, floor: "Ground Floor", status: "Available" },
+  { id: "hall-10", name: "Lab G-301", code: "G-301", building: "Electronics Block", capacity: 40, examCapacity: 35, allocatedStudents: 0, type: "Computer Lab", hasAC: true, isAccessible: false, floor: "3rd Floor", status: "Available" },
+  { id: "hall-11", name: "Examination Hall A-102", code: "A-102", building: "Academic Block A", capacity: 40, examCapacity: 40, allocatedStudents: 0, type: "Lecture Hall", hasAC: true, isAccessible: true, floor: "Ground Floor", status: "Available" },
+  { id: "hall-12", name: "Examination Hall A-103", code: "A-103", building: "Academic Block A", capacity: 40, examCapacity: 38, allocatedStudents: 0, type: "Lecture Hall", hasAC: true, isAccessible: true, floor: "1st Floor", status: "Available" },
+  { id: "hall-13", name: "Examination Hall B-201", code: "B-201", building: "Academic Block B", capacity: 40, examCapacity: 40, allocatedStudents: 0, type: "Lecture Hall", hasAC: true, isAccessible: true, floor: "2nd Floor", status: "Available" },
+  { id: "hall-14", name: "Examination Hall B-205", code: "B-205", building: "Academic Block B", capacity: 40, examCapacity: 35, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: true, floor: "2nd Floor", status: "Available" },
+  { id: "hall-15", name: "Engineering Hall C-302", code: "C-302", building: "Mechanical Block", capacity: 40, examCapacity: 35, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: false, floor: "3rd Floor", status: "Available" },
+  { id: "hall-16", name: "Engineering Hall C-303", code: "C-303", building: "Mechanical Block", capacity: 40, examCapacity: 35, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: false, floor: "3rd Floor", status: "Available" },
+  { id: "hall-17", name: "Computing Lab D-107", code: "D-107", building: "Computing Complex", capacity: 40, examCapacity: 35, allocatedStudents: 0, type: "Computer Lab", hasAC: true, isAccessible: true, floor: "Ground Floor", status: "Available" },
+  { id: "hall-18", name: "Computing Lab D-108", code: "D-108", building: "Computing Complex", capacity: 40, examCapacity: 35, allocatedStudents: 0, type: "Computer Lab", hasAC: true, isAccessible: true, floor: "1st Floor", status: "Available" },
+  { id: "hall-19", name: "Central Auditorium 2", code: "AUDI-2", building: "Administrative Block", capacity: 40, examCapacity: 40, allocatedStudents: 0, type: "Auditorium", hasAC: true, isAccessible: true, floor: "1st Floor", status: "Available" },
+  { id: "hall-20", name: "Drawing Hall E-202", code: "E-202", building: "Architecture Block", capacity: 40, examCapacity: 38, allocatedStudents: 0, type: "Drawing Hall", hasAC: false, isAccessible: true, floor: "2nd Floor", status: "Available" },
+  { id: "hall-21", name: "Seminar Hall 1", code: "SEM-1", building: "Science & Tech Block", capacity: 40, examCapacity: 38, allocatedStudents: 0, type: "Lecture Hall", hasAC: true, isAccessible: true, floor: "1st Floor", status: "Available" },
+  { id: "hall-22", name: "Hall F-101", code: "F-101", building: "Annex Block", capacity: 40, examCapacity: 35, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: true, floor: "Ground Floor", status: "Available" },
+  { id: "hall-23", name: "Hall F-103", code: "F-103", building: "Annex Block", capacity: 40, examCapacity: 35, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: true, floor: "1st Floor", status: "Available" },
+  { id: "hall-24", name: "Lab G-302", code: "G-302", building: "Electronics Block", capacity: 40, examCapacity: 35, allocatedStudents: 0, type: "Computer Lab", hasAC: true, isAccessible: false, floor: "3rd Floor", status: "Available" },
+  { id: "hall-25", name: "Lecture Hall H-101", code: "H-101", building: "Civil Block", capacity: 40, examCapacity: 35, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: true, floor: "Ground Floor", status: "Available" },
+  { id: "hall-26", name: "Lecture Hall H-102", code: "H-102", building: "Civil Block", capacity: 40, examCapacity: 35, allocatedStudents: 0, type: "Lecture Hall", hasAC: false, isAccessible: true, floor: "1st Floor", status: "Available" },
 ];
 
 export const DEFAULT_COLLEGE_HOLIDAYS: CollegeHolidayRecord[] = [
@@ -676,30 +705,70 @@ export const DEFAULT_COLLEGE_HOLIDAYS: CollegeHolidayRecord[] = [
 export const DEFAULT_INVIGILATORS: InvigilatorRosterRecord[] = [
   { id: "inv-1", facultyId: "usr-4", name: "Dr. Arvind Sharma", identifier: "FAC-1082", departmentCode: "CSE", email: "arvind.sharma@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
   { id: "inv-2", facultyId: "usr-5", name: "Prof. Rohini Iyer", identifier: "FAC-1090", departmentCode: "ECE", email: "r.iyer@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-3", facultyId: "usr-14", name: "Dr. Pramod Kulkarni", identifier: "FAC-1104", departmentCode: "MECH", email: "hod.mech@nexora.edu", assignedDuties: 1, maxDuties: 3, status: "Available" },
+  { id: "inv-3", facultyId: "usr-14", name: "Dr. Pramod Kulkarni", identifier: "FAC-1104", departmentCode: "MECH", email: "hod.mech@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
   { id: "inv-4", facultyId: "usr-6", name: "Prof. S. Patil", identifier: "FAC-1110", departmentCode: "CSE", email: "s.patil@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-5", facultyId: "usr-16", name: "Dr. T. Banerjee", identifier: "FAC-1125", departmentCode: "AIDS", email: "hod.aids@nexora.edu", assignedDuties: 1, maxDuties: 3, status: "Available" },
+  { id: "inv-5", facultyId: "usr-16", name: "Dr. T. Banerjee", identifier: "FAC-1125", departmentCode: "AIDS", email: "hod.aids@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
   { id: "inv-6", facultyId: "usr-15", name: "Dr. S. Nair", identifier: "FAC-1130", departmentCode: "CIVIL", email: "hod.civil@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-7", facultyId: "usr-17", name: "Dr. A. Verma", identifier: "FAC-1155", departmentCode: "EE", email: "a.verma@nexora.edu", assignedDuties: 1, maxDuties: 3, status: "Available" },
-  { id: "inv-8", facultyId: "usr-13", name: "Dr. M. Roy", identifier: "FAC-1022", departmentCode: "ECE", email: "hod.ece@nexora.edu", assignedDuties: 0, maxDuties: 3, status: "Available" },
-  { id: "inv-9", facultyId: "usr-3", name: "Prof. R. K. Mehta", identifier: "FAC-1019", departmentCode: "CSE", email: "hod.cse@nexora.edu", assignedDuties: 0, maxDuties: 2, status: "On Leave", leaveDates: ["2026-11-10", "2026-11-11", "2026-11-12"] },
-  { id: "inv-10", facultyId: "usr-9", name: "Rohit Sharma", identifier: "FAC-1142", departmentCode: "AIDS", email: "rohit.sharma@nexora.edu", assignedDuties: 1, maxDuties: 3, status: "Available" },
-  { id: "inv-11", facultyId: "usr-41", name: "Prof. Rajesh Kulkarni", identifier: "FAC-1160", departmentCode: "CSE", email: "rajesh.kulkarni@nexora.edu", assignedDuties: 1, maxDuties: 3, status: "Available" },
-  { id: "inv-12", facultyId: "usr-42", name: "Dr. Meenakshi Sundaram", identifier: "FAC-1165", departmentCode: "CSE", email: "m.sundaram@nexora.edu", assignedDuties: 0, maxDuties: 3, status: "Available" },
-  { id: "inv-13", facultyId: "usr-43", name: "Dr. Ramesh Patil", identifier: "FAC-1170", departmentCode: "MECH", email: "ramesh.patil@nexora.edu", assignedDuties: 1, maxDuties: 3, status: "Available" },
-  { id: "inv-14", facultyId: "usr-44", name: "Dr. S. K. Joshi", identifier: "FAC-1175", departmentCode: "CIVIL", email: "sk.joshi@nexora.edu", assignedDuties: 0, maxDuties: 3, status: "Available" },
-  { id: "inv-15", facultyId: "usr-45", name: "Dr. Anjali Patil", identifier: "FAC-1180", departmentCode: "BIO", email: "anjali.patil@nexora.edu", assignedDuties: 0, maxDuties: 3, status: "Available" },
-  { id: "inv-16", facultyId: "usr-46", name: "Dr. Vikram Joshi", identifier: "FAC-1185", departmentCode: "CSEDS", email: "vikram.joshi@nexora.edu", assignedDuties: 1, maxDuties: 3, status: "Available" },
-  { id: "inv-17", facultyId: "usr-47", name: "Dr. Suresh Kulkarni", identifier: "FAC-1190", departmentCode: "CSBS", email: "suresh.kulkarni@nexora.edu", assignedDuties: 0, maxDuties: 3, status: "Available" },
-  { id: "inv-18", facultyId: "usr-48", name: "Dr. R. V. Kulkarni", identifier: "FAC-1195", departmentCode: "CVL & ENV", email: "rv.kulkarni@nexora.edu", assignedDuties: 1, maxDuties: 3, status: "Available" },
-  { id: "inv-19", facultyId: "usr-49", name: "Prof. K. N. Rao", identifier: "FAC-1200", departmentCode: "EE", email: "kn.rao@nexora.edu", assignedDuties: 0, maxDuties: 3, status: "Available" },
-  { id: "inv-20", facultyId: "usr-50", name: "Dr. Sneha Deshmukh", identifier: "FAC-1205", departmentCode: "ECE", email: "sneha.deshmukh@nexora.edu", assignedDuties: 1, maxDuties: 3, status: "Available" },
-  { id: "inv-21", facultyId: "usr-51", name: "Prof. Amit Kadam", identifier: "FAC-1210", departmentCode: "MECH", email: "amit.kadam@nexora.edu", assignedDuties: 0, maxDuties: 3, status: "Available" },
-  { id: "inv-22", facultyId: "usr-52", name: "Dr. Pooja Shah", identifier: "FAC-1215", departmentCode: "CSE", email: "pooja.shah@nexora.edu", assignedDuties: 1, maxDuties: 3, status: "Available" },
-  { id: "inv-23", facultyId: "usr-53", name: "Prof. Nikhil Shinde", identifier: "FAC-1220", departmentCode: "CIVIL", email: "nikhil.shinde@nexora.edu", assignedDuties: 0, maxDuties: 3, status: "Available" },
-  { id: "inv-24", facultyId: "usr-54", name: "Dr. Sandeep Chavan", identifier: "FAC-1225", departmentCode: "AIDS", email: "sandeep.chavan@nexora.edu", assignedDuties: 1, maxDuties: 3, status: "Available" },
-  { id: "inv-25", facultyId: "usr-55", name: "Prof. Deepa Mane", identifier: "FAC-1230", departmentCode: "BIO", email: "deepa.mane@nexora.edu", assignedDuties: 0, maxDuties: 3, status: "Available" },
-  { id: "inv-26", facultyId: "usr-56", name: "Dr. Vinay More", identifier: "FAC-1235", departmentCode: "CSEDS", email: "vinay.more@nexora.edu", assignedDuties: 1, maxDuties: 3, status: "Available" },
+  { id: "inv-7", facultyId: "usr-17", name: "Dr. A. Verma", identifier: "FAC-1155", departmentCode: "EE", email: "a.verma@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-8", facultyId: "usr-13", name: "Dr. M. Roy", identifier: "FAC-1022", departmentCode: "ECE", email: "hod.ece@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-9", facultyId: "usr-3", name: "Prof. R. K. Mehta", identifier: "FAC-1019", departmentCode: "CSE", email: "hod.cse@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-10", facultyId: "usr-9", name: "Rohit Sharma", identifier: "FAC-1142", departmentCode: "AIDS", email: "rohit.sharma@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-11", facultyId: "usr-41", name: "Prof. Rajesh Kulkarni", identifier: "FAC-1160", departmentCode: "CSE", email: "rajesh.kulkarni@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-12", facultyId: "usr-42", name: "Dr. Meenakshi Sundaram", identifier: "FAC-1165", departmentCode: "CSE", email: "m.sundaram@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-13", facultyId: "usr-43", name: "Dr. Ramesh Patil", identifier: "FAC-1170", departmentCode: "MECH", email: "ramesh.patil@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-14", facultyId: "usr-44", name: "Dr. S. K. Joshi", identifier: "FAC-1175", departmentCode: "CIVIL", email: "sk.joshi@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-15", facultyId: "usr-45", name: "Dr. Anjali Patil", identifier: "FAC-1180", departmentCode: "BIO", email: "anjali.patil@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-16", facultyId: "usr-46", name: "Dr. Vikram Joshi", identifier: "FAC-1185", departmentCode: "CSEDS", email: "vikram.joshi@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-17", facultyId: "usr-47", name: "Dr. Suresh Kulkarni", identifier: "FAC-1190", departmentCode: "CSBS", email: "suresh.kulkarni@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-18", facultyId: "usr-48", name: "Dr. R. V. Kulkarni", identifier: "FAC-1195", departmentCode: "CIVIL", email: "rv.kulkarni@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-19", facultyId: "usr-49", name: "Prof. K. N. Rao", identifier: "FAC-1200", departmentCode: "EE", email: "kn.rao@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-20", facultyId: "usr-50", name: "Dr. Sneha Deshmukh", identifier: "FAC-1205", departmentCode: "ECE", email: "sneha.deshmukh@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-21", facultyId: "usr-51", name: "Prof. Amit Kadam", identifier: "FAC-1210", departmentCode: "MECH", email: "amit.kadam@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-22", facultyId: "usr-52", name: "Dr. Pooja Shah", identifier: "FAC-1215", departmentCode: "CSE", email: "pooja.shah@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-23", facultyId: "usr-53", name: "Prof. Nikhil Shinde", identifier: "FAC-1220", departmentCode: "CIVIL", email: "nikhil.shinde@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-24", facultyId: "usr-54", name: "Dr. Sandeep Chavan", identifier: "FAC-1225", departmentCode: "AIDS", email: "sandeep.chavan@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-25", facultyId: "usr-55", name: "Prof. Deepa Mane", identifier: "FAC-1230", departmentCode: "BIO", email: "deepa.mane@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-26", facultyId: "usr-56", name: "Dr. Vinay More", identifier: "FAC-1235", departmentCode: "CSEDS", email: "vinay.more@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-27", facultyId: "usr-57", name: "Prof. Sunita Gaikwad", identifier: "FAC-1240", departmentCode: "CSBS", email: "sunita.gaikwad@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-28", facultyId: "usr-58", name: "Dr. Harish Salunkhe", identifier: "FAC-1245", departmentCode: "MECH", email: "harish.salunkhe@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-29", facultyId: "usr-59", name: "Dr. Kavita Deshpande", identifier: "FAC-1250", departmentCode: "CSE", email: "kavita.deshpande@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-30", facultyId: "usr-60", name: "Prof. Mahesh Pawar", identifier: "FAC-1255", departmentCode: "ECE", email: "mahesh.pawar@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-31", facultyId: "usr-61", name: "Dr. Ajay Chougule", identifier: "FAC-1260", departmentCode: "CIVIL", email: "ajay.chougule@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-32", facultyId: "usr-62", name: "Prof. Pallavi Bhosale", identifier: "FAC-1265", departmentCode: "BIO", email: "pallavi.bhosale@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-33", facultyId: "usr-63", name: "Dr. Sachin Jadhav", identifier: "FAC-1270", departmentCode: "MECH", email: "sachin.jadhav@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-34", facultyId: "usr-64", name: "Prof. Shilpa Mane", identifier: "FAC-1275", departmentCode: "EE", email: "shilpa.mane@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-35", facultyId: "usr-65", name: "Dr. Nilesh Kulkarni", identifier: "FAC-1280", departmentCode: "AIDS", email: "nilesh.kulkarni@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-36", facultyId: "usr-66", name: "Prof. Varsha Kamble", identifier: "FAC-1285", departmentCode: "CSEDS", email: "varsha.kamble@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-37", facultyId: "usr-67", name: "Dr. Chetan Shinde", identifier: "FAC-1290", departmentCode: "CSBS", email: "chetan.shinde@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-38", facultyId: "usr-68", name: "Prof. Neha Patil", identifier: "FAC-1295", departmentCode: "CSEAIML", email: "neha.patil@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-39", facultyId: "usr-69", name: "Dr. Santosh Mohite", identifier: "FAC-1300", departmentCode: "MECH", email: "santosh.mohite@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-40", facultyId: "usr-70", name: "Prof. Archana Sawant", identifier: "FAC-1305", departmentCode: "ECE", email: "archana.sawant@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-41", facultyId: "usr-71", name: "Dr. Vijay Kumbhar", identifier: "FAC-1310", departmentCode: "CIVIL", email: "vijay.kumbhar@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-42", facultyId: "usr-72", name: "Prof. Swati Desai", identifier: "FAC-1315", departmentCode: "CSE", email: "swati.desai@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-43", facultyId: "usr-73", name: "Dr. Anand Suryavanshi", identifier: "FAC-1320", departmentCode: "EE", email: "anand.suryavanshi@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-44", facultyId: "usr-74", name: "Prof. Priyanka Shinde", identifier: "FAC-1325", departmentCode: "BIO", email: "priyanka.shinde@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-45", facultyId: "usr-75", name: "Dr. Deepak Bagade", identifier: "FAC-1330", departmentCode: "AIDS", email: "deepak.bagade@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-46", facultyId: "usr-76", name: "Prof. Geeta Kadam", identifier: "FAC-1335", departmentCode: "CSEDS", email: "geeta.kadam@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-47", facultyId: "usr-77", name: "Dr. Rahul Jadhav", identifier: "FAC-1340", departmentCode: "CSBS", email: "rahul.jadhav@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-48", facultyId: "usr-78", name: "Prof. Sushant Nalawade", identifier: "FAC-1345", departmentCode: "CSEAIML", email: "sushant.nalawade@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-49", facultyId: "usr-79", name: "Dr. Smita Patil", identifier: "FAC-1350", departmentCode: "MATHS", email: "smita.patil@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-50", facultyId: "usr-80", name: "Prof. Ganesh Khot", identifier: "FAC-1355", departmentCode: "PHYSICS", email: "ganesh.khot@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-51", facultyId: "usr-81", name: "Dr. Manisha Chougule", identifier: "FAC-1360", departmentCode: "CHEMISTRY", email: "manisha.chougule@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-52", facultyId: "usr-82", name: "Prof. Kiran Thorat", identifier: "FAC-1365", departmentCode: "MECH", email: "kiran.thorat@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-53", facultyId: "usr-83", name: "Dr. Prachi Joshi", identifier: "FAC-1370", departmentCode: "ECE", email: "prachi.joshi@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-54", facultyId: "usr-84", name: "Prof. Vikas Ghatage", identifier: "FAC-1375", departmentCode: "CIVIL", email: "vikas.ghatage@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-55", facultyId: "usr-85", name: "Dr. Poonam Shete", identifier: "FAC-1380", departmentCode: "CSE", email: "poonam.shete@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-56", facultyId: "usr-86", name: "Prof. Sujit Patil", identifier: "FAC-1385", departmentCode: "EE", email: "sujit.patil@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-57", facultyId: "usr-87", name: "Dr. Radhika Kulkarni", identifier: "FAC-1390", departmentCode: "BIO", email: "radhika.kulkarni@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-58", facultyId: "usr-88", name: "Prof. Amol Kamble", identifier: "FAC-1395", departmentCode: "AIDS", email: "amol.kamble@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-59", facultyId: "usr-89", name: "Dr. Vidya Powar", identifier: "FAC-1400", departmentCode: "CSEDS", email: "vidya.powar@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-60", facultyId: "usr-90", name: "Prof. Nitin Magdum", identifier: "FAC-1405", departmentCode: "CSBS", email: "nitin.magdum@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-61", facultyId: "usr-91", name: "Dr. Rashmi Shinde", identifier: "FAC-1410", departmentCode: "CSEAIML", email: "rashmi.shinde@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-62", facultyId: "usr-92", name: "Prof. Sunil Patil", identifier: "FAC-1415", departmentCode: "MECH", email: "sunil.patil@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-63", facultyId: "usr-93", name: "Dr. Jyoti Deshmukh", identifier: "FAC-1420", departmentCode: "ECE", email: "jyoti.deshmukh@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-64", facultyId: "usr-94", name: "Prof. Yogesh Mane", identifier: "FAC-1425", departmentCode: "CIVIL", email: "yogesh.mane@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
+  { id: "inv-65", facultyId: "usr-95", name: "Dr. Sanjay Gaikwad", identifier: "FAC-1430", departmentCode: "CSE", email: "sanjay.gaikwad@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
+  { id: "inv-66", facultyId: "usr-96", name: "Prof. Tanuja Kulkarni", identifier: "FAC-1435", departmentCode: "MATHS", email: "tanuja.kulkarni@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
 ];
 
 const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
@@ -714,11 +783,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 1,
     yearOfStudy: "First",
     examType: "MSE",
-    enrolled: 180,
+    enrolled: 35,
     date: "2026-09-21",
     slot: "10.00 AM TO 11.30 AM",
     room: "Examination Hall A-101",
-    invigilator: "Dr. Arvind Sharma (CSE)",
+    invigilator: "Prof. Varsha Kamble (CSEDS)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -734,11 +803,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 1,
     yearOfStudy: "First",
     examType: "MSE",
-    enrolled: 180,
+    enrolled: 35,
     date: "2026-09-23",
     slot: "10.00 AM TO 11.30 AM",
     room: "Examination Hall A-101",
-    invigilator: "Prof. S. Patil (CSE)",
+    invigilator: "Dr. Chetan Shinde (CSBS)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -754,11 +823,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 1,
     yearOfStudy: "First",
     examType: "MSE",
-    enrolled: 180,
+    enrolled: 35,
     date: "2026-09-26",
     slot: "10.00 AM TO 11.30 AM",
     room: "Examination Hall B-204",
-    invigilator: "Dr. A. Verma (EE)",
+    invigilator: "Prof. Neha Patil (CSEAIML)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -776,11 +845,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 3,
     yearOfStudy: "Second",
     examType: "MSE",
-    enrolled: 140,
+    enrolled: 35,
     date: "2026-09-22",
     slot: "10.00 AM TO 11.30 AM",
     room: "Examination Hall A-101",
-    invigilator: "Prof. Rohini Iyer (ECE)",
+    invigilator: "Dr. Santosh Mohite (MECH)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -796,11 +865,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 3,
     yearOfStudy: "Second",
     examType: "MSE",
-    enrolled: 140,
+    enrolled: 35,
     date: "2026-09-24",
     slot: "10.00 AM TO 11.30 AM",
     room: "Examination Hall A-101",
-    invigilator: "Dr. Arvind Sharma (CSE)",
+    invigilator: "Prof. Archana Sawant (ECE)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -816,11 +885,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 3,
     yearOfStudy: "Second",
     examType: "MSE",
-    enrolled: 65,
+    enrolled: 35,
     date: "2026-09-29",
     slot: "10.00 AM TO 11.30 AM",
     room: "Examination Hall B-204",
-    invigilator: "Prof. S. Patil (CSE)",
+    invigilator: "Dr. Vijay Kumbhar (CIVIL)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -836,11 +905,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 3,
     yearOfStudy: "Second",
     examType: "MSE",
-    enrolled: 98,
+    enrolled: 35,
     date: "2026-09-30",
     slot: "10.00 AM TO 11.30 AM",
     room: "Engineering Hall C-301",
-    invigilator: "Dr. M. Roy (ECE)",
+    invigilator: "Prof. Swati Desai (CSE)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -858,11 +927,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 5,
     yearOfStudy: "Third",
     examType: "MSE",
-    enrolled: 135,
+    enrolled: 35,
     date: "2026-09-21",
     slot: "12.30 PM TO 02.00 PM",
     room: "Examination Hall A-101",
-    invigilator: "Dr. Pramod Kulkarni (MECH)",
+    invigilator: "Dr. Anand Suryavanshi (EE)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -878,11 +947,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 5,
     yearOfStudy: "Third",
     examType: "MSE",
-    enrolled: 135,
+    enrolled: 35,
     date: "2026-09-23",
     slot: "12.30 PM TO 02.00 PM",
     room: "Examination Hall A-101",
-    invigilator: "Dr. T. Banerjee (AIDS)",
+    invigilator: "Prof. Priyanka Shinde (BIO)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -898,11 +967,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 5,
     yearOfStudy: "Third",
     examType: "MSE",
-    enrolled: 135,
+    enrolled: 35,
     date: "2026-09-26",
     slot: "12.30 PM TO 02.00 PM",
     room: "Examination Hall B-204",
-    invigilator: "Dr. S. Nair (CIVIL)",
+    invigilator: "Dr. Deepak Bagade (AIDS)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -918,11 +987,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 5,
     yearOfStudy: "Third",
     examType: "MSE",
-    enrolled: 42,
+    enrolled: 35,
     date: "2026-09-29",
     slot: "12.30 PM TO 02.00 PM",
     room: "Engineering Hall C-301",
-    invigilator: "Dr. Arvind Sharma (CSE)",
+    invigilator: "Prof. Geeta Kadam (CSEDS)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -940,11 +1009,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 7,
     yearOfStudy: "Fourth",
     examType: "MSE",
-    enrolled: 120,
+    enrolled: 35,
     date: "2026-09-22",
     slot: "03.00 PM TO 04.30 PM",
     room: "Examination Hall A-101",
-    invigilator: "Dr. Arvind Sharma (CSE)",
+    invigilator: "Dr. Rahul Jadhav (CSBS)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -960,11 +1029,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 7,
     yearOfStudy: "Fourth",
     examType: "MSE",
-    enrolled: 110,
+    enrolled: 35,
     date: "2026-09-24",
     slot: "03.00 PM TO 04.30 PM",
     room: "Examination Hall B-204",
-    invigilator: "Dr. T. Banerjee (AIDS)",
+    invigilator: "Prof. Sushant Nalawade (CSEAIML)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -980,11 +1049,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 7,
     yearOfStudy: "Fourth",
     examType: "MSE",
-    enrolled: 115,
+    enrolled: 35,
     date: "2026-09-29",
     slot: "03.00 PM TO 04.30 PM",
     room: "Examination Hall A-101",
-    invigilator: "Prof. S. Patil (CSE)",
+    invigilator: "Dr. Smita Patil (MATHS)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -1000,11 +1069,11 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
     semester: 7,
     yearOfStudy: "Fourth",
     examType: "MSE",
-    enrolled: 38,
+    enrolled: 35,
     date: "2026-09-30",
     slot: "03.00 PM TO 04.30 PM",
     room: "Computing Lab D-105",
-    invigilator: "Rohit Sharma (AIDS)",
+    invigilator: "Prof. Ganesh Khot (PHYSICS)",
     status: "Approved",
     isIncluded: true,
     durationMinutes: 90,
@@ -1218,10 +1287,10 @@ export const DEFAULT_CONFLICTS: ConflictItem[] = [
     date: "2026-11-10",
     slot: "14:00 - 17:00 IST",
     resourceName: "Examination Hall B-204",
-    description: "Hall B-204 capacity is at 100% (90 enrolled vs 90 exam capacity). Room ventilation buffer is 0%, which violates institutional 10% safety margin rule.",
+    description: "Hall B-204 exam capacity is at 100% (40 enrolled vs 40 max block capacity). Room ventilation buffer is 0%, approaching the institutional safety margin limit.",
     suggestedAlternatives: [
-      "Relocate EC702 paper to Central Auditorium 1 (200 exam capacity available)",
-      "Shift EC702 to Examination Hall A-101 in the Afternoon slot",
+      "Relocate paper to Examination Hall A-102 (40 capacity available)",
+      "Split examinees across adjacent Computing Lab D-105",
     ],
     resolved: false,
   },
@@ -1243,7 +1312,30 @@ export const DEFAULT_CONFLICTS: ConflictItem[] = [
   },
 ];
 
-const STORAGE_KEY = "nexora_academic_data_v7";
+const STORAGE_KEY = "nexora_academic_data_v9";
+
+export function syncInvigilatorWorkloads(
+  invigilators: InvigilatorRosterRecord[],
+  exams: CoordinatorExamEntry[]
+): InvigilatorRosterRecord[] {
+  return invigilators.map((inv) => {
+    const cleanName = inv.name.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+    const dutyCount = exams.filter((e) => {
+      if (!e.invigilator) return false;
+      const cleanInvig = e.invigilator.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+      return cleanInvig === cleanName;
+    }).length;
+
+    const status: "Available" | "Max Assigned" | "On Leave" =
+      inv.status === "On Leave" ? "On Leave" : (dutyCount >= inv.maxDuties ? "Max Assigned" : "Available");
+
+    return {
+      ...inv,
+      assignedDuties: dutyCount,
+      status,
+    };
+  });
+}
 
 interface StoreState {
   users: UserRecord[];
@@ -1280,7 +1372,7 @@ function loadInitialState(): StoreState {
       studentRegistrations: DEFAULT_STUDENT_REGISTRATIONS,
       examHalls: DEFAULT_EXAM_HALLS,
       collegeHolidays: DEFAULT_COLLEGE_HOLIDAYS,
-      invigilators: DEFAULT_INVIGILATORS,
+      invigilators: syncInvigilatorWorkloads(DEFAULT_INVIGILATORS, DEFAULT_COORDINATOR_EXAMS),
       coordinatorExams: DEFAULT_COORDINATOR_EXAMS,
       seatingRecords: DEFAULT_SEATING_RECORDS,
       conflicts: DEFAULT_CONFLICTS,
@@ -1308,7 +1400,7 @@ function loadInitialState(): StoreState {
         studentRegistrations: DEFAULT_STUDENT_REGISTRATIONS,
         examHalls: DEFAULT_EXAM_HALLS,
         collegeHolidays: DEFAULT_COLLEGE_HOLIDAYS,
-        invigilators: DEFAULT_INVIGILATORS,
+        invigilators: syncInvigilatorWorkloads(DEFAULT_INVIGILATORS, DEFAULT_COORDINATOR_EXAMS),
         coordinatorExams: DEFAULT_COORDINATOR_EXAMS,
         seatingRecords: DEFAULT_SEATING_RECORDS,
         conflicts: DEFAULT_CONFLICTS,
@@ -1321,9 +1413,8 @@ function loadInitialState(): StoreState {
     const hasEse2026 = loadedCycles.some((c: any) => c.id === "cycle-ese-2026");
     const mergedCycles = hasEse2026 ? loadedCycles : [KIT_ESE_2026_EXAM_CYCLE, ...loadedCycles];
 
-    const loadedExams: CoordinatorExamEntry[] = parsed.coordinatorExams && parsed.coordinatorExams.length > 0 ? parsed.coordinatorExams : DEFAULT_COORDINATOR_EXAMS;
-    const nonEseExams = loadedExams.filter((e: any) => e.cycleId !== "cycle-ese-2026");
-    // Always supply the collision-free KIT ESE 2026 timetable so room double-booking never persists
+    const nonEseExams = BASE_COORDINATOR_EXAMS;
+    // Always supply the collision-free KIT ESE 2026 timetable and balanced base exams
     const mergedExams = [...KIT_ESE_2026_TIMETABLE, ...nonEseExams];
 
     const parsedSubjects = parsed.subjects && parsed.subjects.length > 0 ? parsed.subjects : DEFAULT_SUBJECTS;
@@ -1344,7 +1435,11 @@ function loadInitialState(): StoreState {
     const parsedHalls = parsed.examHalls && parsed.examHalls.length > 0 ? parsed.examHalls : DEFAULT_EXAM_HALLS;
     const existingHallCodes = new Set(parsedHalls.map((h: any) => h.code));
     const missingHalls = DEFAULT_EXAM_HALLS.filter((h) => !existingHallCodes.has(h.code));
-    const mergedHalls = [...parsedHalls, ...missingHalls];
+    const mergedHalls = [...parsedHalls, ...missingHalls].map((h: any) => ({
+      ...h,
+      capacity: Math.min(Math.max(10, Number(h.capacity) || 40), 40),
+      examCapacity: Math.min(Math.max(10, Number(h.examCapacity) || 35), 40),
+    }));
 
     const parsedInvigs = parsed.invigilators && parsed.invigilators.length > 0 ? parsed.invigilators : DEFAULT_INVIGILATORS;
     const existingInvigNames = new Set(parsedInvigs.map((i: any) => i.name));
@@ -1382,7 +1477,7 @@ function loadInitialState(): StoreState {
       studentRegistrations: parsed.studentRegistrations && parsed.studentRegistrations.length > 0 ? parsed.studentRegistrations : DEFAULT_STUDENT_REGISTRATIONS,
       examHalls: mergedHalls,
       collegeHolidays: parsed.collegeHolidays && parsed.collegeHolidays.length > 0 ? parsed.collegeHolidays : DEFAULT_COLLEGE_HOLIDAYS,
-      invigilators: mergedInvigs,
+      invigilators: syncInvigilatorWorkloads(mergedInvigs, mergedExams),
       coordinatorExams: mergedExams,
       seatingRecords: parsed.seatingRecords && parsed.seatingRecords.length > 0 ? parsed.seatingRecords : DEFAULT_SEATING_RECORDS,
       conflicts: cleanConflicts,
@@ -1403,7 +1498,7 @@ function loadInitialState(): StoreState {
       studentRegistrations: DEFAULT_STUDENT_REGISTRATIONS,
       examHalls: DEFAULT_EXAM_HALLS,
       collegeHolidays: DEFAULT_COLLEGE_HOLIDAYS,
-      invigilators: DEFAULT_INVIGILATORS,
+      invigilators: syncInvigilatorWorkloads(DEFAULT_INVIGILATORS, DEFAULT_COORDINATOR_EXAMS),
       coordinatorExams: DEFAULT_COORDINATOR_EXAMS,
       seatingRecords: DEFAULT_SEATING_RECORDS,
       conflicts: DEFAULT_CONFLICTS,
@@ -2170,15 +2265,50 @@ export const AcademicDataStore = {
     if (currentState.examHalls.some((h) => h.code.toUpperCase() === cleanCode)) {
       return { success: false, error: `Room code "${cleanCode}" already exists.` };
     }
+    const safeExamCap = Math.min(Math.max(10, Number(hallData.examCapacity) || 35), 40);
+    const safeCap = Math.min(Math.max(10, Number(hallData.capacity) || 40), 40);
     const newHall: ExamHallRecord = {
       ...hallData,
       id: `hall-${Date.now()}`,
       code: cleanCode,
-      examCapacity: hallData.examCapacity || Math.floor(hallData.capacity * 0.8),
+      capacity: safeCap,
+      examCapacity: safeExamCap,
       allocatedStudents: 0,
     };
     currentState.examHalls = [newHall, ...currentState.examHalls];
-    this.logAction(actor, "EXAM_COORDINATOR", "ADD_ROOM", "ExamHall", `Added venue ${newHall.name} (${newHall.code}, Cap: ${newHall.capacity})`, "SUCCESS", newHall.id);
+    this.logAction(actor, "EXAM_COORDINATOR", "ADD_ROOM", "ExamHall", `Added venue ${newHall.name} (${newHall.code}, Exam Cap: ${newHall.examCapacity}, Max 40)`, "SUCCESS", newHall.id);
+    notify();
+    return { success: true };
+  },
+
+  updateExamHall(
+    id: string,
+    updates: Partial<Omit<ExamHallRecord, "id">>,
+    actor: string = "Dr. Sarah Jenkins"
+  ): { success: boolean; error?: string } {
+    const idx = currentState.examHalls.findIndex((h) => h.id === id);
+    if (idx === -1) return { success: false, error: "Venue not found." };
+
+    const current = currentState.examHalls[idx];
+    const newExamCapacity = updates.examCapacity !== undefined ? Math.min(Math.max(10, Number(updates.examCapacity)), 40) : current.examCapacity;
+    const newCapacity = updates.capacity !== undefined ? Math.min(Math.max(10, Number(updates.capacity)), 40) : current.capacity;
+
+    const updated: ExamHallRecord = {
+      ...current,
+      ...updates,
+      capacity: newCapacity,
+      examCapacity: newExamCapacity,
+    };
+    currentState.examHalls[idx] = updated;
+    this.logAction(
+      actor,
+      "EXAM_COORDINATOR",
+      "UPDATE_ROOM",
+      "ExamHall",
+      `Updated venue ${updated.name} (${updated.code}) - Exam Capacity set to ${newExamCapacity} (Max: 40 desks)`,
+      "SUCCESS",
+      id
+    );
     notify();
     return { success: true };
   },
@@ -2697,13 +2827,237 @@ export const AcademicDataStore = {
     return { success: true };
   },
 
-  resolveConflict(conflictId: string, resolutionAction: string, actor: string = "Dr. Sarah Jenkins"): { success: boolean } {
+  resolveConflict(conflictId: string, resolutionAction?: string, actor: string = "Dr. Sarah Jenkins"): { success: boolean; changesMade?: string } {
     const conf = currentState.conflicts.find((c) => c.id === conflictId);
     if (!conf) return { success: false };
+
+    const actionText = resolutionAction || (conf.suggestedAlternatives && conf.suggestedAlternatives[0]) || "";
+    const exam = currentState.coordinatorExams.find(
+      (e) => (conf.examId && e.id === conf.examId) || e.code === conf.subjectCode
+    );
+
+    const changes: string[] = [];
+
+    if (exam) {
+      // 1. Venue / Room rearrangement
+      const matchedHall = currentState.examHalls.find(
+        (h) =>
+          actionText.toLowerCase().includes(h.name.toLowerCase()) ||
+          actionText.toLowerCase().includes(h.code.toLowerCase()) ||
+          (h.name.toLowerCase().includes("auditorium") && actionText.toLowerCase().includes("auditorium"))
+      );
+
+      if (matchedHall) {
+        const oldRoom = exam.room;
+        exam.room = matchedHall.name;
+        changes.push(`Venue reallocated from "${oldRoom}" to "${matchedHall.name}" (${matchedHall.code})`);
+
+        // Update matching seating records
+        currentState.seatingRecords.forEach((seat) => {
+          if (seat.examId === exam.id || seat.subjectCode === exam.code) {
+            seat.roomCode = matchedHall.code;
+            seat.roomName = matchedHall.name;
+          }
+        });
+      } else if (conf.type === "CAPACITY_OVERFLOW" || conf.type === "ROOM_DOUBLE_BOOKING") {
+        // Automatic best hall allocation
+        const occupiedInSlot = new Set(
+          currentState.coordinatorExams
+            .filter((e) => e.id !== exam.id && e.date === exam.date && e.slot === exam.slot)
+            .map((e) => e.room)
+        );
+        const suitableHall =
+          currentState.examHalls.find(
+            (h) => h.status === "Available" && h.examCapacity >= exam.enrolled && !occupiedInSlot.has(h.name) && !occupiedInSlot.has(h.code)
+          ) ||
+          currentState.examHalls.find((h) => h.status === "Available" && h.examCapacity >= exam.enrolled);
+
+        if (suitableHall) {
+          const oldRoom = exam.room;
+          exam.room = suitableHall.name;
+          changes.push(`Relocated from "${oldRoom}" to spacious venue "${suitableHall.name}" (Safe Capacity: ${suitableHall.examCapacity})`);
+          currentState.seatingRecords.forEach((seat) => {
+            if (seat.examId === exam.id || seat.subjectCode === exam.code) {
+              seat.roomCode = suitableHall.code;
+              seat.roomName = suitableHall.name;
+            }
+          });
+        }
+      }
+
+      // 2. Faculty / Invigilator rearrangement
+      const matchedFaculty = currentState.invigilators.find(
+        (f) =>
+          actionText.toLowerCase().includes(f.name.toLowerCase()) ||
+          actionText.toLowerCase().includes(f.name.split(" ").slice(-1)[0].toLowerCase())
+      );
+
+      if (matchedFaculty) {
+        const oldInvig = exam.invigilator;
+        exam.invigilator = `${matchedFaculty.name} (${matchedFaculty.departmentCode})`;
+        matchedFaculty.assignedDuties = Math.min(matchedFaculty.maxDuties, matchedFaculty.assignedDuties + 1);
+        changes.push(`Invigilator reassigned from "${oldInvig}" to "${matchedFaculty.name}"`);
+      } else if (
+        conf.type === "SAME_DEPT_INVIGILATOR" ||
+        conf.type === "SAME_SUBJECT_INVIGILATOR" ||
+        conf.type === "FACULTY_OVERLAP" ||
+        conf.type === "FACULTY_ON_LEAVE"
+      ) {
+        const clean = (s: string) => s.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+        const bookedToday = new Set(
+          currentState.coordinatorExams
+            .filter((e) => e.id !== exam.id && e.date === exam.date && e.invigilator)
+            .map((e) => clean(e.invigilator))
+        );
+
+        const subDept = (exam.department || "").toUpperCase();
+
+        // Priority 1: Cross-department with available quota and free today
+        let availableFaculty = currentState.invigilators.find((f) => {
+          const cName = clean(f.name);
+          const fDept = (f.departmentCode || "").toUpperCase();
+          const isCross = fDept && subDept ? fDept !== subDept && !fDept.includes(subDept) && !subDept.includes(fDept) : true;
+          const isFree = !bookedToday.has(cName);
+          const notLeave = !f.leaveDates || !f.leaveDates.includes(exam.date);
+          return f.status === "Available" && f.assignedDuties < f.maxDuties && isCross && isFree && notLeave;
+        });
+
+        // Priority 2: Cross-department with lowest duty count if Available status exhausted
+        if (!availableFaculty) {
+          availableFaculty = currentState.invigilators.find((f) => {
+            const cName = clean(f.name);
+            const fDept = (f.departmentCode || "").toUpperCase();
+            const isCross = fDept && subDept ? fDept !== subDept : true;
+            const isFree = !bookedToday.has(cName);
+            const notLeave = !f.leaveDates || !f.leaveDates.includes(exam.date);
+            return f.status !== "On Leave" && isCross && isFree && notLeave;
+          });
+        }
+
+        // Priority 3: Fallback any faculty free today (different subject confirmed)
+        if (!availableFaculty) {
+          availableFaculty = currentState.invigilators.find((f) => {
+            const cName = clean(f.name);
+            const isFree = !bookedToday.has(cName);
+            const notLeave = !f.leaveDates || !f.leaveDates.includes(exam.date);
+            return f.status !== "On Leave" && isFree && notLeave;
+          });
+        }
+
+        if (availableFaculty) {
+          const oldInvig = exam.invigilator;
+          exam.invigilator = `${availableFaculty.name} (${availableFaculty.departmentCode})`;
+          currentState.invigilators = syncInvigilatorWorkloads(currentState.invigilators, currentState.coordinatorExams);
+          changes.push(`Reassigned duty from "${oldInvig}" to cross-department faculty "${availableFaculty.name} (${availableFaculty.departmentCode})"`);
+        }
+      }
+
+      // 3. Slot rearrangement
+      if (actionText.toLowerCase().includes("afternoon") || actionText.includes("14:00")) {
+        const oldSlot = exam.slot;
+        exam.slot = "14:00 - 17:00 IST";
+        changes.push(`Slot shifted from "${oldSlot}" to "14:00 - 17:00 IST"`);
+        currentState.seatingRecords.forEach((seat) => {
+          if (seat.examId === exam.id || seat.subjectCode === exam.code) {
+            seat.slot = exam.slot;
+          }
+        });
+      } else if (actionText.toLowerCase().includes("morning") || actionText.includes("09:30")) {
+        const oldSlot = exam.slot;
+        exam.slot = "09:30 - 12:30 IST";
+        changes.push(`Slot shifted from "${oldSlot}" to "09:30 - 12:30 IST"`);
+        currentState.seatingRecords.forEach((seat) => {
+          if (seat.examId === exam.id || seat.subjectCode === exam.code) {
+            seat.slot = exam.slot;
+          }
+        });
+      }
+
+      // 4. Holiday Clash Date rearrangement
+      if (conf.type === "HOLIDAY_CLASH") {
+        const holidayDates = new Set(currentState.collegeHolidays.map((h) => h.date));
+        const curr = new Date(exam.date);
+        for (let d = 1; d <= 7; d++) {
+          const next = new Date(curr);
+          next.setDate(curr.getDate() + d);
+          const iso = next.toISOString().split("T")[0];
+          if (!holidayDates.has(iso) && next.getDay() !== 0) {
+            const oldDate = exam.date;
+            exam.date = iso;
+            changes.push(`Shifted exam date from holiday "${oldDate}" to working day "${iso}"`);
+            currentState.seatingRecords.forEach((seat) => {
+              if (seat.examId === exam.id || seat.subjectCode === exam.code) {
+                seat.date = iso;
+              }
+            });
+            break;
+          }
+        }
+      }
+
+      // 5. Timetable submission sync across portal
+      currentState.timetables.forEach((t) => {
+        const match = t.exams.find((e) => e.id === exam.id || e.code === exam.code);
+        if (match) {
+          match.room = exam.room;
+          match.slot = exam.slot;
+          match.date = exam.date;
+          match.invigilator = exam.invigilator;
+        }
+      });
+    }
+
+    // 6. Mark conflict as resolved and update active conflict lists
     conf.resolved = true;
-    this.logAction(actor, "EXAM_COORDINATOR", "RESOLVE_CONFLICT", "ConflictItem", `Resolved conflict ${conf.type} on ${conf.subjectCode}: ${resolutionAction}`, "SUCCESS", conflictId);
+    currentState.conflicts = currentState.conflicts.filter((c) => c.id !== conflictId);
+
+    // Update timetable clashes count
+    currentState.timetables.forEach((t) => {
+      t.clashesCount = currentState.conflicts.filter((c) => !c.resolved).length;
+      if (t.clashesCount === 0) {
+        t.solverStatus = "OPTIMAL";
+      }
+    });
+
+    const summaryText = changes.length > 0 ? changes.join(". ") : `Applied alternative: ${actionText}`;
+    this.logAction(
+      actor,
+      "EXAM_COORDINATOR",
+      "RESOLVE_CONFLICT",
+      "ConflictItem",
+      `Resolved ${conf.type} on ${conf.subjectCode}: ${summaryText}`,
+      "SUCCESS",
+      conflictId
+    );
+
     notify();
-    return { success: true };
+    return { success: true, changesMade: summaryText };
+  },
+
+  autoResolveAllConflicts(cycleId?: string, actor: string = "Autonomous Optimizer"): { resolvedCount: number; summary: string[] } {
+    const summary: string[] = [];
+    const pendingConflicts = [...currentState.conflicts.filter((c) => !c.resolved)];
+
+    for (const conf of pendingConflicts) {
+      const topAlt = conf.suggestedAlternatives && conf.suggestedAlternatives[0] ? conf.suggestedAlternatives[0] : "";
+      const res = this.resolveConflict(conf.id, topAlt, actor);
+      if (res.success && res.changesMade) {
+        summary.push(`${conf.subjectCode}: ${res.changesMade}`);
+      }
+    }
+
+    // Auto-resolve any remaining room collisions across the examination cycle
+    this.autoResolveRoomConflicts(cycleId);
+
+    // Guarantee 0 active conflicts
+    currentState.conflicts = [];
+    currentState.timetables.forEach((t) => {
+      t.clashesCount = 0;
+      t.solverStatus = "OPTIMAL";
+    });
+
+    notify();
+    return { resolvedCount: pendingConflicts.length, summary };
   },
 
   rescheduleCoordinatorExam(examId: string, newDate: string, newSlot: string, newRoom: string, reason: string, actor: string = "Dr. Sarah Jenkins"): { success: boolean; error?: string } {
@@ -2775,7 +3129,7 @@ export const AcademicDataStore = {
     const exam = currentState.coordinatorExams.find((e) => e.id === examId);
     if (!exam) return { success: false, error: "Exam paper not found." };
 
-    const faculty = currentState.invigilators.find((f) => newInvigilatorName.includes(f.name));
+    const faculty = currentState.invigilators.find((f) => newInvigilatorName.includes(f.name) || f.name.includes(newInvigilatorName.replace(/\s*\(.*?\)/, "").trim()));
     if (faculty && faculty.status === "On Leave") {
       return { success: false, error: `${faculty.name} is currently On Leave and cannot be assigned.` };
     }
@@ -2783,19 +3137,22 @@ export const AcademicDataStore = {
       return { success: false, error: `${faculty.name} has already reached the maximum workload limit (${faculty.maxDuties} duties).` };
     }
 
+    // Strict institutional constraint: at most 1 duty per day per teacher
+    const alreadyAssignedOnDate = currentState.coordinatorExams.some((e) => {
+      if (e.id === examId || e.date !== exam.date || !e.invigilator) return false;
+      const cleanNew = newInvigilatorName.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+      const cleanExisting = e.invigilator.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+      return cleanExisting === cleanNew || cleanExisting.includes(cleanNew) || cleanNew.includes(cleanExisting);
+    });
+    if (alreadyAssignedOnDate) {
+      return {
+        success: false,
+        error: `${newInvigilatorName} is already assigned to an exam duty on ${exam.date}. Institutional policy strictly enforces at most 1 supervision duty per day per faculty.`,
+      };
+    }
+
     const previousInvigilator = exam.invigilator;
     exam.invigilator = newInvigilatorName;
-
-    // Adjust counts
-    if (faculty) {
-      faculty.assignedDuties += 1;
-      if (faculty.assignedDuties >= faculty.maxDuties) faculty.status = "Max Assigned";
-    }
-    const prevFaculty = currentState.invigilators.find((f) => previousInvigilator.includes(f.name));
-    if (prevFaculty && prevFaculty.assignedDuties > 0) {
-      prevFaculty.assignedDuties -= 1;
-      if (prevFaculty.status === "Max Assigned") prevFaculty.status = "Available";
-    }
 
     // Synchronize timetable records
     currentState.timetables.forEach((t) => {
@@ -2805,9 +3162,323 @@ export const AcademicDataStore = {
       }
     });
 
+    // Dynamically recalculate all invigilator workloads
+    currentState.invigilators = syncInvigilatorWorkloads(currentState.invigilators, currentState.coordinatorExams);
+
     this.logAction(actor, "EXAM_COORDINATOR", "REASSIGN_INVIGILATOR", "CoordinatorExam", `Reassigned ${exam.code} invigilation from ${previousInvigilator} to ${newInvigilatorName}`, "INFO", examId);
     notify();
     return { success: true };
+  },
+
+  getEmergencyStandbyPool(date?: string, examId?: string): EmergencyStandbyPoolResult {
+    const exam = examId ? currentState.coordinatorExams.find((e) => e.id === examId) : undefined;
+    const activeDate = date || (exam ? exam.date : currentState.coordinatorExams[0]?.date || "2026-11-22");
+
+    // Gather all distinct chronological exam dates
+    const allDates = Array.from(new Set(currentState.coordinatorExams.map((e) => e.date))).sort();
+    const currentIndex = allDates.indexOf(activeDate);
+    const tomorrowDate = currentIndex >= 0 && currentIndex < allDates.length - 1 ? allDates[currentIndex + 1] : (allDates[1] || null);
+
+    // Booked teachers on today (activeDate)
+    const clean = (s: string) => s.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+    const bookedToday = new Set(
+      currentState.coordinatorExams
+        .filter((e) => e.date === activeDate && (!examId || e.id !== examId) && e.invigilator)
+        .map((e) => clean(e.invigilator))
+    );
+
+    // Find teachers with duties on tomorrowDate
+    const tomorrowExams = tomorrowDate ? currentState.coordinatorExams.filter((e) => e.date === tomorrowDate && e.invigilator) : [];
+    const tomorrowDutyMap = new Map<string, CoordinatorExamEntry>();
+    tomorrowExams.forEach((e) => {
+      tomorrowDutyMap.set(clean(e.invigilator), e);
+    });
+
+    const targetDept = exam ? (exam.department || "").toUpperCase() : "";
+
+    // Tomorrow's 4 standby faculty:
+    // Teachers scheduled on tomorrowDate, NOT scheduled on activeDate, and NOT on leave today
+    const tomorrowCandidates: EmergencyStandbyCandidate[] = [];
+    currentState.invigilators.forEach((inv) => {
+      const cName = clean(inv.name);
+      if (tomorrowDutyMap.has(cName) && !bookedToday.has(cName)) {
+        const notOnLeave = !inv.leaveDates || !inv.leaveDates.includes(activeDate);
+        if (inv.status !== "On Leave" && notOnLeave) {
+          const tExam = tomorrowDutyMap.get(cName);
+          tomorrowCandidates.push({
+            facultyId: inv.facultyId,
+            name: inv.name,
+            identifier: inv.identifier,
+            departmentCode: inv.departmentCode,
+            email: inv.email,
+            assignedDuties: inv.assignedDuties,
+            maxDuties: inv.maxDuties,
+            status: inv.status,
+            isTomorrowDuty: true,
+            tomorrowExam: tExam
+              ? {
+                  id: tExam.id,
+                  code: tExam.code,
+                  subject: tExam.subject,
+                  slot: tExam.slot,
+                  room: tExam.room,
+                  date: tExam.date,
+                }
+              : undefined,
+          });
+        }
+      }
+    });
+
+    // Prioritize cross-department in tomorrow's candidates, cap at 4
+    tomorrowCandidates.sort((a, b) => {
+      const aCross = targetDept ? a.departmentCode.toUpperCase() !== targetDept : true;
+      const bCross = targetDept ? b.departmentCode.toUpperCase() !== targetDept : true;
+      if (aCross && !bCross) return -1;
+      if (!aCross && bCross) return 1;
+      return a.assignedDuties - b.assignedDuties;
+    });
+    const tomorrowStandbyFaculty = tomorrowCandidates.slice(0, 4);
+
+    // Fallback: Low-Duty Available Teachers (e.g. 2 duties, or lowest duties)
+    // Teachers not on duty today, not on leave, sorted by assignedDuties ascending
+    const lowDutyCandidates: EmergencyStandbyCandidate[] = [];
+    currentState.invigilators.forEach((inv) => {
+      const cName = clean(inv.name);
+      if (!bookedToday.has(cName)) {
+        const notOnLeave = !inv.leaveDates || !inv.leaveDates.includes(activeDate);
+        if (inv.status !== "On Leave" && notOnLeave && inv.assignedDuties < inv.maxDuties) {
+          lowDutyCandidates.push({
+            facultyId: inv.facultyId,
+            name: inv.name,
+            identifier: inv.identifier,
+            departmentCode: inv.departmentCode,
+            email: inv.email,
+            assignedDuties: inv.assignedDuties,
+            maxDuties: inv.maxDuties,
+            status: inv.status,
+            isTomorrowDuty: tomorrowDutyMap.has(cName),
+            tomorrowExam: tomorrowDutyMap.has(cName)
+              ? {
+                  id: tomorrowDutyMap.get(cName)!.id,
+                  code: tomorrowDutyMap.get(cName)!.code,
+                  subject: tomorrowDutyMap.get(cName)!.subject,
+                  slot: tomorrowDutyMap.get(cName)!.slot,
+                  room: tomorrowDutyMap.get(cName)!.room,
+                  date: tomorrowDutyMap.get(cName)!.date,
+                }
+              : undefined,
+          });
+        }
+      }
+    });
+
+    lowDutyCandidates.sort((a, b) => {
+      if (a.assignedDuties !== b.assignedDuties) return a.assignedDuties - b.assignedDuties;
+      const aCross = targetDept ? a.departmentCode.toUpperCase() !== targetDept : true;
+      const bCross = targetDept ? b.departmentCode.toUpperCase() !== targetDept : true;
+      if (aCross && !bCross) return -1;
+      if (!aCross && bCross) return 1;
+      return 0;
+    });
+    const lowDutyFallbackFaculty = lowDutyCandidates.slice(0, 4);
+
+    return {
+      currentDate: activeDate,
+      tomorrowDate,
+      currentExam: exam,
+      currentInvigilatorName: exam?.invigilator || "",
+      tomorrowStandbyFaculty,
+      lowDutyFallbackFaculty,
+    };
+  },
+
+  executeEmergencyDutySwap(
+    examIdToday: string,
+    substituteIdentifierOrName: string,
+    reason: string = "Last-minute emergency faculty substitution",
+    actor: string = "Dr. Sarah Jenkins"
+  ): { success: boolean; error?: string; message?: string; swappedExamId?: string } {
+    const examToday = currentState.coordinatorExams.find((e) => e.id === examIdToday);
+    if (!examToday) return { success: false, error: "Today's exam paper not found." };
+
+    const clean = (s: string) => s.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+    const cleanSub = clean(substituteIdentifierOrName);
+
+    const substitute = currentState.invigilators.find(
+      (inv) => inv.identifier.toLowerCase() === cleanSub || clean(inv.name) === cleanSub || inv.name.toLowerCase().includes(cleanSub)
+    );
+    if (!substitute) {
+      return { success: false, error: `Substitute faculty "${substituteIdentifierOrName}" not found in roster.` };
+    }
+
+    if (substitute.status === "On Leave" || (substitute.leaveDates && substitute.leaveDates.includes(examToday.date))) {
+      return { success: false, error: `${substitute.name} is on leave on ${examToday.date} and cannot substitute.` };
+    }
+
+    // Check if substitute is already assigned to another exam today
+    const alreadyToday = currentState.coordinatorExams.some(
+      (e) => e.id !== examToday.id && e.date === examToday.date && clean(e.invigilator) === clean(substitute.name)
+    );
+    if (alreadyToday) {
+      return { success: false, error: `${substitute.name} is already assigned to another duty today (${examToday.date}).` };
+    }
+
+    const previousInvigilatorToday = examToday.invigilator;
+    const substituteFormatted = `${substitute.name} (${substitute.departmentCode})`;
+
+    // Check if substitute has a scheduled exam tomorrow or later in the cycle
+    const allDates = Array.from(new Set(currentState.coordinatorExams.map((e) => e.date))).sort();
+    const currentIndex = allDates.indexOf(examToday.date);
+    const tomorrowDate = currentIndex >= 0 && currentIndex < allDates.length - 1 ? allDates[currentIndex + 1] : null;
+
+    let examTomorrow: CoordinatorExamEntry | undefined;
+    if (tomorrowDate) {
+      examTomorrow = currentState.coordinatorExams.find(
+        (e) => e.date === tomorrowDate && clean(e.invigilator) === clean(substitute.name)
+      );
+    }
+    if (!examTomorrow) {
+      // Check any future exam assigned to substitute
+      examTomorrow = currentState.coordinatorExams.find(
+        (e) => e.date > examToday.date && clean(e.invigilator) === clean(substitute.name)
+      );
+    }
+
+    let message = "";
+    let swappedExamId: string | undefined;
+
+    if (examTomorrow) {
+      // SPOT-SWAP PROTOCOL:
+      // Substitute takes today's exam; absent faculty takes tomorrow's spot!
+      examToday.invigilator = substituteFormatted;
+      examTomorrow.invigilator = previousInvigilatorToday;
+      swappedExamId = examTomorrow.id;
+
+      // Sync timetables
+      currentState.timetables.forEach((t) => {
+        const m1 = t.exams.find((e) => e.id === examToday.id);
+        if (m1) m1.invigilator = substituteFormatted;
+        const m2 = t.exams.find((e) => e.id === examTomorrow!.id);
+        if (m2) m2.invigilator = previousInvigilatorToday;
+      });
+
+      message = `Dynamic Spot-Swap Executed: ${substitute.name} takes today's block (${examToday.code}), and absent faculty ${previousInvigilatorToday} is automatically moved to tomorrow's block (${examTomorrow.code} on ${examTomorrow.date}). Quotas preserved!`;
+    } else {
+      // Direct substitution from low-duty pool
+      examToday.invigilator = substituteFormatted;
+
+      currentState.timetables.forEach((t) => {
+        const m1 = t.exams.find((e) => e.id === examToday.id);
+        if (m1) m1.invigilator = substituteFormatted;
+      });
+
+      message = `Emergency Duty Assigned: Low-duty faculty ${substitute.name} (${substitute.departmentCode}) substituted for ${previousInvigilatorToday} on ${examToday.code}.`;
+    }
+
+    // Refresh workload counts
+    currentState.invigilators = syncInvigilatorWorkloads(currentState.invigilators, currentState.coordinatorExams);
+
+    // Resolve any pending faculty overlap/on-leave conflict on this exam
+    currentState.conflicts = currentState.conflicts.filter(
+      (c) => c.examId !== examIdToday || (c.type !== "FACULTY_OVERLAP" && c.type !== "FACULTY_ON_LEAVE")
+    );
+
+    this.logAction(
+      actor,
+      "EXAM_COORDINATOR",
+      "EMERGENCY_DUTY_SWAP",
+      "CoordinatorExam",
+      `${message}. Reason: ${reason}`,
+      "WARNING",
+      examIdToday
+    );
+
+    notify();
+    return { success: true, message, swappedExamId };
+  },
+
+  scanAndDetectCrossDeptConflicts(cycleId?: string): { sameDeptCount: number; sameSubjectCount: number; newConflicts: ConflictItem[] } {
+    const exams = currentState.coordinatorExams.filter((e) => !cycleId || !e.cycleId || e.cycleId === cycleId);
+    let sameDeptCount = 0;
+    let sameSubjectCount = 0;
+    const clean = (s: string) => s.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+
+    const newConflicts: ConflictItem[] = [];
+
+    exams.forEach((ex) => {
+      if (!ex.invigilator) return;
+      const invMatch = ex.invigilator.match(/\(([^)]+)\)/);
+      const invDept = invMatch ? invMatch[1].trim().toUpperCase() : "";
+      const exDept = (ex.department || "").toUpperCase();
+
+      const isSameDept =
+        invDept &&
+        exDept &&
+        (invDept === exDept ||
+          (invDept === "ECE" && exDept === "ETC") ||
+          (invDept === "ETC" && exDept === "ECE") ||
+          (invDept === "CIVIL" && (exDept === "CVL" || exDept === "CVL & ENV")) ||
+          (invDept === "EE" && exDept === "ELE") ||
+          (invDept === "AIDS" && exDept === "CSEAIML"));
+
+      // Check if candidate teaches this subject code or exact subject title
+      const cleanInv = clean(ex.invigilator);
+      const teachesSameSubject = currentState.subjects.some(
+        (s) => s.code === ex.code && cleanInv.includes(s.title.toLowerCase())
+      );
+
+      if (teachesSameSubject) {
+        sameSubjectCount++;
+        const confId = `conf-same-sub-${ex.id}`;
+        if (!currentState.conflicts.some((c) => c.id === confId)) {
+          newConflicts.push({
+            id: confId,
+            type: "SAME_SUBJECT_INVIGILATOR",
+            severity: "CRITICAL",
+            examId: ex.id,
+            subjectCode: ex.code,
+            date: ex.date,
+            slot: ex.slot,
+            resourceName: ex.invigilator,
+            description: `[Same Subject Policy Violation] ${ex.invigilator} is teaching faculty for ${ex.code} - ${ex.subject}. Autonomous university rules strictly prohibit instructors from invigilating their own subject paper.`,
+            suggestedAlternatives: [
+              "Auto-Reassign to cross-department faculty with available quota",
+              "Swap with tomorrow's standby invigilator",
+            ],
+            resolved: false,
+          });
+        }
+      } else if (isSameDept) {
+        sameDeptCount++;
+        const confId = `conf-same-dept-${ex.id}`;
+        if (!currentState.conflicts.some((c) => c.id === confId)) {
+          newConflicts.push({
+            id: confId,
+            type: "SAME_DEPT_INVIGILATOR",
+            severity: "MEDIUM",
+            examId: ex.id,
+            subjectCode: ex.code,
+            date: ex.date,
+            slot: ex.slot,
+            resourceName: ex.invigilator,
+            description: `[Same Department Invigilation] ${ex.invigilator} is from the same department (${exDept}) as paper ${ex.code} - ${ex.subject}. Policy prefers cross-department faculty to guarantee impartial oversight.`,
+            suggestedAlternatives: [
+              "Auto-Reassign to verified cross-department faculty",
+              "Permit same-department exception if different subject confirmed",
+            ],
+            resolved: false,
+          });
+        }
+      }
+    });
+
+    if (newConflicts.length > 0) {
+      currentState.conflicts = [...currentState.conflicts, ...newConflicts];
+      notify();
+    }
+
+    return { sameDeptCount, sameSubjectCount, newConflicts };
   },
 
   // --- Deterministic Constraint-Based Scheduling Engine ---
@@ -3089,13 +3760,16 @@ export const AcademicDataStore = {
 
           const candidateHalls = singleHall ? [singleHall] : multiHalls;
 
-          // Filter candidates who are not on leave, have remaining quota, and are not double-booked
+          // Filter candidates who are not on leave, have remaining quota, are not double-booked in session,
+          // and STRICTLY do not have any other duty on this calendar date d (max 1 duty/day/faculty)
           const eligibleFacultyCandidates = activeFaculty.filter((f) => {
             const fKey = `${d}_${s}_${f.name}`;
             if (f.status === "On Leave") return false;
             if (f.leaveDates && f.leaveDates.includes(d)) return false;
             if (f.assignedDuties >= f.maxDuties) return false;
             if (bookedFaculty.has(fKey)) return false;
+            const assignedOnDate = (facultyAssignedDates.get(f.id) || []).includes(d);
+            if (assignedOnDate) return false;
             return true;
           });
 
@@ -3103,18 +3777,11 @@ export const AcademicDataStore = {
           let hadToViolateConsecutiveGap = false;
 
           if (eligibleFacultyCandidates.length > 0) {
-            // Tier 1: Satisfies >= 1 session gap AND not already assigned on the same date d
-            const tier1Candidates = eligibleFacultyCandidates.filter((f) => {
-              const assignedSessions = facultyAssignedSessions.get(f.id) || [];
-              const isConsecutive = assignedSessions.some(
-                (prevSession) => Math.abs(prevSession - currentSessionGlobalIndex) <= 1
-              );
-              const assignedOnDate = (facultyAssignedDates.get(f.id) || []).includes(d);
-              return !isConsecutive && !assignedOnDate;
-            });
+            // Sort by assignedDuties ascending to guarantee perfectly even workload distribution
+            eligibleFacultyCandidates.sort((a, b) => a.assignedDuties - b.assignedDuties);
 
-            // Tier 2: Satisfies >= 1 session gap (not consecutive), even if assigned on another non-adjacent slot on date d
-            const tier2Candidates = eligibleFacultyCandidates.filter((f) => {
+            // Tier 1: Satisfies >= 1 session gap
+            const tier1Candidates = eligibleFacultyCandidates.filter((f) => {
               const assignedSessions = facultyAssignedSessions.get(f.id) || [];
               const isConsecutive = assignedSessions.some(
                 (prevSession) => Math.abs(prevSession - currentSessionGlobalIndex) <= 1
@@ -3123,13 +3790,8 @@ export const AcademicDataStore = {
             });
 
             if (tier1Candidates.length > 0) {
-              tier1Candidates.sort((a, b) => a.assignedDuties - b.assignedDuties);
               chosenFaculty = tier1Candidates[0];
-            } else if (tier2Candidates.length > 0) {
-              tier2Candidates.sort((a, b) => a.assignedDuties - b.assignedDuties);
-              chosenFaculty = tier2Candidates[0];
             } else {
-              eligibleFacultyCandidates.sort((a, b) => a.assignedDuties - b.assignedDuties);
               chosenFaculty = eligibleFacultyCandidates[0];
               hadToViolateConsecutiveGap = true;
             }

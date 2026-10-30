@@ -97,65 +97,27 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
   // Filter exams assigned to this faculty from published/approved timetable
   const facultyDuties = useMemo(() => {
     const allExams = storeState.coordinatorExams || [];
-    // If exam has invigilator matching faculty name or "Dr. Arvind Sharma" or fallback
+    const cleanUserName = facultyName.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+
+    // Match exam where invigilator corresponds to this faculty
     const matched = allExams.filter((ex: CoordinatorExamEntry) => {
       if (!ex.invigilator) return false;
+      const cleanInvig = ex.invigilator.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
       return (
-        ex.invigilator.toLowerCase().includes("arvind") ||
-        ex.invigilator.toLowerCase().includes(facultyName.toLowerCase()) ||
-        ex.invigilator.toLowerCase().includes("sharma")
+        cleanInvig === cleanUserName ||
+        cleanInvig.includes(cleanUserName) ||
+        cleanUserName.includes(cleanInvig)
       );
     });
 
-    // If zero matches (e.g. default store), provide comprehensive institutional default duties
     if (matched.length > 0) {
-      return matched;
+      return [...matched].sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        return a.slot.localeCompare(b.slot);
+      });
     }
 
-    return [
-      {
-        id: "duty-ese-1",
-        code: "CS701",
-        subject: "Distributed Systems & Cloud Computing",
-        department: "CSE",
-        date: "2026-11-23",
-        slot: "09:30 - 12:30 IST",
-        room: "Hall A-101 (Main Block)",
-        invigilator: facultyName,
-        enrolled: 120,
-        status: "Published",
-        isIncluded: true,
-        durationMinutes: 180,
-      },
-      {
-        id: "duty-ese-2",
-        code: "CS704",
-        subject: "Cryptography & Network Security",
-        department: "CSE",
-        date: "2026-11-26",
-        slot: "09:30 - 12:30 IST",
-        room: "Hall A-101 (Main Block)",
-        invigilator: facultyName,
-        enrolled: 115,
-        status: "Published",
-        isIncluded: true,
-        durationMinutes: 180,
-      },
-      {
-        id: "duty-ese-3",
-        code: "EC702",
-        subject: "VLSI Architecture & Embedded Logic",
-        department: "ECE",
-        date: "2026-11-30",
-        slot: "14:00 - 17:00 IST",
-        room: "Hall B-204 (IT Wing)",
-        invigilator: facultyName,
-        enrolled: 88,
-        status: "Published",
-        isIncluded: true,
-        durationMinutes: 180,
-      },
-    ] as CoordinatorExamEntry[];
+    return [] as CoordinatorExamEntry[];
   }, [storeState.coordinatorExams, facultyName]);
 
   // Set initial selected roster exam
@@ -207,9 +169,12 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 
   // Summary stats
   const totalDutiesCount = facultyDuties.length;
-  const maxAllowedDuties = 5;
+  const facultyRecord = storeState.invigilators.find(
+    (i) => i.name.toLowerCase().includes(facultyName.toLowerCase()) || facultyName.toLowerCase().includes(i.name.toLowerCase())
+  );
+  const maxAllowedDuties = facultyRecord?.maxDuties || 3;
   const totalSupervisedStudents = facultyDuties.reduce((acc: number, d: CoordinatorExamEntry) => acc + (d.enrolled || 0), 0);
-  const totalDutyHours = (facultyDuties.length * 3).toFixed(1);
+  const totalDutyHours = ((facultyDuties.reduce((acc: number, d: CoordinatorExamEntry) => acc + (d.durationMinutes || 150), 0)) / 60).toFixed(1);
 
   // Next duty calculation
   const nextDuty = facultyDuties[0];

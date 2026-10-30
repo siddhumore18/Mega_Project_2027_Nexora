@@ -10,6 +10,7 @@ import {
   ConflictItem,
   YearOfStudy,
   TimetableApprovalRecord,
+  EmergencyStandbyPoolResult,
 } from "../services/academicDataStore.js";
 import {
   LayoutDashboard,
@@ -42,6 +43,9 @@ import {
   FileText,
   Shuffle,
   ShieldCheck,
+  UserX,
+  ShieldAlert,
+  ArrowLeftRight,
 } from "lucide-react";
 import { MasterDataManager } from "./MasterDataManager.js";
 import { AutonomousCircularView } from "./timetable/AutonomousCircularView.js";
@@ -283,12 +287,13 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
   const [showAddHallModal, setShowAddHallModal] = useState(false);
   const [hallStatusModal, setHallStatusModal] = useState<ExamHallRecord | null>(null);
   const [hallMaintenanceReason, setHallMaintenanceReason] = useState("Scheduled AC overhaul and electrical testing");
+  const [editingHall, setEditingHall] = useState<ExamHallRecord | null>(null);
   const [newHallData, setNewHallData] = useState({
     name: "",
     code: "",
     building: "Academic Block A",
-    capacity: 100,
-    examCapacity: 80,
+    capacity: 40,
+    examCapacity: 35,
     allocatedStudents: 0,
     type: "Lecture Hall" as const,
     hasAC: true,
@@ -299,16 +304,22 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
 
   const handleCreateHall = (e: React.FormEvent) => {
     e.preventDefault();
-    const res = AcademicDataStore.addExamHall(newHallData);
+    const safeExamCap = Math.min(Math.max(10, Number(newHallData.examCapacity) || 35), 40);
+    const safeCap = Math.min(Math.max(10, Number(newHallData.capacity) || 40), 40);
+    const res = AcademicDataStore.addExamHall({
+      ...newHallData,
+      capacity: safeCap,
+      examCapacity: safeExamCap,
+    });
     if (res.success) {
-      showToast(`Venue ${newHallData.name} registered successfully.`);
+      showToast(`Venue ${newHallData.name} registered successfully with safe capacity ${safeExamCap} (Max: 40).`);
       setShowAddHallModal(false);
       setNewHallData({
         name: "",
         code: "",
         building: "Academic Block A",
-        capacity: 100,
-        examCapacity: 80,
+        capacity: 40,
+        examCapacity: 35,
         allocatedStudents: 0,
         type: "Lecture Hall",
         hasAC: true,
@@ -318,6 +329,30 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
       });
     } else {
       showToast(res.error || "Failed to create hall.", "error");
+    }
+  };
+
+  const handleSaveHallEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingHall) return;
+    const safeExamCap = Math.min(Math.max(10, Number(editingHall.examCapacity) || 35), 40);
+    const safeCap = Math.min(Math.max(10, Number(editingHall.capacity) || 40), 40);
+    const res = AcademicDataStore.updateExamHall(editingHall.id, {
+      name: editingHall.name,
+      code: editingHall.code,
+      building: editingHall.building,
+      floor: editingHall.floor,
+      capacity: safeCap,
+      examCapacity: safeExamCap,
+      type: editingHall.type,
+      hasAC: editingHall.hasAC,
+      isAccessible: editingHall.isAccessible,
+    });
+    if (res.success) {
+      showToast(`Venue "${editingHall.name}" updated successfully: Exam Block Capacity set to ${safeExamCap} desks (Capped at 40 max).`);
+      setEditingHall(null);
+    } else {
+      showToast(res.error || "Failed to update venue.", "error");
     }
   };
 
@@ -940,13 +975,16 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
 
   // The Dynamic Seating Allocation Engine
   const shiftSeatingEngine = useMemo(() => {
-    // 1. Available Exam Halls and capacities
-    const hallsTemplate = [
-      { roomCode: "A-101", roomName: "Examination Hall A-101 (Block 1)", capacity: 70 },
-      { roomCode: "B-204", roomName: "Examination Hall B-204 (Block 2)", capacity: 70 },
-      { roomCode: "C-301", roomName: "Engineering Hall C-301 (Block 3)", capacity: 50 },
-      { roomCode: "D-105", roomName: "Computing Lab D-105 (Block 4)", capacity: 40 },
-    ];
+    // 1. Available Exam Halls and capacities loaded dynamically from storeState.examHalls
+    // Strict institutional rule: Max exam capacity is capped at 40 desks per block (Safe default: 35)
+    const availableExamVenues = storeState.examHalls.filter((h) => h.status === "Available");
+    const activeVenues = availableExamVenues.length > 0 ? availableExamVenues : storeState.examHalls;
+
+    const hallsTemplate = activeVenues.map((h, idx) => ({
+      roomCode: h.code,
+      roomName: `${h.name} (Block ${idx + 1})`,
+      capacity: Math.min(Math.max(10, Number(h.examCapacity) || 35), 40),
+    }));
 
     // 2. Identify subjects scheduled for this (date, slot)
     const predefinedShift = SHIFT_SCHEDULE_DEFINITIONS[seatingShiftDate]?.find(
@@ -1224,21 +1262,26 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
       });
     });
 
-    const totalCapacity = halls.reduce((acc, h) => acc + h.capacity, 0);
-    const totalAllocated = halls.reduce((acc, h) => acc + h.occupied, 0);
+    // Visible halls: Include all occupied halls + at least 1 vacant buffer hall (minimum 4 examination halls)
+    const lastOccupiedIdx = halls.map((h) => h.occupied > 0).lastIndexOf(true);
+    const visibleCount = lastOccupiedIdx >= 0 ? Math.max(4, lastOccupiedIdx + 2) : 4;
+    const visibleHalls = halls.slice(0, Math.min(visibleCount, halls.length));
+
+    const totalCapacity = visibleHalls.reduce((acc, h) => acc + h.capacity, 0);
+    const totalAllocated = visibleHalls.reduce((acc, h) => acc + h.occupied, 0);
     const totalEmptySeats = totalCapacity - totalAllocated;
 
     return {
       date: seatingShiftDate,
       slot: seatingShiftSlot,
-      halls,
+      halls: visibleHalls,
       allAllocatedStudents,
       subjectAllocationsSummary,
       totalCapacity,
       totalAllocated,
       totalEmptySeats,
     };
-  }, [seatingShiftDate, seatingShiftSlot, seatingRandomSeed, storeState.coordinatorExams]);
+  }, [seatingShiftDate, seatingShiftSlot, seatingRandomSeed, storeState.coordinatorExams, storeState.examHalls]);
 
 
 
@@ -1248,12 +1291,18 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
   // ==========================================
   const [reassignModalExam, setReassignModalExam] = useState<CoordinatorExamEntry | null>(null);
   const [selectedNewFaculty, setSelectedNewFaculty] = useState<string>("");
-  const [dutyViewMode, setDutyViewMode] = useState<"SHIFT_WISE" | "TEACHER_WISE" | "PAPER_GRID">("SHIFT_WISE");
+  const [dutyViewMode, setDutyViewMode] = useState<"SHIFT_WISE" | "TEACHER_WISE" | "PAPER_GRID" | "EMERGENCY_STANDBY">("SHIFT_WISE");
   const [dutySelectedShift, setDutySelectedShift] = useState<string>("Shift 1 (Morning)");
   const [dutySelectedDate, setDutySelectedDate] = useState<string>("ALL");
   const [dutyTeacherSearch, setDutyTeacherSearch] = useState<string>("");
   const [dutyTeacherDeptFilter, setDutyTeacherDeptFilter] = useState<string>("ALL");
   const [selectedIndividualTeacherForPrint, setSelectedIndividualTeacherForPrint] = useState<string | null>(null);
+
+  // Emergency Standby Pool & Spot-Swap state
+  const [emergencySwapExam, setEmergencySwapExam] = useState<CoordinatorExamEntry | null>(null);
+  const [emergencySwapReason, setEmergencySwapReason] = useState<string>("Last-minute personal/medical absence");
+  const [emergencyStandbyPool, setEmergencyStandbyPool] = useState<EmergencyStandbyPoolResult | null>(null);
+  const [standbyActiveDate, setStandbyActiveDate] = useState<string>("2026-11-22");
 
   // Helper to categorize slot to Shift 1, Shift 2, Shift 3
   const getShiftCategory = (slot: string): "Shift 1 (Morning)" | "Shift 2 (Afternoon)" | "Shift 3 (Evening)" => {
@@ -1427,12 +1476,48 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
     }
   };
 
+  const handleOpenEmergencySwapModal = (exam: CoordinatorExamEntry) => {
+    setEmergencySwapExam(exam);
+    const pool = AcademicDataStore.getEmergencyStandbyPool(exam.date, exam.id);
+    setEmergencyStandbyPool(pool);
+  };
+
+  const handleExecuteEmergencySwap = (substituteIdOrName: string) => {
+    if (!emergencySwapExam) return;
+    const res = AcademicDataStore.executeEmergencyDutySwap(
+      emergencySwapExam.id,
+      substituteIdOrName,
+      emergencySwapReason,
+      coordinatorName
+    );
+    if (res.success) {
+      showToast(res.message || "Emergency spot-swap successfully executed!", "success");
+      setEmergencySwapExam(null);
+      setEmergencyStandbyPool(null);
+    } else {
+      showToast(res.error || "Failed to execute emergency duty swap.", "error");
+    }
+  };
+
+  const handleScanCrossDeptCompliance = () => {
+    const res = AcademicDataStore.scanAndDetectCrossDeptConflicts(activeCycle.id);
+    if (res.newConflicts.length > 0) {
+      showToast(`Detected ${res.newConflicts.length} invigilation policy warning(s). Check Conflict Resolution.`, "warning");
+    } else {
+      showToast("100% Policy Compliant: All assigned faculty are strictly Cross-Department and non-instructors for their exam papers!", "success");
+    }
+  };
+
   // ==========================================
   // VIEW 11: Conflict Resolution State
   // ==========================================
-  const handleResolveConflictItem = (c: ConflictItem, alt: string) => {
-    AcademicDataStore.resolveConflict(c.id, alt);
-    showToast(`Conflict resolved: ${alt}`);
+  const handleResolveConflictItem = (c: ConflictItem, alt?: string) => {
+    const res = AcademicDataStore.resolveConflict(c.id, alt);
+    if (res.changesMade) {
+      showToast(`Conflict Resolved & Rearranged: ${res.changesMade}`, "success");
+    } else {
+      showToast(`Conflict resolved: ${alt || "Applied optimal rearrangement"}`, "success");
+    }
   };
 
   // ==========================================
@@ -1554,11 +1639,11 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
   };
 
   const handleAutoResolveConflicts = () => {
-    const healRes = AcademicDataStore.autoResolveRoomConflicts(activeCycle.id);
+    const healRes = AcademicDataStore.autoResolveAllConflicts(activeCycle.id);
     if (healRes.resolvedCount > 0) {
-      showToast(`Autonomous Optimizer reallocated ${healRes.resolvedCount} venue overlap(s) into dedicated halls! 100% Conflict-Free.`, "success");
+      showToast(`Autonomous Optimizer resolved & rearranged ${healRes.resolvedCount} conflict(s)! Schedule is 100% Conflict-Free.`, "success");
     } else {
-      showToast("Verified: All examination halls and slots are strictly non-overlapping with zero conflicts.", "success");
+      showToast("Verified: All examination halls, slots, and faculty are strictly non-overlapping with zero conflicts.", "success");
     }
   };
 
@@ -3087,6 +3172,34 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                 </div>
               </div>
 
+              {/* Institutional Capacity Policy Banner */}
+              <div
+                style={{
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  borderRadius: "8px",
+                  padding: "12px 16px",
+                  marginBottom: "16px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  fontSize: "13px",
+                  color: "#166534",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <ShieldCheck size={20} style={{ color: "#16a34a", flexShrink: 0 }} />
+                  <div>
+                    <strong>Institutional Examination Capacity Regulation:</strong> All test blocks are strictly restricted to a maximum capacity of <strong>40 desks</strong> (Safe standard benchmark: 35 desks). Any modifications made by the Exam Coordinator here are instantly synchronized across Seating Allocation, Live Block Tracking, and Invigilation Rosters.
+                  </div>
+                </div>
+                <span className="dash-badge dash-badge-success" style={{ fontWeight: 700, padding: "4px 10px", fontSize: "11.5px" }}>
+                  Max Ceiling: 40 Desks Enforced
+                </span>
+              </div>
+
               {/* Halls Grid */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: "16px" }}>
                 {storeState.examHalls.map((hall) => (
@@ -3112,11 +3225,17 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "12.5px" }}>
-                      <div>
-                        Total Capacity: <strong>{hall.capacity}</strong>
+                      <div style={{ background: "#eff6ff", padding: "6px 10px", borderRadius: "6px", border: "1px solid #bfdbfe" }}>
+                        <span style={{ fontSize: "11px", color: "#1e40af", display: "block", fontWeight: 600 }}>Exam Block Capacity</span>
+                        <strong style={{ color: "#1d4ed8", fontSize: "14px" }}>{hall.examCapacity} Desks</strong>
+                        <span style={{ fontSize: "10px", color: "#64748b", display: "block" }}>
+                          {hall.examCapacity === 40 ? "Hard Ceiling (Max 40)" : "Within Safe Margin (≤40)"}
+                        </span>
                       </div>
-                      <div>
-                        Exam Safe Capacity: <strong>{hall.examCapacity}</strong>
+                      <div style={{ background: "#f8fafc", padding: "6px 10px", borderRadius: "6px", border: "1px solid #e2e8f0" }}>
+                        <span style={{ fontSize: "11px", color: "#475569", display: "block", fontWeight: 600 }}>Classroom Capacity</span>
+                        <strong style={{ fontSize: "14px", color: "#0f172a" }}>{hall.capacity} Seats</strong>
+                        <span style={{ fontSize: "10px", color: "#64748b", display: "block" }}>Bench Seating</span>
                       </div>
                       <div>
                         Venue Type: <strong>{hall.type}</strong>
@@ -3143,14 +3262,177 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                         type="button"
                         className="dash-btn dash-btn-outline"
                         onClick={() => setHallStatusModal(hall)}
-                        style={{ fontSize: "11.5px", padding: "4px 8px" }}
+                        style={{ fontSize: "11.5px", padding: "5px 10px" }}
                       >
                         {hall.status === "Available" ? "Block for Maintenance" : "Mark Available"}
+                      </button>
+                      <button
+                        type="button"
+                        className="dash-btn dash-btn-primary"
+                        onClick={() => setEditingHall({ ...hall })}
+                        style={{ fontSize: "11.5px", padding: "5px 12px", display: "flex", alignItems: "center", gap: "5px" }}
+                      >
+                        <span>✏️ Edit Capacity</span>
                       </button>
                     </div>
                   </div>
                 ))}
               </div>
+
+              {/* Edit Hall Capacity Modal */}
+              {editingHall && (
+                <div className="dash-modal-backdrop" onClick={() => setEditingHall(null)}>
+                  <div className="dash-modal" style={{ maxWidth: "520px" }} onClick={(e) => e.stopPropagation()}>
+                    <div className="dash-modal-header">
+                      <h3 className="dash-modal-title">✏️ Edit Examination Venue & Capacity</h3>
+                      <button type="button" className="dash-modal-close" onClick={() => setEditingHall(null)}>
+                        <X size={16} />
+                      </button>
+                    </div>
+
+                    <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "8px 12px", borderRadius: "6px", fontSize: "12px", color: "#166534", marginBottom: "12px" }}>
+                      <strong>Institutional Limit:</strong> Examination block capacity is strictly capped at a maximum of <strong>40 desks</strong> (Recommended safe benchmark: 35 desks). Changes dynamically reallocate examinee seating.
+                    </div>
+
+                    <form onSubmit={handleSaveHallEdit} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "10px" }}>
+                        <div className="dash-form-group">
+                          <label className="dash-label">Hall Name *</label>
+                          <input
+                            type="text"
+                            className="dash-input"
+                            required
+                            value={editingHall.name}
+                            onChange={(e) => setEditingHall({ ...editingHall, name: e.target.value })}
+                          />
+                        </div>
+                        <div className="dash-form-group">
+                          <label className="dash-label">Room Code *</label>
+                          <input
+                            type="text"
+                            className="dash-input"
+                            required
+                            value={editingHall.code}
+                            onChange={(e) => setEditingHall({ ...editingHall, code: e.target.value.toUpperCase() })}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                        <div className="dash-form-group">
+                          <label className="dash-label">Building / Block *</label>
+                          <input
+                            type="text"
+                            className="dash-input"
+                            required
+                            value={editingHall.building}
+                            onChange={(e) => setEditingHall({ ...editingHall, building: e.target.value })}
+                          />
+                        </div>
+                        <div className="dash-form-group">
+                          <label className="dash-label">Floor Location *</label>
+                          <input
+                            type="text"
+                            className="dash-input"
+                            required
+                            value={editingHall.floor}
+                            onChange={(e) => setEditingHall({ ...editingHall, floor: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                        <div className="dash-form-group">
+                          <label className="dash-label">Classroom Bench Capacity *</label>
+                          <input
+                            type="number"
+                            className="dash-input"
+                            required
+                            min={10}
+                            max={40}
+                            value={editingHall.capacity}
+                            onChange={(e) => {
+                              const val = Math.min(40, Math.max(10, Number(e.target.value)));
+                              setEditingHall({
+                                ...editingHall,
+                                capacity: val,
+                                examCapacity: Math.min(editingHall.examCapacity, val),
+                              });
+                            }}
+                          />
+                          <span style={{ fontSize: "11px", color: "#64748b" }}>Max classroom seating: 40</span>
+                        </div>
+
+                        <div className="dash-form-group">
+                          <label className="dash-label" style={{ color: "#1d4ed8", fontWeight: 700 }}>
+                            Exam Block Capacity (Max 40) *
+                          </label>
+                          <input
+                            type="number"
+                            className="dash-input"
+                            required
+                            min={10}
+                            max={40}
+                            style={{ borderColor: editingHall.examCapacity > 40 ? "#ef4444" : "#3b82f6", fontWeight: 700, fontSize: "14px" }}
+                            value={editingHall.examCapacity}
+                            onChange={(e) => {
+                              const num = Number(e.target.value);
+                              const capped = Math.min(40, num);
+                              setEditingHall({ ...editingHall, examCapacity: capped });
+                            }}
+                          />
+                          <span style={{ fontSize: "11px", color: editingHall.examCapacity === 40 ? "#b45309" : "#16a34a", fontWeight: 600 }}>
+                            {editingHall.examCapacity === 40 ? "⚠️ Capped at hard institutional ceiling (40)" : "✓ Valid exam capacity (≤ 40 desks)"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                        <div className="dash-form-group">
+                          <label className="dash-label">Venue Type</label>
+                          <select
+                            className="dash-select"
+                            value={editingHall.type}
+                            onChange={(e) => setEditingHall({ ...editingHall, type: e.target.value as any })}
+                          >
+                            <option value="Lecture Hall">Lecture Hall</option>
+                            <option value="Computer Lab">Computer Lab</option>
+                            <option value="Auditorium">Auditorium</option>
+                            <option value="Drawing Hall">Drawing Hall</option>
+                          </select>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "6px", justifyContent: "center", paddingTop: "12px" }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12.5px", cursor: "pointer" }}>
+                            <input
+                              type="checkbox"
+                              checked={editingHall.hasAC}
+                              onChange={(e) => setEditingHall({ ...editingHall, hasAC: e.target.checked })}
+                            />
+                            Air Conditioning Fitted
+                          </label>
+                          <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12.5px", cursor: "pointer" }}>
+                            <input
+                              type="checkbox"
+                              checked={editingHall.isAccessible}
+                              onChange={(e) => setEditingHall({ ...editingHall, isAccessible: e.target.checked })}
+                            />
+                            Wheelchair / Barrier-free Accessible
+                          </label>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "12px", borderTop: "1px solid #e2e8f0", paddingTop: "12px" }}>
+                        <button type="button" className="dash-btn dash-btn-outline" onClick={() => setEditingHall(null)}>
+                          Cancel
+                        </button>
+                        <button type="submit" className="dash-btn dash-btn-primary">
+                          Save Room Capacity Changes
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
 
               {/* Add Hall Modal */}
               {showAddHallModal && (
@@ -3197,31 +3479,35 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                         <div className="dash-form-group">
-                          <label className="dash-label">Total Capacity *</label>
+                          <label className="dash-label">Classroom Capacity (Max 40) *</label>
                           <input
                             type="number"
                             className="dash-input"
                             required
                             min={10}
+                            max={40}
                             value={newHallData.capacity}
                             onChange={(e) =>
                               setNewHallData({
                                 ...newHallData,
-                                capacity: Number(e.target.value),
-                                examCapacity: Math.floor(Number(e.target.value) * 0.8),
+                                capacity: Math.min(40, Number(e.target.value)),
+                                examCapacity: Math.min(35, Math.floor(Math.min(40, Number(e.target.value)))),
                               })
                             }
                           />
                         </div>
                         <div className="dash-form-group">
-                          <label className="dash-label">Safe Exam Capacity *</label>
+                          <label className="dash-label">Safe Exam Capacity (Max 40) *</label>
                           <input
                             type="number"
                             className="dash-input"
                             required
+                            min={10}
+                            max={40}
                             value={newHallData.examCapacity}
-                            onChange={(e) => setNewHallData({ ...newHallData, examCapacity: Number(e.target.value) })}
+                            onChange={(e) => setNewHallData({ ...newHallData, examCapacity: Math.min(40, Number(e.target.value)) })}
                           />
+                          <span style={{ fontSize: "11px", color: "#16a34a" }}>Max allowed capacity: 40 desks</span>
                         </div>
                       </div>
                       <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "10px" }}>
@@ -4243,13 +4529,23 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
 
               {/* Hall Capacity & Empty Seats Tracking Cards */}
               <div style={{ marginBottom: "20px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-                  <h3 style={{ fontSize: "14px", fontWeight: 700, margin: 0, color: "#0f172a" }}>
-                    🏢 Live Block Capacity & Empty Seats Tracking ({shiftSeatingEngine.halls.length} Examination Halls)
-                  </h3>
-                  <span style={{ fontSize: "12px", color: "#64748b" }}>
-                    Same-subject clustering active · Excess students spill over into next block filling remaining seats
-                  </span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px", flexWrap: "wrap", gap: "10px" }}>
+                  <div>
+                    <h3 style={{ fontSize: "14px", fontWeight: 700, margin: 0, color: "#0f172a" }}>
+                      🏢 Live Block Capacity & Empty Seats Tracking ({shiftSeatingEngine.halls.length} Examination Halls)
+                    </h3>
+                    <span style={{ fontSize: "12px", color: "#64748b" }}>
+                      All examination blocks strictly enforce max capacity ≤ 40 desks · Excess examinees spill over into next block filling remaining seats
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="dash-btn dash-btn-outline dash-btn-sm"
+                    onClick={() => setActiveMenu("rooms-capacity")}
+                    style={{ fontSize: "11.5px", padding: "4px 10px", display: "flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <span>🏢 Edit Room Capacities</span>
+                  </button>
                 </div>
 
                 <div
@@ -4317,7 +4613,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                         {/* Numbers */}
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "10px" }}>
                           <span>
-                            Capacity: <strong>{h.capacity}</strong>
+                            Capacity: <strong>{h.capacity}</strong> <span style={{ fontSize: "10.5px", color: "#64748b" }}>(Max 40)</span>
                           </span>
                           <span>
                             Allocated: <strong>{h.occupied}</strong>
@@ -4961,6 +5257,25 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                   <ClipboardCheck size={15} />
                   <span>3. Paper-Wise Matrix & Reassignment</span>
                 </button>
+                <button
+                  type="button"
+                  className={`dash-btn ${dutyViewMode === "EMERGENCY_STANDBY" ? "dash-btn-primary" : "dash-btn-outline"}`}
+                  onClick={() => {
+                    setDutyViewMode("EMERGENCY_STANDBY");
+                    const pool = AcademicDataStore.getEmergencyStandbyPool(standbyActiveDate);
+                    setEmergencyStandbyPool(pool);
+                  }}
+                  style={{
+                    borderRadius: "20px",
+                    fontSize: "13px",
+                    padding: "6px 16px",
+                    borderColor: dutyViewMode === "EMERGENCY_STANDBY" ? undefined : "#f59e0b",
+                    color: dutyViewMode === "EMERGENCY_STANDBY" ? undefined : "#b45309",
+                  }}
+                >
+                  <ShieldAlert size={15} />
+                  <span>4. Emergency Standby Pool (Tomorrow&apos;s 4 Faculty)</span>
+                </button>
               </div>
 
               {/* VIEW MODE 1: SHIFT-WISE & DATE-WISE BLOCK ALLOCATION */}
@@ -5176,26 +5491,59 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                           </span>
                                         </td>
                                         <td style={{ textAlign: "center" }}>
-                                          <button
-                                            type="button"
-                                            className="dash-btn dash-btn-outline"
-                                            style={{ fontSize: "11.5px", padding: "3px 8px" }}
-                                            onClick={() => {
-                                              const ex = storeState.coordinatorExams.find((e) => e.id === block.examIds[0]) || {
-                                                id: block.examIds[0] || "temp",
-                                                code: block.papers[0]?.code || "EXAM",
-                                                subject: block.papers[0]?.subject || "Subject",
-                                                date: dateItem.date,
-                                                slot: block.slot,
-                                                room: block.room,
-                                                invigilator: block.invigilator,
-                                              } as any;
-                                              setReassignModalExam(ex);
-                                              setSelectedNewFaculty(block.invigilator);
-                                            }}
-                                          >
-                                            Reassign
-                                          </button>
+                                          <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
+                                            <button
+                                              type="button"
+                                              className="dash-btn dash-btn-outline"
+                                              style={{ fontSize: "11px", padding: "3px 7px" }}
+                                              onClick={() => {
+                                                const ex = storeState.coordinatorExams.find((e) => e.id === block.examIds[0]) || {
+                                                  id: block.examIds[0] || "temp",
+                                                  code: block.papers[0]?.code || "EXAM",
+                                                  subject: block.papers[0]?.subject || "Subject",
+                                                  date: dateItem.date,
+                                                  slot: block.slot,
+                                                  room: block.room,
+                                                  invigilator: block.invigilator,
+                                                } as any;
+                                                setReassignModalExam(ex);
+                                                setSelectedNewFaculty(block.invigilator);
+                                              }}
+                                            >
+                                              Reassign
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className="dash-btn"
+                                              style={{
+                                                fontSize: "11px",
+                                                padding: "3px 7px",
+                                                background: "#fffbeb",
+                                                borderColor: "#f59e0b",
+                                                color: "#b45309",
+                                                fontWeight: 600,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "3px",
+                                              }}
+                                              onClick={() => {
+                                                const ex = storeState.coordinatorExams.find((e) => e.id === block.examIds[0]) || {
+                                                  id: block.examIds[0] || "temp",
+                                                  code: block.papers[0]?.code || "EXAM",
+                                                  subject: block.papers[0]?.subject || "Subject",
+                                                  date: dateItem.date,
+                                                  slot: block.slot,
+                                                  room: block.room,
+                                                  invigilator: block.invigilator,
+                                                } as any;
+                                                handleOpenEmergencySwapModal(ex);
+                                              }}
+                                              title="Emergency Swap with Tomorrow's Standby Pool or Lowest-Duty Faculty"
+                                            >
+                                              <UserX size={12} />
+                                              <span>Emergency Swap</span>
+                                            </button>
+                                          </div>
                                         </td>
                                       </tr>
                                     ))}
@@ -5363,6 +5711,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                   <th style={{ width: "22%" }}>Allocated Block / Venue</th>
                                   <th style={{ width: "24%" }}>Supervised Subject Paper</th>
                                   <th style={{ width: "10%", textAlign: "center" }}>Candidates</th>
+                                  <th style={{ width: "14%", textAlign: "center" }}>Actions</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -5392,6 +5741,40 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                     </td>
                                     <td style={{ textAlign: "center", fontWeight: 600 }}>
                                       {duty.enrolled}
+                                    </td>
+                                    <td style={{ textAlign: "center" }}>
+                                      <button
+                                        type="button"
+                                        className="dash-btn"
+                                        style={{
+                                          fontSize: "11px",
+                                          padding: "3px 8px",
+                                          background: "#fffbeb",
+                                          borderColor: "#f59e0b",
+                                          color: "#b45309",
+                                          fontWeight: 600,
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: "3px",
+                                        }}
+                                        onClick={() => {
+                                          const ex = storeState.coordinatorExams.find((e) => e.id === duty.examId) || {
+                                            id: duty.examId,
+                                            code: duty.code,
+                                            subject: duty.subject,
+                                            date: duty.date,
+                                            slot: duty.slot,
+                                            room: duty.room,
+                                            invigilator: teacher.fullName,
+                                            department: teacher.department,
+                                          } as any;
+                                          handleOpenEmergencySwapModal(ex);
+                                        }}
+                                        title="Emergency Swap with Tomorrow's Standby Pool or Lowest-Duty Faculty"
+                                      >
+                                        <UserX size={12} />
+                                        <span>Emergency Swap</span>
+                                      </button>
                                     </td>
                                   </tr>
                                 ))}
@@ -5442,22 +5825,257 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                               <span className="dash-badge dash-badge-success">Within Quota</span>
                             </td>
                             <td>
-                              <button
-                                type="button"
-                                className="dash-btn dash-btn-outline"
-                                onClick={() => {
-                                  setReassignModalExam(ex);
-                                  setSelectedNewFaculty(ex.invigilator);
-                                }}
-                                style={{ fontSize: "11.5px", padding: "3px 8px" }}
-                              >
-                                Reassign
-                              </button>
+                              <div style={{ display: "flex", gap: "6px" }}>
+                                <button
+                                  type="button"
+                                  className="dash-btn dash-btn-outline"
+                                  onClick={() => {
+                                    setReassignModalExam(ex);
+                                    setSelectedNewFaculty(ex.invigilator);
+                                  }}
+                                  style={{ fontSize: "11.5px", padding: "3px 8px" }}
+                                >
+                                  Reassign
+                                </button>
+                                <button
+                                  type="button"
+                                  className="dash-btn"
+                                  onClick={() => handleOpenEmergencySwapModal(ex)}
+                                  style={{
+                                    fontSize: "11.5px",
+                                    padding: "3px 8px",
+                                    background: "#fffbeb",
+                                    borderColor: "#f59e0b",
+                                    color: "#b45309",
+                                    fontWeight: 600,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "3px",
+                                  }}
+                                  title="Emergency Swap with Tomorrow's Standby Pool or Lowest-Duty Faculty"
+                                >
+                                  <UserX size={12} />
+                                  <span>Emergency Swap</span>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              )}
+
+              {/* VIEW MODE 4: EMERGENCY STANDBY POOL (TOMORROW'S 4 FACULTY & LOW-DUTY POOL) */}
+              {dutyViewMode === "EMERGENCY_STANDBY" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                  {/* Top explanation banner */}
+                  <div
+                    className="dash-card"
+                    style={{
+                      padding: "20px",
+                      background: "linear-gradient(135deg, #fef3c7 0%, #fff 100%)",
+                      border: "1px solid #fde68a",
+                      borderLeft: "5px solid #f59e0b",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                      <ShieldAlert size={24} style={{ color: "#d97706", flexShrink: 0, marginTop: "2px" }} />
+                      <div>
+                        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#92400e", margin: 0 }}>
+                          Autonomous Last-Minute Standby & Emergency Duty Substitution Cell
+                        </h2>
+                        <p style={{ fontSize: "13px", color: "#78350f", margin: "6px 0 12px" }}>
+                          Institutional examination rules mandate that <strong>4 standby faculty whose duties are scheduled for tomorrow</strong> remain on active standby for any last-minute emergencies.
+                          When an assigned teacher is marked absent, the coordinator can execute a <strong>Dynamic Spot-Swap</strong>: the standby teacher takes today&apos;s block, and the absent teacher is automatically assigned to tomorrow&apos;s slot, ensuring zero loss of quota.
+                          If tomorrow&apos;s standby teacher is also unavailable, the system automatically suggests available teachers with the <strong>lowest assigned duty counts</strong>.
+                        </p>
+                        <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                          <label style={{ fontSize: "12px", fontWeight: 700, color: "#92400e" }}>Select Target Exam Date:</label>
+                          <select
+                            className="dash-select"
+                            value={standbyActiveDate}
+                            onChange={(e) => {
+                              const d = e.target.value;
+                              setStandbyActiveDate(d);
+                              const pool = AcademicDataStore.getEmergencyStandbyPool(d);
+                              setEmergencyStandbyPool(pool);
+                            }}
+                            style={{ maxWidth: "240px", background: "#fff" }}
+                          >
+                            {Array.from(new Set(storeState.coordinatorExams.map((e) => e.date))).sort().map((d) => (
+                              <option key={d} value={d}>
+                                {d} ({getDayOfWeek(d)})
+                              </option>
+                            ))}
+                          </select>
+                          <span style={{ fontSize: "12px", color: "#b45309", fontWeight: 600 }}>
+                            Tomorrow&apos;s Paired Date: {emergencyStandbyPool?.tomorrowDate || "End of Cycle"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 1: Tomorrow's 4 Standby Faculty */}
+                  <div className="dash-card">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "8px" }}>
+                      <div>
+                        <h3 style={{ fontSize: "15px", fontWeight: 700, display: "flex", alignItems: "center", gap: "8px", margin: 0 }}>
+                          <ArrowLeftRight size={17} style={{ color: "#2563eb" }} />
+                          <span>Tomorrow&apos;s 4 Emergency Standby Faculty (Scheduled: {emergencyStandbyPool?.tomorrowDate || "Tomorrow"})</span>
+                        </h3>
+                        <p style={{ fontSize: "12.5px", color: "var(--text-muted)", margin: "4px 0 0" }}>
+                          Zero duties today · Scheduled tomorrow · Automatic Spot-Swap moves absent teacher to tomorrow&apos;s slot
+                        </p>
+                      </div>
+                      <span className="dash-badge dash-badge-info" style={{ fontWeight: 600 }}>
+                        {emergencyStandbyPool?.tomorrowStandbyFaculty.length || 0} / 4 Standby Ready
+                      </span>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "14px" }}>
+                      {(emergencyStandbyPool?.tomorrowStandbyFaculty || []).map((cand) => (
+                        <div
+                          key={cand.facultyId}
+                          style={{
+                            border: "1px solid #bfdbfe",
+                            borderRadius: "8px",
+                            padding: "14px",
+                            background: "#f0fdf4",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                            gap: "10px",
+                          }}
+                        >
+                          <div>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                              <div>
+                                <strong style={{ fontSize: "14px", color: "#0f172a" }}>{cand.name}</strong>
+                                <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{cand.identifier}</div>
+                              </div>
+                              <span className="dash-badge dash-badge-default">{cand.departmentCode}</span>
+                            </div>
+                            <div style={{ marginTop: "8px", fontSize: "12px", color: "#334155" }}>
+                              <div>Workload: <strong>{cand.assignedDuties} / {cand.maxDuties}</strong> Duties</div>
+                              {cand.tomorrowExam && (
+                                <div style={{ marginTop: "4px", padding: "6px 8px", background: "#e2e8f0", borderRadius: "4px", fontSize: "11px" }}>
+                                  Tomorrow&apos;s Slot: <strong>{cand.tomorrowExam.code}</strong><br />
+                                  Venue: {cand.tomorrowExam.room} ({cand.tomorrowExam.slot.split(" ")[0]})
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="dash-btn"
+                            style={{
+                              background: "#2563eb",
+                              color: "#fff",
+                              borderColor: "#2563eb",
+                              fontWeight: 600,
+                              fontSize: "12px",
+                              padding: "6px 12px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "6px",
+                            }}
+                            onClick={() => {
+                              const examOnDate = storeState.coordinatorExams.find((e) => e.date === standbyActiveDate);
+                              if (examOnDate) {
+                                handleOpenEmergencySwapModal(examOnDate);
+                              } else {
+                                showToast(`No exams scheduled on ${standbyActiveDate}`, "warning");
+                              }
+                            }}
+                          >
+                            <ArrowLeftRight size={13} />
+                            <span>Select for Spot-Swap</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Section 2: Lowest-Duty Available Faculty (Fallback) */}
+                  <div className="dash-card">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "8px" }}>
+                      <div>
+                        <h3 style={{ fontSize: "15px", fontWeight: 700, display: "flex", alignItems: "center", gap: "8px", margin: 0 }}>
+                          <Users size={17} style={{ color: "#10b981" }} />
+                          <span>Fallback: Lowest-Duty Available Faculty (Quota Remaining)</span>
+                        </h3>
+                        <p style={{ fontSize: "12.5px", color: "var(--text-muted)", margin: "4px 0 0" }}>
+                          Suggested when tomorrow&apos;s standby teacher is unavailable · Lowest cumulative duty counts
+                        </p>
+                      </div>
+                      <span className="dash-badge dash-badge-success" style={{ fontWeight: 600 }}>
+                        {emergencyStandbyPool?.lowDutyFallbackFaculty.length || 0} Low-Duty Teachers
+                      </span>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "14px" }}>
+                      {(emergencyStandbyPool?.lowDutyFallbackFaculty || []).map((cand) => (
+                        <div
+                          key={cand.facultyId}
+                          style={{
+                            border: "1px solid #e2e8f0",
+                            borderRadius: "8px",
+                            padding: "14px",
+                            background: "#f8fafc",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                            gap: "10px",
+                          }}
+                        >
+                          <div>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                              <div>
+                                <strong style={{ fontSize: "14px", color: "#0f172a" }}>{cand.name}</strong>
+                                <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{cand.identifier}</div>
+                              </div>
+                              <span className="dash-badge dash-badge-default">{cand.departmentCode}</span>
+                            </div>
+                            <div style={{ marginTop: "8px", fontSize: "12px", color: "#334155" }}>
+                              <div>Assigned: <strong>{cand.assignedDuties} / {cand.maxDuties}</strong> Duties</div>
+                              <div style={{ color: "#10b981", fontWeight: 600, fontSize: "11.5px", marginTop: "2px" }}>
+                                Available Quota: {cand.maxDuties - cand.assignedDuties} remaining
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="dash-btn dash-btn-outline"
+                            style={{
+                              borderColor: "#10b981",
+                              color: "#059669",
+                              fontWeight: 600,
+                              fontSize: "12px",
+                              padding: "6px 12px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "6px",
+                            }}
+                            onClick={() => {
+                              const examOnDate = storeState.coordinatorExams.find((e) => e.date === standbyActiveDate);
+                              if (examOnDate) {
+                                handleOpenEmergencySwapModal(examOnDate);
+                              } else {
+                                showToast(`No exams scheduled on ${standbyActiveDate}`, "warning");
+                              }
+                            }}
+                          >
+                            <CheckCircle2 size={13} />
+                            <span>Assign Low-Duty Faculty</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -5508,6 +6126,173 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Emergency Substitution & Spot-Swap Modal */}
+              {emergencySwapExam && (
+                <div className="dash-modal-backdrop" onClick={() => setEmergencySwapExam(null)}>
+                  <div className="dash-modal" style={{ maxWidth: "680px" }} onClick={(e) => e.stopPropagation()}>
+                    <div className="dash-modal-header">
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <ShieldAlert size={20} style={{ color: "#d97706" }} />
+                        <h3 className="dash-modal-title">Emergency Faculty Substitution & Spot-Swap</h3>
+                      </div>
+                      <button type="button" className="dash-modal-close" onClick={() => setEmergencySwapExam(null)}>
+                        <X size={16} />
+                      </button>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                      {/* Paper details */}
+                      <div style={{ padding: "12px 16px", background: "var(--bg-app)", borderRadius: "8px", fontSize: "13px", border: "1px solid var(--border-default)" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                          <div>Subject: <strong>{emergencySwapExam.code}</strong> — {emergencySwapExam.subject}</div>
+                          <div>Department: <strong>{emergencySwapExam.department}</strong></div>
+                          <div>Date & Slot: <strong>{emergencySwapExam.date}</strong> ({emergencySwapExam.slot})</div>
+                          <div>Room: <strong>{emergencySwapExam.room}</strong></div>
+                          <div style={{ gridColumn: "1 / -1", color: "#dc2626", fontWeight: 700 }}>
+                            Absent Faculty to Replace: {emergencySwapExam.invigilator}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Reason */}
+                      <div className="dash-form-group">
+                        <label className="dash-label">Emergency Absence Reason *</label>
+                        <input
+                          type="text"
+                          className="dash-input"
+                          value={emergencySwapReason}
+                          onChange={(e) => setEmergencySwapReason(e.target.value)}
+                          placeholder="e.g. Last-minute medical emergency / sudden institutional leave"
+                        />
+                      </div>
+
+                      {/* Option 1: Tomorrow's 4 Standby Faculty (Spot-Swap) */}
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                          <span style={{ fontSize: "13px", fontWeight: 700, color: "#1e3a8a", display: "flex", alignItems: "center", gap: "6px" }}>
+                            <ArrowLeftRight size={14} />
+                            Option 1: Tomorrow&apos;s 4 Standby Faculty (Automatic Spot-Swap)
+                          </span>
+                          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                            Moves absent teacher to tomorrow&apos;s slot
+                          </span>
+                        </div>
+
+                        {(!emergencyStandbyPool?.tomorrowStandbyFaculty || emergencyStandbyPool.tomorrowStandbyFaculty.length === 0) ? (
+                          <div style={{ padding: "12px", background: "#f8fafc", borderRadius: "6px", fontSize: "12px", color: "#64748b" }}>
+                            No scheduled faculty found on tomorrow&apos;s date ({emergencyStandbyPool?.tomorrowDate || "Next Day"}). Use Option 2 below.
+                          </div>
+                        ) : (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                            {emergencyStandbyPool.tomorrowStandbyFaculty.map((cand) => (
+                              <div
+                                key={cand.facultyId}
+                                style={{
+                                  padding: "10px 12px",
+                                  border: "1px solid #bfdbfe",
+                                  borderRadius: "6px",
+                                  background: "#eff6ff",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  justifyContent: "space-between",
+                                  gap: "8px",
+                                }}
+                              >
+                                <div>
+                                  <div style={{ fontWeight: 700, fontSize: "13px" }}>{cand.name}</div>
+                                  <div style={{ fontSize: "11px", color: "#64748b" }}>
+                                    {cand.departmentCode} · {cand.assignedDuties}/{cand.maxDuties} Duties
+                                  </div>
+                                  {cand.tomorrowExam && (
+                                    <div style={{ fontSize: "10.5px", color: "#1e40af", marginTop: "4px" }}>
+                                      Tomorrow: {cand.tomorrowExam.code} ({cand.tomorrowExam.room})
+                                    </div>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  className="dash-btn"
+                                  style={{
+                                    background: "#2563eb",
+                                    color: "#fff",
+                                    borderColor: "#2563eb",
+                                    fontSize: "11px",
+                                    padding: "4px 8px",
+                                    fontWeight: 600,
+                                  }}
+                                  onClick={() => handleExecuteEmergencySwap(cand.name)}
+                                >
+                                  Swap Spot with Tomorrow
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Option 2: Fallback Lowest-Duty Available Faculty */}
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                          <span style={{ fontSize: "13px", fontWeight: 700, color: "#065f46", display: "flex", alignItems: "center", gap: "6px" }}>
+                            <Users size={14} />
+                            Option 2: Low-Duty Available Faculty (Fallback)
+                          </span>
+                          <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                            Free today · Available quota
+                          </span>
+                        </div>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                          {(emergencyStandbyPool?.lowDutyFallbackFaculty || []).map((cand) => (
+                            <div
+                              key={cand.facultyId}
+                              style={{
+                                padding: "10px 12px",
+                                border: "1px solid #a7f3d0",
+                                borderRadius: "6px",
+                                background: "#ecfdf5",
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "space-between",
+                                gap: "8px",
+                              }}
+                            >
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: "13px" }}>{cand.name}</div>
+                                <div style={{ fontSize: "11px", color: "#059669" }}>
+                                  {cand.departmentCode} · {cand.assignedDuties}/{cand.maxDuties} Duties ({cand.maxDuties - cand.assignedDuties} remaining)
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                className="dash-btn"
+                                style={{
+                                  background: "#10b981",
+                                  color: "#fff",
+                                  borderColor: "#10b981",
+                                  fontSize: "11px",
+                                  padding: "4px 8px",
+                                  fontWeight: 600,
+                                }}
+                                onClick={() => handleExecuteEmergencySwap(cand.name)}
+                              >
+                                Assign Low-Duty Faculty
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
+                        <button type="button" className="dash-btn dash-btn-outline" onClick={() => setEmergencySwapExam(null)}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -5523,7 +6308,26 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                     Detected room overflows, faculty double-bookings, holiday clashes, and suggested deterministic alternatives
                   </p>
                 </div>
-                <div className="dash-header-actions">
+                <div className="dash-header-actions" style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="dash-btn dash-btn-outline"
+                    onClick={handleScanCrossDeptCompliance}
+                    title="Audit timetable for same-department or same-subject invigilation clashes"
+                    style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <ShieldAlert size={15} style={{ color: "#f59e0b" }} />
+                    <span>Scan Cross-Dept Compliance</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="dash-btn"
+                    onClick={handleAutoResolveConflicts}
+                    style={{ background: "#10b981", color: "#fff", borderColor: "#10b981", fontWeight: 600, display: "flex", alignItems: "center", gap: "6px" }}
+                  >
+                    <ShieldCheck size={16} />
+                    <span>Auto-Resolve All & Rearrange</span>
+                  </button>
                   <button
                     type="button"
                     className="dash-btn dash-btn-primary"
@@ -5558,20 +6362,57 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                           }}
                         />
                         <span style={{ fontSize: "14px", fontWeight: 700 }}>
-                          {conf.type} · {conf.subjectCode} ({conf.date} {conf.slot})
+                          {conf.type === "SAME_SUBJECT_INVIGILATOR"
+                            ? "SAME-SUBJECT PROHIBITED"
+                            : conf.type === "SAME_DEPT_INVIGILATOR"
+                            ? "SAME-DEPARTMENT INCLINATION"
+                            : conf.type}{" "}
+                          · {conf.subjectCode} ({conf.date} {conf.slot})
                         </span>
                       </div>
-                      <span
-                        className={`dash-badge ${
-                          conf.resolved
-                            ? "dash-badge-success"
-                            : conf.severity === "CRITICAL"
-                            ? "dash-badge-danger"
-                            : "dash-badge-warning"
-                        }`}
-                      >
-                        {conf.resolved ? "Resolved" : conf.severity}
-                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        {!conf.resolved && (
+                          <button
+                            type="button"
+                            className="dash-btn"
+                            onClick={() => handleResolveConflictItem(conf, conf.suggestedAlternatives[0] || "")}
+                            style={{
+                              fontSize: "11px",
+                              padding: "4px 10px",
+                              background:
+                                conf.type === "SAME_DEPT_INVIGILATOR" || conf.type === "SAME_SUBJECT_INVIGILATOR"
+                                  ? "#10b981"
+                                  : "#2563eb",
+                              color: "#fff",
+                              fontWeight: 600,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              borderRadius: "4px",
+                              border: "none",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <CheckCircle2 size={13} />
+                            <span>
+                              {conf.type === "SAME_DEPT_INVIGILATOR" || conf.type === "SAME_SUBJECT_INVIGILATOR"
+                                ? "Auto-Fix Cross-Dept"
+                                : "Resolve & Rearrange"}
+                            </span>
+                          </button>
+                        )}
+                        <span
+                          className={`dash-badge ${
+                            conf.resolved
+                              ? "dash-badge-success"
+                              : conf.severity === "CRITICAL"
+                              ? "dash-badge-danger"
+                              : "dash-badge-warning"
+                          }`}
+                        >
+                          {conf.resolved ? "Resolved" : conf.severity}
+                        </span>
+                      </div>
                     </div>
 
                     <p style={{ fontSize: "13px", color: "var(--text-primary)", margin: "0 0 12px" }}>
@@ -5601,9 +6442,9 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                 type="button"
                                 className="dash-btn dash-btn-outline"
                                 onClick={() => handleResolveConflictItem(conf, alt)}
-                                style={{ fontSize: "11px", padding: "2px 8px" }}
+                                style={{ fontSize: "11px", padding: "3px 10px", borderColor: "#2563eb", color: "#2563eb", fontWeight: 600 }}
                               >
-                                Apply Alternative
+                                Apply Alternative & Rearrange
                               </button>
                             )}
                           </div>

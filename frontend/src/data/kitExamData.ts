@@ -303,10 +303,12 @@ function generateKitESETimetable(): CoordinatorExamEntry[] {
     "Dr. Arvind Sharma (CSE)",
     "Prof. Rohini Iyer (ECE)",
     "Dr. Pramod Kulkarni (MECH)",
+    "Prof. S. Patil (CSE)",
+    "Dr. T. Banerjee (AIDS)",
     "Dr. S. Nair (CIVIL)",
     "Dr. A. Verma (EE)",
-    "Prof. S. Patil (CSE)",
     "Dr. M. Roy (ECE)",
+    "Prof. R. K. Mehta (CSE)",
     "Rohit Sharma (AIDS)",
     "Prof. Rajesh Kulkarni (CSE)",
     "Dr. Meenakshi Sundaram (CSE)",
@@ -315,7 +317,7 @@ function generateKitESETimetable(): CoordinatorExamEntry[] {
     "Dr. Anjali Patil (BIO)",
     "Dr. Vikram Joshi (CSEDS)",
     "Dr. Suresh Kulkarni (CSBS)",
-    "Dr. R. V. Kulkarni (CVL & ENV)",
+    "Dr. R. V. Kulkarni (CIVIL)",
     "Prof. K. N. Rao (EE)",
     "Dr. Sneha Deshmukh (ECE)",
     "Prof. Amit Kadam (MECH)",
@@ -326,6 +328,44 @@ function generateKitESETimetable(): CoordinatorExamEntry[] {
     "Dr. Vinay More (CSEDS)",
     "Prof. Sunita Gaikwad (CSBS)",
     "Dr. Harish Salunkhe (MECH)",
+    "Dr. Kavita Deshpande (CSE)",
+    "Prof. Mahesh Pawar (ECE)",
+    "Dr. Ajay Chougule (CIVIL)",
+    "Prof. Pallavi Bhosale (BIO)",
+    "Dr. Sachin Jadhav (MECH)",
+    "Prof. Shilpa Mane (EE)",
+    "Dr. Nilesh Kulkarni (AIDS)",
+    "Prof. Varsha Kamble (CSEDS)",
+    "Dr. Chetan Shinde (CSBS)",
+    "Prof. Neha Patil (CSEAIML)",
+    "Dr. Santosh Mohite (MECH)",
+    "Prof. Archana Sawant (ECE)",
+    "Dr. Vijay Kumbhar (CIVIL)",
+    "Prof. Swati Desai (CSE)",
+    "Dr. Anand Suryavanshi (EE)",
+    "Prof. Priyanka Shinde (BIO)",
+    "Dr. Deepak Bagade (AIDS)",
+    "Prof. Geeta Kadam (CSEDS)",
+    "Dr. Rahul Jadhav (CSBS)",
+    "Prof. Sushant Nalawade (CSEAIML)",
+    "Dr. Smita Patil (MATHS)",
+    "Prof. Ganesh Khot (PHYSICS)",
+    "Dr. Manisha Chougule (CHEMISTRY)",
+    "Prof. Kiran Thorat (MECH)",
+    "Dr. Prachi Joshi (ECE)",
+    "Prof. Vikas Ghatage (CIVIL)",
+    "Dr. Poonam Shete (CSE)",
+    "Prof. Sujit Patil (EE)",
+    "Dr. Radhika Kulkarni (BIO)",
+    "Prof. Amol Kamble (AIDS)",
+    "Dr. Vidya Powar (CSEDS)",
+    "Prof. Nitin Magdum (CSBS)",
+    "Dr. Rashmi Shinde (CSEAIML)",
+    "Prof. Sunil Patil (MECH)",
+    "Dr. Jyoti Deshmukh (ECE)",
+    "Prof. Yogesh Mane (CIVIL)",
+    "Dr. Sanjay Gaikwad (CSE)",
+    "Prof. Tanuja Kulkarni (MATHS)",
   ];
 
   // Schedule Map Definition
@@ -515,10 +555,21 @@ function generateKitESETimetable(): CoordinatorExamEntry[] {
     },
   ];
 
+  // Strict institutional constraint: AT MOST 1 invigilation duty per day per teacher
+  // Track daily booked invigilators across all sessions of each calendar day
+  const dailyBookedInvigs = new Map<string, Set<string>>();
+  // Track cumulative duty counts for perfectly fair, equitable workload distribution
+  const invigilatorDutyCounts = new Map<string, number>();
+  invigilators.forEach((name) => invigilatorDutyCounts.set(name, 0));
+
   // Build exam entries with strict non-collision guarantee
   scheduleConfig.forEach((cfg, blockIdx) => {
     const sessionBookedRooms = new Set<string>();
-    const sessionBookedInvigs = new Set<string>();
+
+    if (!dailyBookedInvigs.has(cfg.date)) {
+      dailyBookedInvigs.set(cfg.date, new Set<string>());
+    }
+    const dayBooked = dailyBookedInvigs.get(cfg.date)!;
 
     cfg.subjectCodes.forEach((code, codeIdx) => {
       const sub = KIT_ESE_2026_SUBJECTS.find((s) => s.code === code);
@@ -532,13 +583,51 @@ function generateKitESETimetable(): CoordinatorExamEntry[] {
       }
       sessionBookedRooms.add(room);
 
-      // Select unique invigilator for this date & slot
-      let invigilator = invigilators[codeIdx % invigilators.length];
-      if (sessionBookedInvigs.has(invigilator)) {
-        const freeInv = invigilators.find((i) => !sessionBookedInvigs.has(i));
-        if (freeInv) invigilator = freeInv;
+      // Select unique invigilator who is strictly NOT assigned on this calendar date,
+      // Priority 1: Cross-department faculty (strictly preferred to eliminate conflict of interest)
+      // Priority 2: Same department fallback (extreme case), different subject
+      // In each tier, prioritize faculty with the lowest cumulative duty count for balanced distribution
+      let bestInvigilator = "";
+      let bestTier = Infinity; // 1 = cross-department, 2 = same-department different subject
+      let minDuties = Infinity;
+
+      for (let i = 0; i < invigilators.length; i++) {
+        const candidate = invigilators[i];
+        if (!dayBooked.has(candidate)) {
+          const candDeptMatch = candidate.match(/\(([^)]+)\)/);
+          const candDept = candDeptMatch ? candDeptMatch[1].trim().toUpperCase() : "";
+          const subDept = (sub.departmentCode || "").toUpperCase();
+          const isSameDept =
+            candDept === subDept ||
+            (candDept === "ECE" && subDept === "ETC") ||
+            (candDept === "ETC" && subDept === "ECE") ||
+            (candDept === "CIVIL" && (subDept === "CVL" || subDept === "CVL & ENV")) ||
+            (candDept === "EE" && subDept === "ELE") ||
+            (candDept === "AIDS" && subDept === "CSEAIML");
+
+          const tier = isSameDept ? 2 : 1;
+          const currentCount = invigilatorDutyCounts.get(candidate) ?? 0;
+
+          if (tier < bestTier) {
+            bestTier = tier;
+            minDuties = currentCount;
+            bestInvigilator = candidate;
+          } else if (tier === bestTier) {
+            if (currentCount < minDuties) {
+              minDuties = currentCount;
+              bestInvigilator = candidate;
+            }
+          }
+        }
       }
-      sessionBookedInvigs.add(invigilator);
+
+      // Safe fallback if roster boundary reached
+      if (!bestInvigilator) {
+        bestInvigilator = invigilators[codeIdx % invigilators.length];
+      }
+
+      dayBooked.add(bestInvigilator);
+      invigilatorDutyCounts.set(bestInvigilator, (invigilatorDutyCounts.get(bestInvigilator) ?? 0) + 1);
 
       list.push({
         id: `ese26-${sub.code.toLowerCase()}-${blockIdx}-${codeIdx}`,
@@ -550,11 +639,11 @@ function generateKitESETimetable(): CoordinatorExamEntry[] {
         semester: sub.semester,
         yearOfStudy: sub.yearOfStudy,
         examType: "ESE",
-        enrolled: sub.enrolledStudents || 60,
+        enrolled: Math.min(sub.enrolledStudents || 35, 40),
         date: cfg.date,
         slot: cfg.slot,
         room,
-        invigilator,
+        invigilator: bestInvigilator,
         status: "Approved",
         isIncluded: true,
         durationMinutes,
