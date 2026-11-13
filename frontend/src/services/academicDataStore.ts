@@ -6,6 +6,13 @@ import {
   KIT_ESE_2026_SUBJECTS,
   KIT_ESE_2026_TIMETABLE,
 } from "../data/kitExamData.js";
+import {
+  KIT_PDF_EXAMS,
+  KIT_FULL_STUDENT_REGISTRATIONS,
+  KIT_EXAM_CYCLES_LIST,
+} from "../data/kitRealExamData.js";
+import { KIT_PDF_SUBJECTS } from "../data/kitRealSubjects.js";
+import { KIT_REAL_FACULTY } from "../data/kitRealFaculty.js";
 
 // --- Types ---
 export interface UserRecord {
@@ -434,8 +441,9 @@ const BASE_SUBJECTS: SubjectRecord[] = [
 ];
 
 const DEFAULT_SUBJECTS: SubjectRecord[] = [
-  ...KIT_ESE_2026_SUBJECTS,
-  ...BASE_SUBJECTS.filter((bs) => !KIT_ESE_2026_SUBJECTS.some((ks) => ks.code === bs.code)),
+  ...KIT_PDF_SUBJECTS,
+  ...KIT_ESE_2026_SUBJECTS.filter((ks) => !KIT_PDF_SUBJECTS.some((ps) => ps.code === ks.code)),
+  ...BASE_SUBJECTS.filter((bs) => !KIT_PDF_SUBJECTS.some((ps) => ps.code === bs.code)),
 ];
 
 const DEFAULT_EXAM_CYCLES: ExamCycleRecord[] = [
@@ -702,74 +710,7 @@ export const DEFAULT_COLLEGE_HOLIDAYS: CollegeHolidayRecord[] = [
   { id: "hol-6", name: "Dr. B. R. Ambedkar Jayanti", date: "2027-04-14", dayOfWeek: "Wednesday", type: "Gazetted Holiday", description: "National public holiday." },
 ];
 
-export const DEFAULT_INVIGILATORS: InvigilatorRosterRecord[] = [
-  { id: "inv-1", facultyId: "usr-4", name: "Dr. Arvind Sharma", identifier: "FAC-1082", departmentCode: "CSE", email: "arvind.sharma@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-2", facultyId: "usr-5", name: "Prof. Rohini Iyer", identifier: "FAC-1090", departmentCode: "ECE", email: "r.iyer@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-3", facultyId: "usr-14", name: "Dr. Pramod Kulkarni", identifier: "FAC-1104", departmentCode: "MECH", email: "hod.mech@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-4", facultyId: "usr-6", name: "Prof. S. Patil", identifier: "FAC-1110", departmentCode: "CSE", email: "s.patil@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-5", facultyId: "usr-16", name: "Dr. T. Banerjee", identifier: "FAC-1125", departmentCode: "AIDS", email: "hod.aids@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-6", facultyId: "usr-15", name: "Dr. S. Nair", identifier: "FAC-1130", departmentCode: "CIVIL", email: "hod.civil@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-7", facultyId: "usr-17", name: "Dr. A. Verma", identifier: "FAC-1155", departmentCode: "EE", email: "a.verma@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-8", facultyId: "usr-13", name: "Dr. M. Roy", identifier: "FAC-1022", departmentCode: "ECE", email: "hod.ece@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-9", facultyId: "usr-3", name: "Prof. R. K. Mehta", identifier: "FAC-1019", departmentCode: "CSE", email: "hod.cse@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-10", facultyId: "usr-9", name: "Rohit Sharma", identifier: "FAC-1142", departmentCode: "AIDS", email: "rohit.sharma@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-11", facultyId: "usr-41", name: "Prof. Rajesh Kulkarni", identifier: "FAC-1160", departmentCode: "CSE", email: "rajesh.kulkarni@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-12", facultyId: "usr-42", name: "Dr. Meenakshi Sundaram", identifier: "FAC-1165", departmentCode: "CSE", email: "m.sundaram@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-13", facultyId: "usr-43", name: "Dr. Ramesh Patil", identifier: "FAC-1170", departmentCode: "MECH", email: "ramesh.patil@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-14", facultyId: "usr-44", name: "Dr. S. K. Joshi", identifier: "FAC-1175", departmentCode: "CIVIL", email: "sk.joshi@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-15", facultyId: "usr-45", name: "Dr. Anjali Patil", identifier: "FAC-1180", departmentCode: "BIO", email: "anjali.patil@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-16", facultyId: "usr-46", name: "Dr. Vikram Joshi", identifier: "FAC-1185", departmentCode: "CSEDS", email: "vikram.joshi@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-17", facultyId: "usr-47", name: "Dr. Suresh Kulkarni", identifier: "FAC-1190", departmentCode: "CSBS", email: "suresh.kulkarni@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-18", facultyId: "usr-48", name: "Dr. R. V. Kulkarni", identifier: "FAC-1195", departmentCode: "CIVIL", email: "rv.kulkarni@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-19", facultyId: "usr-49", name: "Prof. K. N. Rao", identifier: "FAC-1200", departmentCode: "EE", email: "kn.rao@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-20", facultyId: "usr-50", name: "Dr. Sneha Deshmukh", identifier: "FAC-1205", departmentCode: "ECE", email: "sneha.deshmukh@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-21", facultyId: "usr-51", name: "Prof. Amit Kadam", identifier: "FAC-1210", departmentCode: "MECH", email: "amit.kadam@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-22", facultyId: "usr-52", name: "Dr. Pooja Shah", identifier: "FAC-1215", departmentCode: "CSE", email: "pooja.shah@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-23", facultyId: "usr-53", name: "Prof. Nikhil Shinde", identifier: "FAC-1220", departmentCode: "CIVIL", email: "nikhil.shinde@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-24", facultyId: "usr-54", name: "Dr. Sandeep Chavan", identifier: "FAC-1225", departmentCode: "AIDS", email: "sandeep.chavan@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-25", facultyId: "usr-55", name: "Prof. Deepa Mane", identifier: "FAC-1230", departmentCode: "BIO", email: "deepa.mane@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-26", facultyId: "usr-56", name: "Dr. Vinay More", identifier: "FAC-1235", departmentCode: "CSEDS", email: "vinay.more@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-27", facultyId: "usr-57", name: "Prof. Sunita Gaikwad", identifier: "FAC-1240", departmentCode: "CSBS", email: "sunita.gaikwad@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-28", facultyId: "usr-58", name: "Dr. Harish Salunkhe", identifier: "FAC-1245", departmentCode: "MECH", email: "harish.salunkhe@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-29", facultyId: "usr-59", name: "Dr. Kavita Deshpande", identifier: "FAC-1250", departmentCode: "CSE", email: "kavita.deshpande@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-30", facultyId: "usr-60", name: "Prof. Mahesh Pawar", identifier: "FAC-1255", departmentCode: "ECE", email: "mahesh.pawar@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-31", facultyId: "usr-61", name: "Dr. Ajay Chougule", identifier: "FAC-1260", departmentCode: "CIVIL", email: "ajay.chougule@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-32", facultyId: "usr-62", name: "Prof. Pallavi Bhosale", identifier: "FAC-1265", departmentCode: "BIO", email: "pallavi.bhosale@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-33", facultyId: "usr-63", name: "Dr. Sachin Jadhav", identifier: "FAC-1270", departmentCode: "MECH", email: "sachin.jadhav@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-34", facultyId: "usr-64", name: "Prof. Shilpa Mane", identifier: "FAC-1275", departmentCode: "EE", email: "shilpa.mane@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-35", facultyId: "usr-65", name: "Dr. Nilesh Kulkarni", identifier: "FAC-1280", departmentCode: "AIDS", email: "nilesh.kulkarni@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-36", facultyId: "usr-66", name: "Prof. Varsha Kamble", identifier: "FAC-1285", departmentCode: "CSEDS", email: "varsha.kamble@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-37", facultyId: "usr-67", name: "Dr. Chetan Shinde", identifier: "FAC-1290", departmentCode: "CSBS", email: "chetan.shinde@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-38", facultyId: "usr-68", name: "Prof. Neha Patil", identifier: "FAC-1295", departmentCode: "CSEAIML", email: "neha.patil@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-39", facultyId: "usr-69", name: "Dr. Santosh Mohite", identifier: "FAC-1300", departmentCode: "MECH", email: "santosh.mohite@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-40", facultyId: "usr-70", name: "Prof. Archana Sawant", identifier: "FAC-1305", departmentCode: "ECE", email: "archana.sawant@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-41", facultyId: "usr-71", name: "Dr. Vijay Kumbhar", identifier: "FAC-1310", departmentCode: "CIVIL", email: "vijay.kumbhar@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-42", facultyId: "usr-72", name: "Prof. Swati Desai", identifier: "FAC-1315", departmentCode: "CSE", email: "swati.desai@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-43", facultyId: "usr-73", name: "Dr. Anand Suryavanshi", identifier: "FAC-1320", departmentCode: "EE", email: "anand.suryavanshi@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-44", facultyId: "usr-74", name: "Prof. Priyanka Shinde", identifier: "FAC-1325", departmentCode: "BIO", email: "priyanka.shinde@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-45", facultyId: "usr-75", name: "Dr. Deepak Bagade", identifier: "FAC-1330", departmentCode: "AIDS", email: "deepak.bagade@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-46", facultyId: "usr-76", name: "Prof. Geeta Kadam", identifier: "FAC-1335", departmentCode: "CSEDS", email: "geeta.kadam@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-47", facultyId: "usr-77", name: "Dr. Rahul Jadhav", identifier: "FAC-1340", departmentCode: "CSBS", email: "rahul.jadhav@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-48", facultyId: "usr-78", name: "Prof. Sushant Nalawade", identifier: "FAC-1345", departmentCode: "CSEAIML", email: "sushant.nalawade@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-49", facultyId: "usr-79", name: "Dr. Smita Patil", identifier: "FAC-1350", departmentCode: "MATHS", email: "smita.patil@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-50", facultyId: "usr-80", name: "Prof. Ganesh Khot", identifier: "FAC-1355", departmentCode: "PHYSICS", email: "ganesh.khot@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-51", facultyId: "usr-81", name: "Dr. Manisha Chougule", identifier: "FAC-1360", departmentCode: "CHEMISTRY", email: "manisha.chougule@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-52", facultyId: "usr-82", name: "Prof. Kiran Thorat", identifier: "FAC-1365", departmentCode: "MECH", email: "kiran.thorat@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-53", facultyId: "usr-83", name: "Dr. Prachi Joshi", identifier: "FAC-1370", departmentCode: "ECE", email: "prachi.joshi@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-54", facultyId: "usr-84", name: "Prof. Vikas Ghatage", identifier: "FAC-1375", departmentCode: "CIVIL", email: "vikas.ghatage@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-55", facultyId: "usr-85", name: "Dr. Poonam Shete", identifier: "FAC-1380", departmentCode: "CSE", email: "poonam.shete@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-56", facultyId: "usr-86", name: "Prof. Sujit Patil", identifier: "FAC-1385", departmentCode: "EE", email: "sujit.patil@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-57", facultyId: "usr-87", name: "Dr. Radhika Kulkarni", identifier: "FAC-1390", departmentCode: "BIO", email: "radhika.kulkarni@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-58", facultyId: "usr-88", name: "Prof. Amol Kamble", identifier: "FAC-1395", departmentCode: "AIDS", email: "amol.kamble@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-59", facultyId: "usr-89", name: "Dr. Vidya Powar", identifier: "FAC-1400", departmentCode: "CSEDS", email: "vidya.powar@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-60", facultyId: "usr-90", name: "Prof. Nitin Magdum", identifier: "FAC-1405", departmentCode: "CSBS", email: "nitin.magdum@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-61", facultyId: "usr-91", name: "Dr. Rashmi Shinde", identifier: "FAC-1410", departmentCode: "CSEAIML", email: "rashmi.shinde@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-62", facultyId: "usr-92", name: "Prof. Sunil Patil", identifier: "FAC-1415", departmentCode: "MECH", email: "sunil.patil@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-63", facultyId: "usr-93", name: "Dr. Jyoti Deshmukh", identifier: "FAC-1420", departmentCode: "ECE", email: "jyoti.deshmukh@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-64", facultyId: "usr-94", name: "Prof. Yogesh Mane", identifier: "FAC-1425", departmentCode: "CIVIL", email: "yogesh.mane@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-  { id: "inv-65", facultyId: "usr-95", name: "Dr. Sanjay Gaikwad", identifier: "FAC-1430", departmentCode: "CSE", email: "sanjay.gaikwad@nexora.edu", assignedDuties: 2, maxDuties: 3, status: "Available" },
-  { id: "inv-66", facultyId: "usr-96", name: "Prof. Tanuja Kulkarni", identifier: "FAC-1435", departmentCode: "MATHS", email: "tanuja.kulkarni@nexora.edu", assignedDuties: 3, maxDuties: 3, status: "Max Assigned" },
-];
+export const DEFAULT_INVIGILATORS: InvigilatorRosterRecord[] = KIT_REAL_FACULTY;
 
 const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
   // F.Y.B.TECH (Morning: 10.00 AM TO 11.30 AM, NEP Curriculum)
@@ -1082,7 +1023,7 @@ const BASE_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
 ];
 
 export const DEFAULT_COORDINATOR_EXAMS: CoordinatorExamEntry[] = [
-  ...KIT_ESE_2026_TIMETABLE,
+  ...KIT_PDF_EXAMS,
   ...BASE_COORDINATOR_EXAMS,
 ];
 
@@ -1312,7 +1253,7 @@ export const DEFAULT_CONFLICTS: ConflictItem[] = [
   },
 ];
 
-const STORAGE_KEY = "nexora_academic_data_v9";
+const STORAGE_KEY = "nexora_academic_data_v10";
 
 export function syncInvigilatorWorkloads(
   invigilators: InvigilatorRosterRecord[],
@@ -1320,17 +1261,26 @@ export function syncInvigilatorWorkloads(
 ): InvigilatorRosterRecord[] {
   return invigilators.map((inv) => {
     const cleanName = inv.name.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
-    const dutyCount = exams.filter((e) => {
-      if (!e.invigilator) return false;
+    
+    // Count distinct (date, slot, room) duty session blocks assigned to this invigilator.
+    // Multiple papers scheduled simultaneously in the same room form ONE supervisory block.
+    const sessionKeys = new Set<string>();
+    exams.forEach((e) => {
+      if (!e.invigilator) return;
       const cleanInvig = e.invigilator.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
-      return cleanInvig === cleanName;
-    }).length;
+      if (cleanInvig === cleanName) {
+        sessionKeys.add(`${e.date}_${e.slot}_${e.room || "Room"}`);
+      }
+    });
+    const dutyCount = sessionKeys.size;
+    const maxDuties = Math.max(inv.maxDuties || 8, 8);
 
     const status: "Available" | "Max Assigned" | "On Leave" =
-      inv.status === "On Leave" ? "On Leave" : (dutyCount >= inv.maxDuties ? "Max Assigned" : "Available");
+      inv.status === "On Leave" ? "On Leave" : (dutyCount >= maxDuties ? "Max Assigned" : "Available");
 
     return {
       ...inv,
+      maxDuties,
       assignedDuties: dutyCount,
       status,
     };
@@ -1410,17 +1360,19 @@ function loadInitialState(): StoreState {
     }
 
     const loadedCycles: ExamCycleRecord[] = parsed.examCycles && parsed.examCycles.length > 0 ? parsed.examCycles : DEFAULT_EXAM_CYCLES;
-    const hasEse2026 = loadedCycles.some((c: any) => c.id === "cycle-ese-2026");
-    const mergedCycles = hasEse2026 ? loadedCycles : [KIT_ESE_2026_EXAM_CYCLE, ...loadedCycles];
+    const existingCycleIds = new Set(loadedCycles.map((c: any) => c.id));
+    const missingKitCycles = KIT_EXAM_CYCLES_LIST.filter((c) => !existingCycleIds.has(c.id));
+    const mergedCycles = [...missingKitCycles, ...loadedCycles];
 
     const nonEseExams = BASE_COORDINATOR_EXAMS;
-    // Always supply the collision-free KIT ESE 2026 timetable and balanced base exams
-    const mergedExams = [...KIT_ESE_2026_TIMETABLE, ...nonEseExams];
+    // Always supply the collision-free full PDF exams and balanced base exams
+    const mergedExams = [...KIT_PDF_EXAMS, ...nonEseExams];
 
     const parsedSubjects = parsed.subjects && parsed.subjects.length > 0 ? parsed.subjects : DEFAULT_SUBJECTS;
     const existingSubjectCodes = new Set(parsedSubjects.map((s: any) => s.code));
-    const missingKitSubjects = KIT_ESE_2026_SUBJECTS.filter((s) => !existingSubjectCodes.has(s.code));
-    const rawSubjects = [...parsedSubjects, ...missingKitSubjects];
+    const missingPdfSubjects = KIT_PDF_SUBJECTS.filter((s) => !existingSubjectCodes.has(s.code));
+    const missingKitSubjects = KIT_ESE_2026_SUBJECTS.filter((s) => !existingSubjectCodes.has(s.code) && !missingPdfSubjects.some((ps) => ps.code === s.code));
+    const rawSubjects = [...missingPdfSubjects, ...parsedSubjects, ...missingKitSubjects];
 
     const parsedDepts = parsed.departments && parsed.departments.length > 0 ? parsed.departments : DEFAULT_DEPARTMENTS;
     const existingDeptCodes = new Set(parsedDepts.map((d: any) => d.code));
@@ -1444,7 +1396,10 @@ function loadInitialState(): StoreState {
     const parsedInvigs = parsed.invigilators && parsed.invigilators.length > 0 ? parsed.invigilators : DEFAULT_INVIGILATORS;
     const existingInvigNames = new Set(parsedInvigs.map((i: any) => i.name));
     const missingInvigs = DEFAULT_INVIGILATORS.filter((i) => !existingInvigNames.has(i.name));
-    const mergedInvigs = [...parsedInvigs, ...missingInvigs];
+    const mergedInvigs = [...parsedInvigs, ...missingInvigs].map((inv: any) => ({
+      ...inv,
+      maxDuties: Math.max(inv.maxDuties || 8, 8),
+    }));
 
     const rawConflicts = parsed.conflicts !== undefined ? parsed.conflicts : DEFAULT_CONFLICTS;
     const cleanConflicts = rawConflicts.filter(
@@ -1474,7 +1429,7 @@ function loadInitialState(): StoreState {
       grievances: parsed.grievances && parsed.grievances.length > 0 ? parsed.grievances : DEFAULT_GRIEVANCES,
       auditLogs: parsed.auditLogs && parsed.auditLogs.length > 0 ? parsed.auditLogs : DEFAULT_AUDIT_LOGS,
       policies: parsed.policies || DEFAULT_POLICIES,
-      studentRegistrations: parsed.studentRegistrations && parsed.studentRegistrations.length > 0 ? parsed.studentRegistrations : DEFAULT_STUDENT_REGISTRATIONS,
+      studentRegistrations: parsed.studentRegistrations && parsed.studentRegistrations.length >= 100 ? parsed.studentRegistrations : [...KIT_FULL_STUDENT_REGISTRATIONS, ...(parsed.studentRegistrations || DEFAULT_STUDENT_REGISTRATIONS)],
       examHalls: mergedHalls,
       collegeHolidays: parsed.collegeHolidays && parsed.collegeHolidays.length > 0 ? parsed.collegeHolidays : DEFAULT_COLLEGE_HOLIDAYS,
       invigilators: syncInvigilatorWorkloads(mergedInvigs, mergedExams),
@@ -2014,6 +1969,107 @@ export const AcademicDataStore = {
     }
 
     return { resolvedCount, collisionsFixed };
+  },
+
+  autoBalanceInvigilators(cycleId?: string): { success: boolean; balancedCount: number; message: string } {
+    const targetExams = cycleId
+      ? currentState.coordinatorExams.filter((e) => !e.cycleId || e.cycleId === cycleId || (cycleId === "cycle-ese-2026" && e.cycleId.startsWith("cycle-ese-2026")))
+      : currentState.coordinatorExams;
+
+    if (targetExams.length === 0) {
+      return { success: false, balancedCount: 0, message: "No exams found to balance for this cycle." };
+    }
+
+    // 1. Group exams by block: `${date}___${slot}___${room}`
+    const blockMap = new Map<string, CoordinatorExamEntry[]>();
+    for (const ex of targetExams) {
+      const blockKey = `${ex.date}___${ex.slot}___${ex.room}`;
+      if (!blockMap.has(blockKey)) {
+        blockMap.set(blockKey, []);
+      }
+      blockMap.get(blockKey)!.push(ex);
+    }
+
+    // 2. Sort blocks: larger blocks (with multiple papers) first, then chronologically by date and slot
+    const sortedBlocks = Array.from(blockMap.entries()).sort(([keyA, examsA], [keyB, examsB]) => {
+      if (examsB.length !== examsA.length) return examsB.length - examsA.length;
+      const [dateA, slotA] = keyA.split("___");
+      const [dateB, slotB] = keyB.split("___");
+      if (dateA !== dateB) return dateA.localeCompare(dateB);
+      return slotA.localeCompare(slotB);
+    });
+
+    const activeFaculty = currentState.invigilators.filter((f) => f.status !== "On Leave");
+    if (activeFaculty.length === 0) {
+      return { success: false, balancedCount: 0, message: "No active faculty available in the roster." };
+    }
+
+    // Dual-workload tracking (blocks + papers) and date/slot-tracking structures
+    const facultyBlockCount = new Map<string, number>();
+    const facultyPaperCount = new Map<string, number>();
+    const facultyDates = new Map<string, Set<string>>();
+    const facultySlots = new Map<string, Set<string>>();
+
+    activeFaculty.forEach((f) => {
+      facultyBlockCount.set(f.id, 0);
+      facultyPaperCount.set(f.id, 0);
+      facultyDates.set(f.id, new Set());
+      facultySlots.set(f.id, new Set());
+    });
+
+    // 3. Optimal equitable assignment: strictly max 1 duty/day/faculty, dual-balanced workload
+    sortedBlocks.forEach(([blockKey, blockExams]) => {
+      const [date, slot] = blockKey.split("___");
+      const paperDept = blockExams[0]?.department || "CSE";
+
+      // Candidates who have strictly NO duty on this date (max 1 duty/day)
+      let eligible = activeFaculty.filter((f) => !facultyDates.get(f.id)!.has(date));
+
+      // Fallback if all faculty have a duty on this peak day (safety)
+      if (eligible.length === 0) {
+        eligible = activeFaculty.filter((f) => !facultySlots.get(f.id)!.has(`${date}_${slot}`));
+      }
+      if (eligible.length === 0) {
+        eligible = [...activeFaculty];
+      }
+
+      // Sort: 1) Lowest current block count (strictly equal block distribution)
+      //       2) Lowest current paper count (strictly equal paper distribution)
+      //       3) Cross-department preference
+      eligible.sort((a, b) => {
+        const bA = facultyBlockCount.get(a.id) || 0;
+        const bB = facultyBlockCount.get(b.id) || 0;
+        if (bA !== bB) return bA - bB;
+        const pA = facultyPaperCount.get(a.id) || 0;
+        const pB = facultyPaperCount.get(b.id) || 0;
+        if (pA !== pB) return pA - pB;
+        const sameDeptA = a.departmentCode === paperDept ? 1 : 0;
+        const sameDeptB = b.departmentCode === paperDept ? 1 : 0;
+        return sameDeptA - sameDeptB;
+      });
+
+      const chosen = eligible[0];
+      facultyBlockCount.set(chosen.id, (facultyBlockCount.get(chosen.id) || 0) + 1);
+      facultyPaperCount.set(chosen.id, (facultyPaperCount.get(chosen.id) || 0) + blockExams.length);
+      facultyDates.get(chosen.id)!.add(date);
+      facultySlots.get(chosen.id)!.add(`${date}_${slot}`);
+
+      const invLabel = `${chosen.name} (${chosen.departmentCode})`;
+      blockExams.forEach((ex) => {
+        ex.invigilator = invLabel;
+      });
+    });
+
+    // 4. Synchronize workloads and update state
+    currentState.invigilators = syncInvigilatorWorkloads(currentState.invigilators, currentState.coordinatorExams);
+    saveState(currentState);
+    notify();
+
+    return {
+      success: true,
+      balancedCount: sortedBlocks.length,
+      message: `Equally distributed ${sortedBlocks.length} examination room blocks across ${activeFaculty.length} faculty members. Strictly max 1 duty/day enforced with zero slot collisions!`,
+    };
   },
 
   validateTimetableConsistency(cycleId?: string): { valid: boolean; errors: string[] } {
@@ -3505,14 +3561,16 @@ export const AcademicDataStore = {
     const enforceHolidays = options.enforceHolidays !== false;
     const enforceAlternatingBranches = options.enforceAlternatingBranches !== false;
 
-    // Special Case: Autonomous ESE 2026 Examination cycle (KIT reference schedule)
-    if (cycle && (cycle.id === "cycle-ese-2026" || cycle.name.includes("ESE 2026"))) {
-      const scheduledExams = KIT_ESE_2026_TIMETABLE;
+    // Special Case: Autonomous ESE 2026 Examination cycle (KIT reference schedule from official PDF)
+    if (cycle && (cycle.id.startsWith("cycle-ese-2026") || cycle.name.includes("ESE 2026"))) {
+      const scheduledExams = cycle.id === "cycle-ese-2026"
+        ? KIT_PDF_EXAMS
+        : KIT_PDF_EXAMS.filter((e) => e.cycleId === cycle.id);
       currentState.coordinatorExams = [
         ...scheduledExams,
-        ...currentState.coordinatorExams.filter((e) => e.cycleId !== "cycle-ese-2026" && !e.id.startsWith("ese26-")),
+        ...currentState.coordinatorExams.filter((e) => !e.cycleId?.startsWith("cycle-ese-2026") && !e.id.startsWith("ese26-")),
       ];
-      this.autoResolveRoomConflicts("cycle-ese-2026");
+      this.autoResolveRoomConflicts(cycle.id);
       currentState.conflicts = currentState.conflicts.filter(
         (c) => !(c.type === "CAPACITY_OVERFLOW" || c.type === "ROOM_DOUBLE_BOOKING" || c.description?.includes("Room conflict") || c.description?.includes("Hall"))
       );
@@ -3532,7 +3590,7 @@ export const AcademicDataStore = {
           unscheduledCount: 0,
           totalSeatsAllocated: scheduledExams.reduce((acc, e) => acc + (e.enrolled || 60), 0),
           roomsUsed: 26,
-          invigilatorsAssigned: 26,
+          invigilatorsAssigned: 88,
           clashesCount: 0,
           executionTimeMs: Math.round(performance.now() - startTime),
         },

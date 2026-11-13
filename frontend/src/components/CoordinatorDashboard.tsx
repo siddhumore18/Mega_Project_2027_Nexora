@@ -109,6 +109,15 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
     };
   }, [storeState.examCycles, selectedCycleId]);
 
+  const isExamInActiveCycle = (e: { cycleId?: string }, targetCycleId?: string) => {
+    const target = targetCycleId || activeCycle.id;
+    if (!target) return true;
+    if (!e.cycleId) return true;
+    if (e.cycleId === target) return true;
+    if (target === "cycle-ese-2026" && e.cycleId.startsWith("cycle-ese-2026")) return true;
+    return false;
+  };
+
   // Global search query
   const [globalSearch, setGlobalSearch] = useState("");
 
@@ -268,6 +277,27 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
   const [subSearch, setSubSearch] = useState("");
   const [subDeptFilter, setSubDeptFilter] = useState("ALL");
   const [subTypeFilter, setSubTypeFilter] = useState("ALL");
+  const [subYearFilter, setSubYearFilter] = useState<string>("ALL");
+  const [subSemFilter, setSubSemFilter] = useState<string>("ALL");
+  const [subStructureFilter, setSubStructureFilter] = useState<string>("ALL");
+  const [showAddSubjectModal, setShowAddSubjectModal] = useState(false);
+  const [subjectViewTab, setSubjectViewTab] = useState<"CATALOG" | "GROUPED">("CATALOG");
+  const [newSubjectData, setNewSubjectData] = useState({
+    code: "",
+    title: "",
+    departmentCode: "CSE",
+    programCode: "BTECH-CSE",
+    yearOfStudy: "First" as YearOfStudy,
+    semester: 1,
+    type: "Theory" as const,
+    credits: 4,
+    lectureHours: 3,
+    tutorialHours: 1,
+    practicalHours: 0,
+    enrolledStudents: 60,
+    curriculumStructure: "NEP",
+    status: "Active" as const,
+  });
 
   const filteredSubjects = useMemo(() => {
     return storeState.subjects.filter((s) => {
@@ -277,9 +307,72 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
         s.code.toLowerCase().includes(subSearch.toLowerCase());
       const matchDept = subDeptFilter === "ALL" || s.departmentCode === subDeptFilter;
       const matchType = subTypeFilter === "ALL" || s.type === subTypeFilter;
-      return matchSearch && matchDept && matchType;
+      const matchYear = subYearFilter === "ALL" || s.yearOfStudy === subYearFilter;
+      const matchSem = subSemFilter === "ALL" || String(s.semester) === subSemFilter;
+      const matchStructure = subStructureFilter === "ALL" || (s.curriculumStructure || "NEP") === subStructureFilter;
+      return matchSearch && matchDept && matchType && matchYear && matchSem && matchStructure;
     });
-  }, [storeState.subjects, subSearch, subDeptFilter, subTypeFilter]);
+  }, [storeState.subjects, subSearch, subDeptFilter, subTypeFilter, subYearFilter, subSemFilter, subStructureFilter]);
+
+  // Year & Semester Breakdown Metrics for Subjects
+  const subjectBreakdown = useMemo(() => {
+    const total = storeState.subjects.length;
+    const fy = storeState.subjects.filter((s) => s.yearOfStudy === "First" || s.semester <= 2).length;
+    const sy = storeState.subjects.filter((s) => s.yearOfStudy === "Second" || s.semester === 3 || s.semester === 4).length;
+    const ty = storeState.subjects.filter((s) => s.yearOfStudy === "Third" || s.semester === 5 || s.semester === 6).length;
+    const finalYr = storeState.subjects.filter((s) => s.yearOfStudy === "Fourth" || s.semester >= 7).length;
+    const nepCount = storeState.subjects.filter((s) => s.curriculumStructure === "NEP" || !s.curriculumStructure).length;
+    const cycle2Count = storeState.subjects.filter((s) => s.curriculumStructure === "CYCLE 2").length;
+    return { total, fy, sy, ty, finalYr, nepCount, cycle2Count };
+  }, [storeState.subjects]);
+
+  const handleCreateSubject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubjectData.code.trim() || !newSubjectData.title.trim()) {
+      showToast("Please enter subject code and title.", "warning");
+      return;
+    }
+    const res = AcademicDataStore.addSubject({
+      code: newSubjectData.code.trim().toUpperCase(),
+      title: newSubjectData.title.trim(),
+      departmentCode: newSubjectData.departmentCode,
+      programCode: `BTECH-${newSubjectData.departmentCode}`,
+      academicYear: "2026-27",
+      yearOfStudy: newSubjectData.yearOfStudy,
+      semester: Number(newSubjectData.semester),
+      type: newSubjectData.type,
+      credits: Number(newSubjectData.credits) || 4,
+      lectureHours: Number(newSubjectData.lectureHours) || 3,
+      tutorialHours: Number(newSubjectData.tutorialHours) || 1,
+      practicalHours: Number(newSubjectData.practicalHours) || 0,
+      status: "Active",
+      enrolledStudents: Number(newSubjectData.enrolledStudents) || 60,
+      curriculumStructure: newSubjectData.curriculumStructure,
+    }, coordinatorName);
+
+    if (res.success) {
+      showToast(`Subject ${newSubjectData.code.toUpperCase()} successfully registered for ${newSubjectData.departmentCode} (Year ${newSubjectData.yearOfStudy}, Sem ${newSubjectData.semester})!`, "success");
+      setShowAddSubjectModal(false);
+      setNewSubjectData({
+        code: "",
+        title: "",
+        departmentCode: "CSE",
+        programCode: "BTECH-CSE",
+        yearOfStudy: "First",
+        semester: 1,
+        type: "Theory",
+        credits: 4,
+        lectureHours: 3,
+        tutorialHours: 1,
+        practicalHours: 0,
+        enrolledStudents: 60,
+        curriculumStructure: "NEP",
+        status: "Active",
+      });
+    } else {
+      showToast(res.error || "Failed to create subject.", "error");
+    }
+  };
 
   // ==========================================
   // VIEW 5: Exam Rooms & Capacity State
@@ -398,6 +491,8 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
   // ==========================================
   const [facSearch, setFacSearch] = useState("");
   const [facDeptFilter, setFacDeptFilter] = useState("ALL");
+  const [facWorkloadFilter, setFacWorkloadFilter] = useState("ALL");
+  const [viewDutiesFaculty, setViewDutiesFaculty] = useState<InvigilatorRosterRecord | null>(null);
 
   const filteredFaculty = useMemo(() => {
     return storeState.invigilators.filter((f) => {
@@ -406,15 +501,99 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
         f.name.toLowerCase().includes(facSearch.toLowerCase()) ||
         f.identifier.toLowerCase().includes(facSearch.toLowerCase());
       const matchDept = facDeptFilter === "ALL" || f.departmentCode === facDeptFilter;
-      return matchSearch && matchDept;
+      const matchWorkload =
+        facWorkloadFilter === "ALL" ||
+        (facWorkloadFilter === "AVAILABLE" && f.status === "Available") ||
+        (facWorkloadFilter === "MAX_ASSIGNED" && f.status === "Max Assigned") ||
+        (facWorkloadFilter === "ON_LEAVE" && f.status === "On Leave");
+      return matchSearch && matchDept && matchWorkload;
     });
-  }, [storeState.invigilators, facSearch, facDeptFilter]);
+  }, [storeState.invigilators, facSearch, facDeptFilter, facWorkloadFilter]);
+
+  // Compute institutional duty equity statistics across the roster
+  const dutyEquityStats = useMemo(() => {
+    const active = storeState.invigilators.filter((f) => f.status !== "On Leave");
+    const counts = active.map((f) => f.assignedDuties);
+    const minDuties = counts.length > 0 ? Math.min(...counts) : 0;
+    const maxDuties = counts.length > 0 ? Math.max(...counts) : 0;
+    const totalDuties = counts.reduce((acc, c) => acc + c, 0);
+    const avgDuties = counts.length > 0 ? (totalDuties / counts.length).toFixed(1) : "0";
+
+    // Count unique supervision blocks in active cycle
+    const cycleExams = storeState.coordinatorExams.filter((e) => isExamInActiveCycle(e));
+    const blockKeys = new Set(cycleExams.map((e) => `${e.date}___${e.slot}___${e.room}`));
+
+    return {
+      totalFaculty: storeState.invigilators.length,
+      activeFaculty: active.length,
+      totalDuties: blockKeys.size,
+      minDuties,
+      maxDuties,
+      avgDuties,
+      fairQuota: active.length > 0 ? Math.max(...active.map((f) => f.maxDuties)) : 8,
+      spread: maxDuties - minDuties,
+    };
+  }, [storeState.invigilators, storeState.coordinatorExams, activeCycle.id]);
 
   const handleToggleFacultyLeave = (f: InvigilatorRosterRecord) => {
     const nextStatus = f.status === "On Leave" ? "Available" : "On Leave";
     AcademicDataStore.toggleFacultyAvailability(f.id, nextStatus);
     showToast(`${f.name} marked as ${nextStatus}.`);
   };
+
+  const handleAutoBalanceDuties = () => {
+    const res = AcademicDataStore.autoBalanceInvigilators(activeCycle.id);
+    if (res.success) {
+      showToast(res.message, "success");
+    } else {
+      showToast(res.message || "Failed to balance invigilators.", "error");
+    }
+  };
+
+  // Duties schedule for the selected faculty member in the View Duties modal
+  const selectedFacultyDuties = useMemo(() => {
+    if (!viewDutiesFaculty) return [];
+    const cleanName = viewDutiesFaculty.name.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+
+    // Group duties by (date, slot, room) block
+    const dutyMap = new Map<string, {
+      date: string;
+      day: string;
+      slot: string;
+      shift: string;
+      room: string;
+      papers: Array<{ code: string; subject: string; dept: string; enrolled: number }>;
+    }>();
+
+    storeState.coordinatorExams.forEach((ex) => {
+      if (!ex.invigilator) return;
+      const cleanInv = ex.invigilator.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+      if (cleanInv === cleanName) {
+        const key = `${ex.date}___${ex.slot}___${ex.room}`;
+        if (!dutyMap.has(key)) {
+          dutyMap.set(key, {
+            date: ex.date,
+            day: getDayOfWeek(ex.date),
+            slot: ex.slot,
+            shift: getShiftCategory(ex.slot),
+            room: ex.room,
+            papers: [],
+          });
+        }
+        dutyMap.get(key)!.papers.push({
+          code: ex.code,
+          subject: ex.subject,
+          dept: ex.department,
+          enrolled: ex.enrolled || 60,
+        });
+      }
+    });
+
+    return Array.from(dutyMap.values()).sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return a.slot.localeCompare(b.slot);
+    });
+  }, [viewDutiesFaculty, storeState.coordinatorExams]);
 
   // ==========================================
   // VIEW 8: Timetable Generator State
@@ -1332,9 +1511,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
 
   // Structured Shift-Wise Block Allocations Grouped by Date -> Shift -> Block
   const shiftWiseAllocations = useMemo(() => {
-    const cycleExams = storeState.coordinatorExams.filter(
-      (e) => !e.cycleId || e.cycleId === activeCycle.id
-    );
+    const cycleExams = storeState.coordinatorExams.filter((e) => isExamInActiveCycle(e));
 
     // Group by Date -> Shift -> Block/Room
     const dateMap = new Map<string, Map<string, Map<string, {
@@ -1402,11 +1579,9 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
 
   // Structured Teacher-Wise Duty Allocations
   const teacherWiseAllocations = useMemo(() => {
-    const cycleExams = storeState.coordinatorExams.filter(
-      (e) => !e.cycleId || e.cycleId === activeCycle.id
-    );
+    const cycleExams = storeState.coordinatorExams.filter((e) => isExamInActiveCycle(e));
 
-    const teacherMap = new Map<string, Array<{
+    const teacherMap = new Map<string, Map<string, {
       examId: string;
       code: string;
       subject: string;
@@ -1417,30 +1592,44 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
       shift: string;
       room: string;
       enrolled: number;
+      papers: Array<{ code: string; subject: string; dept: string; enrolled: number }>;
     }>>();
 
     cycleExams.forEach((ex) => {
       const teacherName = ex.invigilator || "Unassigned Faculty";
       if (!teacherMap.has(teacherName)) {
-        teacherMap.set(teacherName, []);
+        teacherMap.set(teacherName, new Map());
       }
-      teacherMap.get(teacherName)!.push({
-        examId: ex.id,
+      const dutyBlocks = teacherMap.get(teacherName)!;
+      const blockKey = `${ex.date}___${ex.slot}___${ex.room}`;
+      if (!dutyBlocks.has(blockKey)) {
+        dutyBlocks.set(blockKey, {
+          examId: ex.id,
+          code: ex.code,
+          subject: ex.subject,
+          department: ex.department,
+          date: ex.date,
+          day: getDayOfWeek(ex.date),
+          slot: ex.slot,
+          shift: getShiftCategory(ex.slot),
+          room: ex.room,
+          enrolled: 0,
+          papers: [],
+        });
+      }
+      const blk = dutyBlocks.get(blockKey)!;
+      blk.enrolled += (ex.enrolled || 60);
+      blk.papers.push({
         code: ex.code,
         subject: ex.subject,
-        department: ex.department,
-        date: ex.date,
-        day: getDayOfWeek(ex.date),
-        slot: ex.slot,
-        shift: getShiftCategory(ex.slot),
-        room: ex.room,
+        dept: ex.department,
         enrolled: ex.enrolled || 60,
       });
     });
 
     const teachers = Array.from(teacherMap.keys()).sort();
     return teachers.map((teacherName) => {
-      const duties = teacherMap.get(teacherName)!.sort((a, b) => {
+      const duties = Array.from(teacherMap.get(teacherName)!.values()).sort((a, b) => {
         if (a.date !== b.date) return a.date.localeCompare(b.date);
         return a.slot.localeCompare(b.slot);
       });
@@ -1457,7 +1646,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
         department,
         empId,
         dutiesCount: duties.length,
-        maxDuties: facultyRecord?.maxDuties || 3,
+        maxDuties: facultyRecord?.maxDuties || 8,
         status: facultyRecord?.status || "Available",
         duties,
       };
@@ -1528,7 +1717,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
   }, [storeState.timetables, activeCycle.id]);
 
   const handleApproveTimetable = () => {
-    const matchingExams = storeState.coordinatorExams.filter((e) => !e.cycleId || e.cycleId === activeCycle.id);
+    const matchingExams = storeState.coordinatorExams.filter((e) => isExamInActiveCycle(e));
     if (matchingExams.length === 0) {
       showToast("Cannot approve: No timetable papers have been generated for this examination cycle.", "error");
       return;
@@ -1597,7 +1786,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
     }
     if (!targetSubmissionId) {
       // Auto-submit if not yet created
-      const matchingExams = storeState.coordinatorExams.filter((e) => !e.cycleId || e.cycleId === activeCycle.id);
+      const matchingExams = storeState.coordinatorExams.filter((e) => isExamInActiveCycle(e));
       if (matchingExams.length === 0) {
         showToast("Cannot publish: No timetable papers found for the active cycle.", "warning");
         return;
@@ -3015,18 +3204,26 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                 <div className="dash-view-titles">
                   <h1 className="dash-view-title">Curriculum Subjects & Examination Entries</h1>
                   <p className="dash-view-subtitle">
-                    Select eligible subjects, view enrollment counts, credits, and schedule inclusion for active cycle
+                    Department-wise, Year-wise (F.Y., S.Y., T.Y., Final Year) and Semester-wise curriculum catalog with real exam cycle mapping
                   </p>
                 </div>
                 <div className="dash-header-actions">
+                  <button
+                    type="button"
+                    className="dash-btn dash-btn-primary"
+                    onClick={() => setShowAddSubjectModal(true)}
+                  >
+                    <Plus size={15} />
+                    <span>+ Add Subject (Dept / Year / Sem)</span>
+                  </button>
                   <button
                     type="button"
                     className="dash-btn dash-btn-outline"
                     onClick={() =>
                       handleExportCSV(
                         "Exam_Subjects_Catalog",
-                        ["Code", "Title", "Department", "Program", "Semester", "Type", "Credits", "Enrolled"],
-                        filteredSubjects.map((s) => [s.code, s.title, s.departmentCode, s.programCode, s.semester, s.type, s.credits, s.enrolledStudents])
+                        ["Code", "Title", "Department", "Program", "Year", "Semester", "Structure", "Type", "Credits", "Enrolled"],
+                        filteredSubjects.map((s) => [s.code, s.title, s.departmentCode, s.programCode, s.yearOfStudy, s.semester, s.curriculumStructure || "NEP", s.type, s.credits, s.enrolledStudents])
                       )
                     }
                   >
@@ -3036,28 +3233,149 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Filters */}
+              {/* Year & Structure Summary Metric Cards */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+                <div className="dash-card" style={{ padding: "14px 16px", borderLeft: "4px solid #6366f1" }}>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Total Curriculum</div>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-color)", marginTop: "4px" }}>{subjectBreakdown.total}</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Subjects Across 10 Depts</div>
+                </div>
+                <div className="dash-card" style={{ padding: "14px 16px", borderLeft: "4px solid #10b981" }}>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>First Year (F.Y.)</div>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#10b981", marginTop: "4px" }}>{subjectBreakdown.fy}</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Semesters I & II</div>
+                </div>
+                <div className="dash-card" style={{ padding: "14px 16px", borderLeft: "4px solid #3b82f6" }}>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Second Year (S.Y.)</div>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#3b82f6", marginTop: "4px" }}>{subjectBreakdown.sy}</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Semesters III & IV</div>
+                </div>
+                <div className="dash-card" style={{ padding: "14px 16px", borderLeft: "4px solid #f59e0b" }}>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Third Year (T.Y.)</div>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#f59e0b", marginTop: "4px" }}>{subjectBreakdown.ty}</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Semesters V & VI</div>
+                </div>
+                <div className="dash-card" style={{ padding: "14px 16px", borderLeft: "4px solid #ec4899" }}>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Final Year</div>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#ec4899", marginTop: "4px" }}>{subjectBreakdown.finalYr}</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Semesters VII & VIII</div>
+                </div>
+                <div className="dash-card" style={{ padding: "14px 16px", borderLeft: "4px solid #8b5cf6" }}>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Curriculum Split</div>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-color)", marginTop: "4px" }}>
+                    NEP: <span style={{ color: "#8b5cf6" }}>{subjectBreakdown.nepCount}</span> | C2: <span style={{ color: "#f59e0b" }}>{subjectBreakdown.cycle2Count}</span>
+                  </div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Regular & Backlog Tracks</div>
+                </div>
+              </div>
+
+              {/* View Switching & Comprehensive Filters */}
               <div className="dash-card" style={{ padding: "16px", marginBottom: "18px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1fr 1fr", gap: "12px" }}>
-                  <input
-                    type="text"
-                    className="dash-input"
-                    placeholder="Search subject code or curriculum title..."
-                    value={subSearch}
-                    onChange={(e) => setSubSearch(e.target.value)}
-                  />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "10px" }}>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      type="button"
+                      className={`dash-btn ${subjectViewTab === "CATALOG" ? "dash-btn-primary" : "dash-btn-outline"}`}
+                      onClick={() => setSubjectViewTab("CATALOG")}
+                      style={{ fontSize: "12px", padding: "6px 14px" }}
+                    >
+                      <FileSpreadsheet size={14} style={{ marginRight: "6px" }} />
+                      Flat Catalog View ({filteredSubjects.length})
+                    </button>
+                    <button
+                      type="button"
+                      className={`dash-btn ${subjectViewTab === "GROUPED" ? "dash-btn-primary" : "dash-btn-outline"}`}
+                      onClick={() => setSubjectViewTab("GROUPED")}
+                      style={{ fontSize: "12px", padding: "6px 14px" }}
+                    >
+                      <Layers size={14} style={{ marginRight: "6px" }} />
+                      Department & Semester Grouping View
+                    </button>
+                  </div>
+                  {(subDeptFilter !== "ALL" || subYearFilter !== "ALL" || subSemFilter !== "ALL" || subStructureFilter !== "ALL" || subTypeFilter !== "ALL" || subSearch) && (
+                    <button
+                      type="button"
+                      className="dash-btn dash-btn-outline"
+                      onClick={() => {
+                        setSubSearch("");
+                        setSubDeptFilter("ALL");
+                        setSubYearFilter("ALL");
+                        setSubSemFilter("ALL");
+                        setSubStructureFilter("ALL");
+                        setSubTypeFilter("ALL");
+                      }}
+                      style={{ fontSize: "11.5px", padding: "4px 10px" }}
+                    >
+                      Reset All Filters
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "10px" }}>
+                  <div style={{ gridColumn: "span 2" }}>
+                    <input
+                      type="text"
+                      className="dash-input"
+                      placeholder="Search subject code (e.g. UCSPC0305, ME701) or title..."
+                      value={subSearch}
+                      onChange={(e) => setSubSearch(e.target.value)}
+                    />
+                  </div>
 
                   <select
                     className="dash-select"
                     value={subDeptFilter}
                     onChange={(e) => setSubDeptFilter(e.target.value)}
                   >
-                    <option value="ALL">All Departments</option>
+                    <option value="ALL">All Departments (10)</option>
                     {storeState.departments.map((d) => (
                       <option key={d.id} value={d.code}>
-                        {d.name} ({d.code})
+                        {d.code} - {d.name}
                       </option>
                     ))}
+                  </select>
+
+                  <select
+                    className="dash-select"
+                    value={subYearFilter}
+                    onChange={(e) => {
+                      setSubYearFilter(e.target.value);
+                      if (e.target.value === "First") setSubSemFilter("ALL");
+                    }}
+                  >
+                    <option value="ALL">All Years of Study</option>
+                    <option value="First">First Year (F.Y. - Sem I & II)</option>
+                    <option value="Second">Second Year (S.Y. - Sem III & IV)</option>
+                    <option value="Third">Third Year (T.Y. - Sem V & VI)</option>
+                    <option value="Fourth">Final Year (Sem VII & VIII)</option>
+                  </select>
+
+                  <select
+                    className="dash-select"
+                    value={subSemFilter}
+                    onChange={(e) => setSubSemFilter(e.target.value)}
+                  >
+                    <option value="ALL">All Semesters (Sem 1 - 8)</option>
+                    <option value="1">Semester 1 (F.Y.)</option>
+                    <option value="2">Semester 2 (F.Y.)</option>
+                    <option value="3">Semester 3 (S.Y.)</option>
+                    <option value="4">Semester 4 (S.Y.)</option>
+                    <option value="5">Semester 5 (T.Y.)</option>
+                    <option value="6">Semester 6 (T.Y.)</option>
+                    <option value="7">Semester 7 (Final Year)</option>
+                    <option value="8">Semester 8 (Final Year)</option>
+                  </select>
+
+                  <select
+                    className="dash-select"
+                    value={subStructureFilter}
+                    onChange={(e) => setSubStructureFilter(e.target.value)}
+                  >
+                    <option value="ALL">All Curriculum Structures</option>
+                    <option value="NEP">NEP (National Education Policy / Regular)</option>
+                    <option value="CYCLE 1">Cycle 1 (NEP Regular Exams)</option>
+                    <option value="CYCLE 2">Cycle 2 (Backlog / Specialized Electives)</option>
+                    <option value="CYCLE 3">Cycle 3 (Makeup Assessment)</option>
                   </select>
 
                   <select
@@ -3070,81 +3388,421 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                     <option value="Practical">Practical</option>
                     <option value="Lab">Lab</option>
                     <option value="Project">Project</option>
+                    <option value="Elective">Elective</option>
                   </select>
                 </div>
               </div>
 
-              {/* Table */}
-              <div className="dash-card">
-                <div className="dash-table-wrap">
-                  <table className="dash-table">
-                    <thead>
-                      <tr>
-                        <th>Course Code</th>
-                        <th>Subject Title</th>
-                        <th>Dept & Program</th>
-                        <th>Semester</th>
-                        <th>Type</th>
-                        <th>Credits</th>
-                        <th>Enrolled Students</th>
-                        <th>Exam Duration</th>
-                        <th>Cycle Inclusion</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredSubjects.map((sub) => {
-                        const isIncluded = !storeState.coordinatorExams.some((e) => e.code === sub.code && e.isIncluded === false);
-                        return (
-                          <tr key={sub.id}>
-                            <td style={{ fontWeight: 700 }}>{sub.code}</td>
-                            <td>
-                              <div style={{ fontWeight: 600 }}>{sub.title}</div>
-                              <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                                L-T-P: {sub.lectureHours}-{sub.tutorialHours}-{sub.practicalHours}
-                              </div>
-                            </td>
-                            <td>
-                              <span className="dash-badge dash-badge-default">{sub.departmentCode}</span>
-                            </td>
-                            <td>Sem {sub.semester}</td>
-                            <td>
-                              <span
-                                className={`dash-badge ${
-                                  sub.type === "Theory"
-                                    ? "dash-badge-default"
-                                    : sub.type === "Lab"
-                                    ? "dash-badge-info"
-                                    : "dash-badge-warning"
-                                }`}
-                              >
-                                {sub.type}
-                              </span>
-                            </td>
-                            <td>{sub.credits}</td>
-                            <td>
-                              <strong>{sub.enrolledStudents}</strong> candidates
-                            </td>
-                            <td>180 mins</td>
-                            <td>
-                              <button
-                                type="button"
-                                className={`dash-btn ${isIncluded ? "dash-btn-outline" : "dash-btn-primary"}`}
-                                onClick={() => {
-                                  AcademicDataStore.toggleSubjectInclusion(sub.code, !isIncluded);
-                                  showToast(`${sub.code} ${isIncluded ? "excluded from" : "included in"} cycle schedule.`);
-                                }}
-                                style={{ fontSize: "11.5px", padding: "3px 8px" }}
-                              >
-                                {isIncluded ? "Included in Cycle" : "Excluded"}
-                              </button>
+              {/* View 1: Flat Catalog Table */}
+              {subjectViewTab === "CATALOG" && (
+                <div className="dash-card">
+                  <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-color)" }}>
+                      Showing {filteredSubjects.length} of {storeState.subjects.length} Total Registered Subjects
+                    </div>
+                    <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                      Click on "Included in Cycle" to toggle exam schedule inclusion
+                    </div>
+                  </div>
+                  <div className="dash-table-wrap">
+                    <table className="dash-table">
+                      <thead>
+                        <tr>
+                          <th>Course Code</th>
+                          <th>Subject Title</th>
+                          <th>Department</th>
+                          <th>Year & Semester</th>
+                          <th>Structure</th>
+                          <th>Type & Credits</th>
+                          <th>Registered Candidates</th>
+                          <th>Exam Status</th>
+                          <th>Cycle Inclusion</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredSubjects.length === 0 ? (
+                          <tr>
+                            <td colSpan={9} style={{ textAlign: "center", padding: "32px", color: "var(--text-muted)" }}>
+                              No curriculum subjects match the selected Department, Year, Semester, or Filter criteria.
                             </td>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                        ) : (
+                          filteredSubjects.slice(0, 150).map((sub) => {
+                            const isIncluded = !storeState.coordinatorExams.some((e) => e.code === sub.code && e.isIncluded === false);
+                            return (
+                              <tr key={sub.id}>
+                                <td style={{ fontWeight: 700, fontFamily: "monospace", color: "var(--brand-primary, #6366f1)" }}>
+                                  {sub.code}
+                                </td>
+                                <td>
+                                  <div style={{ fontWeight: 600 }}>{sub.title}</div>
+                                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                                    L-T-P: {sub.lectureHours}-{sub.tutorialHours}-{sub.practicalHours} | Program: {sub.programCode}
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className="dash-badge dash-badge-default">{sub.departmentCode}</span>
+                                </td>
+                                <td>
+                                  <div style={{ fontWeight: 600 }}>{sub.yearOfStudy} Year</div>
+                                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Semester {sub.semester}</div>
+                                </td>
+                                <td>
+                                  <span
+                                    className={`dash-badge ${
+                                      sub.curriculumStructure === "CYCLE 2"
+                                        ? "dash-badge-warning"
+                                        : sub.curriculumStructure === "CYCLE 1"
+                                        ? "dash-badge-info"
+                                        : "dash-badge-default"
+                                    }`}
+                                  >
+                                    {sub.curriculumStructure || "NEP"}
+                                  </span>
+                                </td>
+                                <td>
+                                  <div style={{ fontWeight: 600 }}>{sub.credits} Credits</div>
+                                  <span
+                                    className={`dash-badge ${
+                                      sub.type === "Theory"
+                                        ? "dash-badge-default"
+                                        : sub.type === "Lab"
+                                        ? "dash-badge-info"
+                                        : "dash-badge-warning"
+                                    }`}
+                                    style={{ fontSize: "10px", marginTop: "2px" }}
+                                  >
+                                    {sub.type}
+                                  </span>
+                                </td>
+                                <td>
+                                  <strong>{sub.enrolledStudents}</strong> students
+                                </td>
+                                <td>
+                                  <span className="dash-badge dash-badge-success">{sub.status}</span>
+                                </td>
+                                <td>
+                                  <button
+                                    type="button"
+                                    className={`dash-btn ${isIncluded ? "dash-btn-outline" : "dash-btn-primary"}`}
+                                    onClick={() => {
+                                      AcademicDataStore.toggleSubjectInclusion(sub.code, !isIncluded);
+                                      showToast(`${sub.code} ${isIncluded ? "excluded from" : "included in"} cycle schedule.`);
+                                    }}
+                                    style={{ fontSize: "11px", padding: "4px 8px", whiteSpace: "nowrap" }}
+                                  >
+                                    {isIncluded ? "Included in Cycle" : "Excluded"}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  {filteredSubjects.length > 150 && (
+                    <div style={{ padding: "12px", textAlign: "center", fontSize: "12px", color: "var(--text-muted)", borderTop: "1px solid var(--border-color)" }}>
+                      Showing top 150 of {filteredSubjects.length} subjects. Use the search bar or Department/Year filters above to narrow your view.
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
+
+              {/* View 2: Department & Semester Hierarchical Grouping */}
+              {subjectViewTab === "GROUPED" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {(["First", "Second", "Third", "Fourth"] as YearOfStudy[]).map((year) => {
+                    const yearSubjects = filteredSubjects.filter((s) => s.yearOfStudy === year);
+                    if (yearSubjects.length === 0) return null;
+                    const semNumbers = Array.from(new Set(yearSubjects.map((s) => s.semester))).sort((a, b) => a - b);
+
+                    return (
+                      <div key={year} className="dash-card" style={{ padding: "18px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", borderBottom: "1px solid var(--border-color)", paddingBottom: "10px" }}>
+                          <div>
+                            <h3 style={{ fontSize: "16px", fontWeight: 700, margin: 0, color: "var(--text-color)" }}>
+                              {year === "First" ? "First Year (F.Y. B.Tech)" : year === "Second" ? "Second Year (S.Y. B.Tech)" : year === "Third" ? "Third Year (T.Y. B.Tech)" : "Final Year B.Tech"}
+                            </h3>
+                            <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                              {yearSubjects.length} Subjects across {Array.from(new Set(yearSubjects.map((s) => s.departmentCode))).length} Departments
+                            </span>
+                          </div>
+                          <span className="dash-badge dash-badge-default" style={{ fontSize: "12px" }}>
+                            Year: {year}
+                          </span>
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                          {semNumbers.map((semNum) => {
+                            const semSubjects = yearSubjects.filter((s) => s.semester === semNum);
+                            const deptsInSem = Array.from(new Set(semSubjects.map((s) => s.departmentCode))).sort();
+
+                            return (
+                              <div key={semNum} style={{ background: "var(--bg-secondary, rgba(0,0,0,0.02))", borderRadius: "8px", padding: "12px", border: "1px solid var(--border-color)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                                  <span style={{ fontWeight: 700, fontSize: "13px", color: "var(--brand-primary, #6366f1)" }}>
+                                    Semester {semNum} ({semSubjects.length} Subjects)
+                                  </span>
+                                  <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                                    Curriculum: NEP & Cycle 2
+                                  </span>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "10px" }}>
+                                  {deptsInSem.map((dept) => {
+                                    const deptSubs = semSubjects.filter((s) => s.departmentCode === dept);
+                                    return (
+                                      <div key={dept} style={{ background: "var(--bg-card, #fff)", border: "1px solid var(--border-color)", borderRadius: "6px", padding: "10px" }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", borderBottom: "1px dashed var(--border-color)", paddingBottom: "4px" }}>
+                                          <span style={{ fontWeight: 700, fontSize: "12px" }}>Department: {dept}</span>
+                                          <span className="dash-badge dash-badge-default" style={{ fontSize: "10px" }}>{deptSubs.length} Courses</span>
+                                        </div>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                          {deptSubs.map((sub) => (
+                                            <div key={sub.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11.5px" }}>
+                                              <div>
+                                                <span style={{ fontWeight: 700, marginRight: "6px" }}>{sub.code}</span>
+                                                <span style={{ color: "var(--text-muted)" }}>{sub.title.slice(0, 32)}{sub.title.length > 32 ? "..." : ""}</span>
+                                              </div>
+                                              <span className="dash-badge dash-badge-outline" style={{ fontSize: "9.5px", padding: "2px 5px" }}>
+                                                {sub.curriculumStructure || "NEP"}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Add Subject Modal */}
+              {showAddSubjectModal && (
+                <div className="dash-modal-backdrop" onClick={() => setShowAddSubjectModal(false)}>
+                  <div
+                    className="dash-modal"
+                    style={{ maxWidth: "660px", background: "#ffffff", padding: "26px", zIndex: 10001 }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="dash-modal-header">
+                      <div>
+                        <h3 className="dash-modal-title">Register New Curriculum Subject</h3>
+                        <p className="dash-modal-subtitle">
+                          Assign subject to specific Department, Year of Study, Semester, and Curriculum Structure
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="dash-modal-close"
+                        onClick={() => setShowAddSubjectModal(false)}
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleCreateSubject}>
+                      <div className="dash-modal-body" style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "12px" }}>
+                          <div>
+                            <label className="dash-label">Subject Code *</label>
+                            <input
+                              type="text"
+                              className="dash-input"
+                              placeholder="e.g. UCSPC0305"
+                              required
+                              value={newSubjectData.code}
+                              onChange={(e) => setNewSubjectData({ ...newSubjectData, code: e.target.value.toUpperCase() })}
+                            />
+                          </div>
+                          <div>
+                            <label className="dash-label">Subject Title *</label>
+                            <input
+                              type="text"
+                              className="dash-input"
+                              placeholder="e.g. Artificial Intelligence & Expert Systems"
+                              required
+                              value={newSubjectData.title}
+                              onChange={(e) => setNewSubjectData({ ...newSubjectData, title: e.target.value })}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                          <div>
+                            <label className="dash-label">Department *</label>
+                            <select
+                              className="dash-select"
+                              value={newSubjectData.departmentCode}
+                              onChange={(e) => setNewSubjectData({ ...newSubjectData, departmentCode: e.target.value, programCode: `BTECH-${e.target.value}` })}
+                            >
+                              {storeState.departments.map((d) => (
+                                <option key={d.id} value={d.code}>
+                                  {d.name} ({d.code})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="dash-label">Curriculum Structure *</label>
+                            <select
+                              className="dash-select"
+                              value={newSubjectData.curriculumStructure}
+                              onChange={(e) => setNewSubjectData({ ...newSubjectData, curriculumStructure: e.target.value })}
+                            >
+                              <option value="NEP">NEP (National Education Policy / Regular)</option>
+                              <option value="CYCLE 1">Cycle 1 (NEP Regular Exams)</option>
+                              <option value="CYCLE 2">Cycle 2 (Backlog / Specialized Electives)</option>
+                              <option value="CYCLE 3">Cycle 3 (Makeup Assessment)</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                          <div>
+                            <label className="dash-label">Year of Study *</label>
+                            <select
+                              className="dash-select"
+                              value={newSubjectData.yearOfStudy}
+                              onChange={(e) => {
+                                const yr = e.target.value as YearOfStudy;
+                                const defaultSem = yr === "First" ? 1 : yr === "Second" ? 3 : yr === "Third" ? 5 : 7;
+                                setNewSubjectData({ ...newSubjectData, yearOfStudy: yr, semester: defaultSem });
+                              }}
+                            >
+                              <option value="First">First Year (F.Y. - Sems I & II)</option>
+                              <option value="Second">Second Year (S.Y. - Sems III & IV)</option>
+                              <option value="Third">Third Year (T.Y. - Sems V & VI)</option>
+                              <option value="Fourth">Final Year (Sems VII & VIII)</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="dash-label">Semester *</label>
+                            <select
+                              className="dash-select"
+                              value={newSubjectData.semester}
+                              onChange={(e) => {
+                                const sem = Number(e.target.value);
+                                const yr = sem <= 2 ? "First" : sem <= 4 ? "Second" : sem <= 6 ? "Third" : "Fourth";
+                                setNewSubjectData({ ...newSubjectData, semester: sem, yearOfStudy: yr });
+                              }}
+                            >
+                              <option value={1}>Semester 1 (F.Y.)</option>
+                              <option value={2}>Semester 2 (F.Y.)</option>
+                              <option value={3}>Semester 3 (S.Y.)</option>
+                              <option value={4}>Semester 4 (S.Y.)</option>
+                              <option value={5}>Semester 5 (T.Y.)</option>
+                              <option value={6}>Semester 6 (T.Y.)</option>
+                              <option value={7}>Semester 7 (Final Year)</option>
+                              <option value={8}>Semester 8 (Final Year)</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+                          <div>
+                            <label className="dash-label">Course Type</label>
+                            <select
+                              className="dash-select"
+                              value={newSubjectData.type}
+                              onChange={(e) => setNewSubjectData({ ...newSubjectData, type: e.target.value as any })}
+                            >
+                              <option value="Theory">Theory</option>
+                              <option value="Practical">Practical</option>
+                              <option value="Lab">Lab</option>
+                              <option value="Project">Project</option>
+                              <option value="Elective">Elective</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="dash-label">Credits</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={10}
+                              className="dash-input"
+                              value={newSubjectData.credits}
+                              onChange={(e) => setNewSubjectData({ ...newSubjectData, credits: Number(e.target.value) })}
+                            />
+                          </div>
+                          <div>
+                            <label className="dash-label">Enrolled Students</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={500}
+                              className="dash-input"
+                              value={newSubjectData.enrolledStudents}
+                              onChange={(e) => setNewSubjectData({ ...newSubjectData, enrolledStudents: Number(e.target.value) })}
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+                          <div>
+                            <label className="dash-label">Lecture Hours (L)</label>
+                            <input
+                              type="number"
+                              min={0}
+                              max={10}
+                              className="dash-input"
+                              value={newSubjectData.lectureHours}
+                              onChange={(e) => setNewSubjectData({ ...newSubjectData, lectureHours: Number(e.target.value) })}
+                            />
+                          </div>
+                          <div>
+                            <label className="dash-label">Tutorial Hours (T)</label>
+                            <input
+                              type="number"
+                              min={0}
+                              max={10}
+                              className="dash-input"
+                              value={newSubjectData.tutorialHours}
+                              onChange={(e) => setNewSubjectData({ ...newSubjectData, tutorialHours: Number(e.target.value) })}
+                            />
+                          </div>
+                          <div>
+                            <label className="dash-label">Practical Hours (P)</label>
+                            <input
+                              type="number"
+                              min={0}
+                              max={10}
+                              className="dash-input"
+                              value={newSubjectData.practicalHours}
+                              onChange={(e) => setNewSubjectData({ ...newSubjectData, practicalHours: Number(e.target.value) })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="dash-modal-footer">
+                        <button
+                          type="button"
+                          className="dash-btn dash-btn-outline"
+                          onClick={() => setShowAddSubjectModal(false)}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="dash-btn dash-btn-primary"
+                        >
+                          <Plus size={15} />
+                          <span>Register Subject</span>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -3754,34 +4412,80 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                 <div className="dash-view-titles">
                   <h1 className="dash-view-title">Faculty Roster & Invigilator Workload</h1>
                   <p className="dash-view-subtitle">
-                    Track maximum duty quotas (max 3), approved academic leave, and cross-department assignments
+                    Equitable duty distribution, clash-free supervision allocations, and strictly enforced 1-duty-per-day limit across 10 Departments
                   </p>
                 </div>
-                <div className="dash-header-actions">
+                <div className="dash-header-actions" style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="dash-btn dash-btn-primary"
+                    style={{ background: "#2563eb", borderColor: "#2563eb", color: "#fff" }}
+                    onClick={handleAutoBalanceDuties}
+                    title="Run autonomous workload balancer to guarantee 100% equal duty distribution and zero same-day continuous duties"
+                  >
+                    <Shuffle size={15} />
+                    <span>Auto-Balance & Distribute Workload</span>
+                  </button>
                   <button
                     type="button"
                     className="dash-btn dash-btn-outline"
                     onClick={() =>
                       handleExportCSV(
                         "Faculty_Invigilation_Roster",
-                        ["Identifier", "Name", "Department", "Assigned Duties", "Max Quota", "Status"],
-                        filteredFaculty.map((f) => [f.identifier, f.name, f.departmentCode, f.assignedDuties, f.maxDuties, f.status])
+                        ["Identifier", "Name", "Department", "Assigned Duties", "Max Quota", "Status", "Daily Policy"],
+                        filteredFaculty.map((f) => [f.identifier, f.name, f.departmentCode, f.assignedDuties, f.maxDuties, f.status, "Max 1 Duty/Day"])
                       )
                     }
                   >
                     <Download size={15} />
-                    <span>Export Roster</span>
+                    <span>Export Roster (CSV)</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Duty Distribution & Equity Metrics Strip */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+                <div className="dash-card" style={{ padding: "14px 16px", borderLeft: "4px solid #6366f1" }}>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Total Faculty Roster</div>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "var(--text-color)", marginTop: "4px" }}>{dutyEquityStats.totalFaculty}</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Across 10 Depts + BSH</div>
+                </div>
+                <div className="dash-card" style={{ padding: "14px 16px", borderLeft: "4px solid #3b82f6" }}>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Supervised Blocks</div>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#3b82f6", marginTop: "4px" }}>{dutyEquityStats.totalDuties}</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Distinct Hall Sessions</div>
+                </div>
+                <div className="dash-card" style={{ padding: "14px 16px", borderLeft: "4px solid #10b981" }}>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Workload Balance</div>
+                  <div style={{ fontSize: "20px", fontWeight: 800, color: "#10b981", marginTop: "4px" }}>
+                    Min {dutyEquityStats.minDuties} — Max {dutyEquityStats.maxDuties}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Spread: {dutyEquityStats.spread} Duty (Equitable)</div>
+                </div>
+                <div className="dash-card" style={{ padding: "14px 16px", borderLeft: "4px solid #8b5cf6" }}>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Average Workload</div>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#8b5cf6", marginTop: "4px" }}>{dutyEquityStats.avgDuties}</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Duties / Faculty Member</div>
+                </div>
+                <div className="dash-card" style={{ padding: "14px 16px", borderLeft: "4px solid #059669" }}>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Daily Spacing Rule</div>
+                  <div style={{ fontSize: "18px", fontWeight: 800, color: "#059669", marginTop: "4px" }}>Max 1 Duty / Day</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>0 Same-Day Multi Duties</div>
+                </div>
+                <div className="dash-card" style={{ padding: "14px 16px", borderLeft: "4px solid #0284c7" }}>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Cycle Quota Limit</div>
+                  <div style={{ fontSize: "22px", fontWeight: 800, color: "#0284c7", marginTop: "4px" }}>{dutyEquityStats.fairQuota} Max</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Fair Quota for ESE Term</div>
                 </div>
               </div>
 
               {/* Filters */}
               <div className="dash-card" style={{ padding: "16px", marginBottom: "18px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: "12px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1fr 1fr", gap: "12px" }}>
                   <input
                     type="text"
                     className="dash-input"
-                    placeholder="Search faculty name or employee code..."
+                    placeholder="Search faculty name or employee code (e.g. FAC-1082)..."
                     value={facSearch}
                     onChange={(e) => setFacSearch(e.target.value)}
                   />
@@ -3791,18 +4495,39 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                     value={facDeptFilter}
                     onChange={(e) => setFacDeptFilter(e.target.value)}
                   >
-                    <option value="ALL">All Departments</option>
+                    <option value="ALL">All Departments (10 + BSH)</option>
                     {storeState.departments.map((d) => (
                       <option key={d.id} value={d.code}>
                         {d.name} ({d.code})
                       </option>
                     ))}
+                    <option value="BSH">Basic Sciences & Humanities (BSH)</option>
+                  </select>
+
+                  <select
+                    className="dash-select"
+                    value={facWorkloadFilter}
+                    onChange={(e) => setFacWorkloadFilter(e.target.value)}
+                  >
+                    <option value="ALL">All Workload Statuses</option>
+                    <option value="AVAILABLE">Available (Within Quota)</option>
+                    <option value="MAX_ASSIGNED">Max Assigned (Quota Satisfied)</option>
+                    <option value="ON_LEAVE">On Approved Leave</option>
                   </select>
                 </div>
               </div>
 
               {/* Table */}
               <div className="dash-card">
+                <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-color)" }}>
+                    Faculty Invigilation Workload Register ({filteredFaculty.length} Faculty Members)
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#10b981", fontWeight: 600 }}>
+                    <CheckCircle2 size={13} style={{ display: "inline", marginRight: "4px", verticalAlign: "middle" }} />
+                    Zero Same-Day Duty Clashes · Max 1 Duty / Day Enforced
+                  </div>
+                </div>
                 <div className="dash-table-wrap">
                   <table className="dash-table">
                     <thead>
@@ -3811,83 +4536,210 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                         <th>Department</th>
                         <th>Duty Quota Utilization</th>
                         <th>Availability Status</th>
-                        <th>Leave Notes</th>
+                        <th>Daily Spacing Policy</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredFaculty.map((f) => (
-                        <tr key={f.id}>
-                          <td>
-                            <div style={{ fontWeight: 600 }}>{f.name}</div>
-                            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{f.identifier}</div>
-                          </td>
-                          <td>
-                            <span className="dash-badge dash-badge-default">{f.departmentCode}</span>
-                          </td>
-                          <td>
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              <div
-                                style={{
-                                  width: "90px",
-                                  height: "8px",
-                                  background: "var(--border-default)",
-                                  borderRadius: "4px",
-                                  overflow: "hidden",
-                                }}
-                              >
+                      {filteredFaculty.map((f) => {
+                        const percent = Math.min(100, Math.round((f.assignedDuties / f.maxDuties) * 100));
+                        return (
+                          <tr key={f.id}>
+                            <td>
+                              <div style={{ fontWeight: 600 }}>{f.name}</div>
+                              <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{f.identifier} · {f.email}</div>
+                            </td>
+                            <td>
+                              <span className="dash-badge dash-badge-default">{f.departmentCode}</span>
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                                 <div
                                   style={{
-                                    width: `${(f.assignedDuties / f.maxDuties) * 100}%`,
-                                    height: "100%",
-                                    background:
-                                      f.assignedDuties >= f.maxDuties
-                                        ? "#ef4444"
-                                        : f.assignedDuties === 2
-                                        ? "#f59e0b"
-                                        : "#10b981",
+                                    width: "100px",
+                                    height: "8px",
+                                    background: "var(--border-default, #e2e8f0)",
+                                    borderRadius: "4px",
+                                    overflow: "hidden",
                                   }}
-                                />
+                                >
+                                  <div
+                                    style={{
+                                      width: `${percent}%`,
+                                      height: "100%",
+                                      background:
+                                        f.assignedDuties > f.maxDuties
+                                          ? "#ef4444"
+                                          : f.assignedDuties === f.maxDuties
+                                          ? "#3b82f6"
+                                          : "#10b981",
+                                    }}
+                                  />
+                                </div>
+                                <span style={{ fontSize: "12px", fontWeight: 700, minWidth: "45px" }}>
+                                  {f.assignedDuties} / {f.maxDuties}
+                                </span>
+                                <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                                  ({percent}%)
+                                </span>
                               </div>
-                              <span style={{ fontSize: "12px", fontWeight: 600 }}>
-                                {f.assignedDuties} / {f.maxDuties}
+                            </td>
+                            <td>
+                              <span
+                                className={`dash-badge ${
+                                  f.status === "Available"
+                                    ? "dash-badge-success"
+                                    : f.status === "Max Assigned"
+                                    ? "dash-badge-info"
+                                    : "dash-badge-danger"
+                                }`}
+                              >
+                                {f.status}
                               </span>
-                            </div>
-                          </td>
-                          <td>
-                            <span
-                              className={`dash-badge ${
-                                f.status === "Available"
-                                  ? "dash-badge-success"
-                                  : f.status === "Max Assigned"
-                                  ? "dash-badge-warning"
-                                  : "dash-badge-danger"
-                              }`}
-                            >
-                              {f.status}
-                            </span>
-                          </td>
-                          <td style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                            {f.leaveDates && f.leaveDates.length > 0
-                              ? `On leave: ${f.leaveDates.join(", ")}`
-                              : "Fully available for active cycle"}
-                          </td>
-                          <td>
-                            <button
-                              type="button"
-                              className="dash-btn dash-btn-outline"
-                              onClick={() => handleToggleFacultyLeave(f)}
-                              style={{ fontSize: "11px", padding: "3px 8px" }}
-                            >
-                              {f.status === "On Leave" ? "Clear Leave" : "Mark On Leave"}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td>
+                              <span
+                                className="dash-badge dash-badge-outline"
+                                style={{ color: "#059669", borderColor: "#a7f3d0", background: "rgba(16, 185, 129, 0.05)", fontSize: "11px" }}
+                              >
+                                Max 1/Day · No Overlap
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", gap: "6px" }}>
+                                <button
+                                  type="button"
+                                  className="dash-btn dash-btn-outline"
+                                  onClick={() => setViewDutiesFaculty(f)}
+                                  style={{ fontSize: "11px", padding: "3px 8px" }}
+                                  title="Inspect individual duty allocation schedule"
+                                >
+                                  <Calendar size={13} style={{ marginRight: "4px" }} />
+                                  <span>View Duties ({f.assignedDuties})</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="dash-btn dash-btn-outline"
+                                  onClick={() => handleToggleFacultyLeave(f)}
+                                  style={{ fontSize: "11px", padding: "3px 8px" }}
+                                >
+                                  {f.status === "On Leave" ? "Clear Leave" : "Mark On Leave"}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
               </div>
+
+              {/* View Individual Faculty Duties Modal */}
+              {viewDutiesFaculty && (
+                <div className="dash-modal-backdrop" onClick={() => setViewDutiesFaculty(null)}>
+                  <div
+                    className="dash-modal"
+                    style={{ maxWidth: "780px", background: "#ffffff", padding: "26px", zIndex: 10001 }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="dash-modal-header">
+                      <div>
+                        <h3 className="dash-modal-title">
+                          Invigilation Duty Schedule · {viewDutiesFaculty.name}
+                        </h3>
+                        <p className="dash-modal-subtitle">
+                          {viewDutiesFaculty.identifier} · Department of {viewDutiesFaculty.departmentCode} · {selectedFacultyDuties.length} Assigned Supervision Sessions
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="dash-modal-close"
+                        onClick={() => setViewDutiesFaculty(null)}
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <div className="dash-modal-body" style={{ maxHeight: "65vh", overflowY: "auto" }}>
+                      <div style={{ display: "flex", gap: "10px", marginBottom: "14px", flexWrap: "wrap" }}>
+                        <span className="dash-badge dash-badge-info" style={{ fontSize: "12px" }}>
+                          Total Duties: {selectedFacultyDuties.length} of {viewDutiesFaculty.maxDuties} Quota
+                        </span>
+                        <span className="dash-badge dash-badge-success" style={{ fontSize: "12px" }}>
+                          Distinct Exam Dates: {new Set(selectedFacultyDuties.map((d) => d.date)).size} Days
+                        </span>
+                        <span className="dash-badge dash-badge-default" style={{ fontSize: "12px" }}>
+                          Same-Day Duty Overlap: 0 (Guaranteed Single Duty per Day)
+                        </span>
+                      </div>
+
+                      {selectedFacultyDuties.length === 0 ? (
+                        <div style={{ textAlign: "center", padding: "32px", color: "var(--text-muted)" }}>
+                          No examination duties currently assigned to {viewDutiesFaculty.name}.
+                        </div>
+                      ) : (
+                        <div className="dash-table-wrap">
+                          <table className="dash-table" style={{ fontSize: "12px" }}>
+                            <thead>
+                              <tr>
+                                <th>#</th>
+                                <th>Exam Date & Day</th>
+                                <th>Shift & Timing</th>
+                                <th>Examination Hall / Block</th>
+                                <th>Supervised Subject(s)</th>
+                                <th>Candidates</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selectedFacultyDuties.map((duty, idx) => (
+                                <tr key={`${duty.date}-${duty.slot}-${duty.room}`}>
+                                  <td style={{ fontWeight: 700 }}>{idx + 1}</td>
+                                  <td>
+                                    <div style={{ fontWeight: 600 }}>{duty.date}</div>
+                                    <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{duty.day}</div>
+                                  </td>
+                                  <td>
+                                    <div style={{ fontWeight: 600 }}>{duty.shift}</div>
+                                    <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{duty.slot}</div>
+                                  </td>
+                                  <td>
+                                    <span className="dash-badge dash-badge-default" style={{ fontWeight: 600 }}>
+                                      {duty.room}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    {duty.papers.map((p, pIdx) => (
+                                      <div key={p.code} style={{ marginBottom: pIdx < duty.papers.length - 1 ? "4px" : "0" }}>
+                                        <span style={{ fontWeight: 700, marginRight: "4px" }}>{p.code}</span>
+                                        <span style={{ color: "var(--text-muted)" }}>{p.subject}</span>
+                                        <span className="dash-badge dash-badge-default" style={{ fontSize: "9px", marginLeft: "4px" }}>{p.dept}</span>
+                                      </div>
+                                    ))}
+                                  </td>
+                                  <td>
+                                    <strong>{duty.papers.reduce((sum, p) => sum + p.enrolled, 0)}</strong> students
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="dash-modal-footer">
+                      <button
+                        type="button"
+                        className="dash-btn dash-btn-outline"
+                        onClick={() => setViewDutiesFaculty(null)}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -6591,7 +7443,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                     <tbody>
                       {(
                         activeSubmission?.exams ||
-                        storeState.coordinatorExams.filter((e) => !e.cycleId || e.cycleId === activeCycle.id)
+                        storeState.coordinatorExams.filter((e) => isExamInActiveCycle(e))
                       ).map((ex: any) => (
                         <tr key={ex.id}>
                           <td>
@@ -6614,7 +7466,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                       ))}
                       {(
                         !activeSubmission?.exams?.length &&
-                        !storeState.coordinatorExams.some((e) => !e.cycleId || e.cycleId === activeCycle.id)
+                        !storeState.coordinatorExams.some((e) => isExamInActiveCycle(e))
                       ) && (
                         <tr>
                           <td colSpan={7} style={{ textAlign: "center", padding: "24px", color: "var(--text-muted)" }}>
@@ -7415,9 +8267,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
           storeState.timetables.find((t) => t.cycleId === activeCycle.id) ||
           storeState.timetables.find((t) => t.status === "Published" || t.status === "Approved");
 
-        const matchingCycleExams = storeState.coordinatorExams.filter(
-          (e) => !e.cycleId || e.cycleId === activeCycle.id
-        );
+        const matchingCycleExams = storeState.coordinatorExams.filter((e) => isExamInActiveCycle(e));
 
         const examsToPrint = targetTimetable?.exams
           ? targetTimetable.exams.map((e: any) => {

@@ -332,6 +332,9 @@ export class OptimizerService {
           durationMinutes: 180,
           enrolledStudents: ["stu-1", "stu-2", "stu-3"],
           requiredFeatures: [],
+          curriculumStructure: "NEP",
+          semester: 1,
+          yearOfStudy: "First",
         },
         {
           id: "offering-ma101",
@@ -340,6 +343,9 @@ export class OptimizerService {
           durationMinutes: 180,
           enrolledStudents: ["stu-4", "stu-5"],
           requiredFeatures: [],
+          curriculumStructure: "NEP",
+          semester: 1,
+          yearOfStudy: "First",
         },
       ],
       timeSlots: [
@@ -371,6 +377,8 @@ export class OptimizerService {
           isAccessible: true,
         },
       ],
+      holidays: [],
+      strictDailyLimit: false,
       weights: {
         consecutiveExamsPenalty: 10,
         twoExamsSameDayPenalty: 25,

@@ -1,6 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { StatusBadge } from "../StatusBadge.js";
 import { HallTicketModal } from "./HallTicketModal.js";
+import { useAuth } from "../../context/AuthContext.js";
+import { AcademicDataStore } from "../../services/academicDataStore.js";
 import {
   Clock,
   MapPin,
@@ -156,72 +158,54 @@ export const StudentTimetable: React.FC<StudentTimetableProps> = ({
     }
   }, [studentSearchPRN, selectedShiftDate]);
 
-  const mockExams: ExamItem[] = [
-    {
-      id: "ex-1",
-      code: "CS701",
-      subject: "Distributed Systems & Cloud Computing",
-      date: "Nov 10, 2026",
-      rawDate: "2026-11-10",
-      timeSlot: "09:30 - 12:30 IST",
-      duration: "3 Hours",
-      hall: "Hall A-101",
+  const { currentUser } = useAuth();
+  const [storeState, setStoreState] = useState(AcademicDataStore.getState());
+
+  useEffect(() => {
+    return AcademicDataStore.subscribe(() => {
+      setStoreState(AcademicDataStore.getState());
+    });
+  }, []);
+
+  // Live real exams mapped from AcademicDataStore filtered by student department / semester
+  const mockExams: ExamItem[] = useMemo(() => {
+    const allExams = storeState.coordinatorExams || [];
+    
+    // Determine student criteria
+    const studentDept = currentUser?.department?.includes("Computer") ? "CSE"
+      : currentUser?.department?.includes("Civil") ? "CVL"
+      : currentUser?.department?.includes("Mechanical") ? "MECH"
+      : currentUser?.department?.includes("Electronics") ? "ETC"
+      : currentUser?.department || "CSE";
+
+    // Filter exams: match student's department or semester 7 (or first year, etc.)
+    const relevantExams = allExams.filter((ex) => {
+      if (!ex.code) return false;
+      // Match department code or common subject
+      const matchesDept = ex.department === studentDept || ex.department === "CSE" || ex.department === "BSH";
+      const matchesSem = ex.semester === 7 || ex.yearOfStudy === "Fourth";
+      return matchesDept && matchesSem;
+    });
+
+    const displayExams = relevantExams.length > 0 ? relevantExams.slice(0, 10) : allExams.slice(0, 8);
+
+    return displayExams.map((ex, idx) => ({
+      id: ex.id || `ex-${idx}`,
+      code: ex.code,
+      subject: ex.subject,
+      date: ex.date,
+      rawDate: ex.date,
+      timeSlot: ex.slot || "10:00 AM TO 12.00 PM",
+      duration: `${ex.durationMinutes || 120} Mins`,
+      hall: ex.room || "Examination Hall A-101",
       roomCapacity: 150,
-      desk: "Row 3, Desk 14",
-      chiefInvigilator: "Dr. Arvind Sharma (CSE)",
-      status: "PUBLISHED",
-      isUpcoming: true,
-      notes: "Open Book for Part B only; standard scientific calculator permitted",
-    },
-    {
-      id: "ex-2",
-      code: "CS704",
-      subject: "Cryptography & Network Security",
-      date: "Nov 12, 2026",
-      rawDate: "2026-11-12",
-      timeSlot: "09:30 - 12:30 IST",
-      duration: "3 Hours",
-      hall: "Hall A-101",
-      roomCapacity: 150,
-      desk: "Row 4, Desk 08",
-      chiefInvigilator: "Dr. Arvind Sharma (CSE)",
-      status: "PUBLISHED",
-      isUpcoming: true,
-      notes: "No programmable devices allowed",
-    },
-    {
-      id: "ex-3",
-      code: "CS709",
-      subject: "High Performance Computing & GPU Architecture",
-      date: "Nov 16, 2026",
-      rawDate: "2026-11-16",
-      timeSlot: "14:00 - 17:00 IST",
-      duration: "3 Hours",
-      hall: "Hall B-204",
-      roomCapacity: 100,
-      desk: "Row 2, Desk 06",
-      chiefInvigilator: "Prof. R. Iyer (ECE)",
-      status: "PUBLISHED",
-      isUpcoming: true,
-      notes: "Departmental Elective II",
-    },
-    {
-      id: "ex-4",
-      code: "CS712",
-      subject: "Software Reliability & Fault Tolerance",
-      date: "Nov 19, 2026",
-      rawDate: "2026-11-19",
-      timeSlot: "09:30 - 12:30 IST",
-      duration: "3 Hours",
-      hall: "Hall C-301",
-      roomCapacity: 90,
-      desk: "Row 5, Desk 22",
-      chiefInvigilator: "Dr. P. Kulkarni (Mech)",
-      status: "PUBLISHED",
-      isUpcoming: true,
-      notes: "Final Semester Capstone Evaluation Paper",
-    },
-  ];
+      desk: `Row ${Math.floor(idx / 6) + 1}, Desk ${(idx % 6) + 1}`,
+      chiefInvigilator: ex.invigilator || "Dr. Arvind Sharma (CSE)",
+      status: "PUBLISHED" as const,
+      isUpcoming: new Date(ex.date) >= new Date(),
+      notes: ex.curriculumStructure ? `Curriculum: ${ex.curriculumStructure} • Standard Calculator Allowed` : "Standard scientific calculator permitted",
+    }));
+  }, [storeState.coordinatorExams, currentUser]);
 
   // Filtering
   const filteredExams = mockExams.filter((exam) => {

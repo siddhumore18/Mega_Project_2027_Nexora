@@ -992,8 +992,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
             {/* Modal: Submit Grievance */}
             {grievanceModalOpen && (
-              <div className="dash-modal-backdrop">
-                <div className="dash-modal-card" style={{ maxWidth: "520px" }}>
+              <div className="dash-modal-backdrop" onClick={() => setGrievanceModalOpen(false)}>
+                <div className="dash-modal" style={{ maxWidth: "520px", background: "#ffffff", padding: "24px" }} onClick={(e) => e.stopPropagation()}>
                   <div className="dash-modal-header">
                     <div>
                       <h3 className="dash-modal-title">Submit Academic Grievance</h3>
