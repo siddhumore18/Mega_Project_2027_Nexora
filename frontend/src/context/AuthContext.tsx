@@ -11,6 +11,8 @@ export interface UserProfile {
   identifier: string; // Roll number or Employee ID
   designation?: string;
   avatarInitials: string;
+  semester?: number;
+  enrolledSubjectCodes?: string[];
 }
 
 export const PRESET_USERS: Record<string, UserProfile> = {
@@ -23,6 +25,8 @@ export const PRESET_USERS: Record<string, UserProfile> = {
     identifier: "CS2023-042",
     designation: "B.Tech CSE — Semester VII (Batch 2023-27)",
     avatarInitials: "AS",
+    semester: 7,
+    enrolledSubjectCodes: ["UCSPC0701", "UCSPC0702", "UCSPC0703", "UCSPE0711", "UILOE0726"],
   },
   faculty: {
     id: "usr-fac-101",
@@ -155,6 +159,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           identifier: kitStudent.rollNumber,
           designation: `B.Tech ${kitStudent.departmentCode} — Semester ${semLabel} (Div ${kitStudent.division})`,
           avatarInitials: initials,
+          semester: kitStudent.currentSemester,
+          enrolledSubjectCodes: kitStudent.enrolledSubjectCodes,
         });
         return true;
       }

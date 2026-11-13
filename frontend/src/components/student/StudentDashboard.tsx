@@ -118,20 +118,66 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     return "CSE"; // default
   }, [currentUser, studentPRN]);
 
+  // Derive student's current semester (1, 3, 5, or 7)
+  const studentSemester = useMemo(() => {
+    if (currentUser?.semester) return currentUser.semester;
+    const des = currentUser?.designation || "";
+    if (des.includes("Semester I") || des.includes("Sem I") || des.includes("Sem 1") || des.includes("Semester 1")) return 1;
+    if (des.includes("Semester III") || des.includes("Sem III") || des.includes("Sem 3") || des.includes("Semester 3")) return 3;
+    if (des.includes("Semester V") || des.includes("Sem V") || des.includes("Sem 5") || des.includes("Semester 5")) return 5;
+    if (des.includes("Semester VII") || des.includes("Sem VII") || des.includes("Sem 7") || des.includes("Semester 7")) return 7;
+    const id = currentUser?.identifier || studentPRN;
+    const match = id.match(/\D+(\d{4})\d+/);
+    if (match) {
+      const year = parseInt(match[1], 10);
+      if (year === 2026) return 1;
+      if (year === 2025) return 3;
+      if (year === 2024) return 5;
+      if (year === 2023) return 7;
+    }
+    return 7;
+  }, [currentUser, studentPRN]);
+
   // Student's personalized examination schedule with seating
   const studentExamSchedule = useMemo(() => {
-    // Try to match registered subject codes from registrations first
+    // 0. Match against student's enrolled subject codes if provided on user profile
+    if (currentUser?.enrolledSubjectCodes && currentUser.enrolledSubjectCodes.length > 0) {
+      const codeSet = new Set(currentUser.enrolledSubjectCodes);
+      const matched = scheduledPapers.filter((p) => codeSet.has(p.code));
+      if (matched.length > 0) return matched;
+    }
+
+    // 1. Try to match registered subject codes from student registrations
     if (studentRegistrations.length > 0) {
       const regCodes = new Set(studentRegistrations.map((r: StudentRegistrationRecord) => r.subjectCode));
       const matched = scheduledPapers.filter((p) => regCodes.has(p.code));
       if (matched.length > 0) return matched;
     }
-    // Fallback: filter by department code
-    return scheduledPapers.filter((p) => {
+
+    // 2. Filter by department AND semester
+    const byDeptAndSem = scheduledPapers.filter((p) => {
       const deptMatch = p.department === studentDeptCode || (p.programCode || "").includes(studentDeptCode);
-      return deptMatch;
+      const semMatch = p.semester === studentSemester;
+      return deptMatch && semMatch;
     });
-  }, [scheduledPapers, studentRegistrations, studentDeptCode]);
+    if (byDeptAndSem.length > 0) return byDeptAndSem;
+
+    // 3. Match by department and semester code pattern (e.g. '07' for Sem 7, '03' for Sem 3)
+    const semPattern = `0${studentSemester}`;
+    const byDeptAndPattern = scheduledPapers.filter((p) => {
+      const deptMatch = p.department === studentDeptCode || (p.programCode || "").includes(studentDeptCode);
+      return deptMatch && (p.code.includes(semPattern) || p.code.includes(String(studentSemester)));
+    });
+    if (byDeptAndPattern.length > 0) return byDeptAndPattern.slice(0, 6);
+
+    // 4. Fallback: filter by department alone, capped at 5 subjects (never all college papers)
+    const byDept = scheduledPapers.filter((p) => {
+      return p.department === studentDeptCode || (p.programCode || "").includes(studentDeptCode);
+    });
+    if (byDept.length > 0) return byDept.slice(0, 5);
+
+    return scheduledPapers.slice(0, 5);
+  }, [scheduledPapers, studentRegistrations, studentDeptCode, studentSemester, currentUser]);
 
   // Next upcoming exam
   const nextExam = useMemo(() => {
@@ -178,11 +224,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const handlePrintHallTicket = () => {
     // Open a new print window with the admit card as a clean A4 page
     const semLabel =
-      currentUser?.designation?.includes("Sem I") || currentUser?.designation?.includes("Sem 1")
+      studentSemester === 1
         ? "Semester I"
-        : currentUser?.designation?.includes("Sem III") || currentUser?.designation?.includes("Sem 3")
+        : studentSemester === 3
         ? "Semester III"
-        : currentUser?.designation?.includes("Sem V") || currentUser?.designation?.includes("Sem 5")
+        : studentSemester === 5
         ? "Semester V"
         : "Semester VII";
 
@@ -497,7 +543,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   Issued & Live
                 </div>
                 <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
-                  Barcode #2026-CS-042 verified
+                  Barcode #2026-{studentPRN.replace("-", "")} verified
                 </div>
               </div>
               <div className="dash-stat-card">
@@ -808,10 +854,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   <span style={{ fontFamily: "monospace", fontWeight: 800, color: "#2563eb" }}>{studentPRN}</span>
 
                   <span style={{ color: "#64748b", fontWeight: 600 }}>Academic Program:</span>
-                  <span style={{ fontWeight: 700 }}>B.Tech in Computer Science & Engineering</span>
+                  <span style={{ fontWeight: 700 }}>B.Tech — {studentDept.replace(" — B.Tech", "")}</span>
 
                   <span style={{ color: "#64748b", fontWeight: 600 }}>Year & Semester:</span>
-                  <span style={{ fontWeight: 600 }}>Fourth Year • Semester VII (Batch 2023-27)</span>
+                  <span style={{ fontWeight: 600 }}>{currentUser?.designation || `B.Tech Semester ${studentSemester}`}</span>
 
                   <span style={{ color: "#64748b", fontWeight: 600 }}>Permanent Desk:</span>
                   <span style={{ fontFamily: "monospace", fontWeight: 800, color: "#7c3aed" }}>{studentDeskNumber}</span>
@@ -823,7 +869,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     CANDIDATE PHOTO
                   </div>
                   <div style={{ fontSize: "10px", color: "#64748b", marginTop: "4px", fontFamily: "monospace" }}>
-                    *CS2023-042*
+                    *{studentPRN}*
                   </div>
                 </div>
               </div>

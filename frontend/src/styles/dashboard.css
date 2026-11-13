@@ -214,11 +214,34 @@
   color: var(--text-muted, #64748b);
 }
 
+.dash-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.dash-topbar-right,
 .dash-topbar-actions {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
+}
+
+.dash-clock-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--bg-subtle, #f1f5f9);
+  border: 1px solid var(--border-default, #e2e8f0);
+  border-radius: var(--radius-full, 9999px);
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--text-secondary, #475569);
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 /* User Profile Chip in Topbar */
