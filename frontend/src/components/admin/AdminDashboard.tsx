@@ -38,7 +38,6 @@ import {
   UserPlus,
   FileSpreadsheet,
   X,
-  ChevronDown,
   RotateCcw,
   ShieldCheck,
   Info,
@@ -52,7 +51,7 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
-  onSwitchToCoordinator,
+  onSwitchToCoordinator: _onSwitchToCoordinator,
   onLogout,
   activeTab,
   onNavigateTab,
@@ -614,48 +613,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {/* Right Controls */}
           <div className="dash-topbar-actions">
-            {/* Quick Switch to Coordinator Dashboard */}
-            <div className="dash-role-switcher" title="Switch active evaluation view">
-              <button type="button" className="dash-role-btn active">
-                Admin Console
-              </button>
-              <button
-                type="button"
-                className="dash-role-btn"
-                onClick={() => {
-                  if (onSwitchToCoordinator) onSwitchToCoordinator();
-                  else auth.switchRole(UserRole.EXAM_COORDINATOR);
-                }}
-                title="Open Exam Coordinator Dashboard"
-              >
-                Coordinator
-              </button>
-              <button
-                type="button"
-                className="dash-role-btn"
-                onClick={() => auth.switchRole(UserRole.DEPARTMENTAL_COORDINATOR)}
-                title="Open Department Coordinator Portal"
-              >
-                Dept Coordinator
-              </button>
-            </div>
-
             {/* User Profile Pill */}
             <div
               className="dash-user-chip"
-              onClick={() => {
-                if (onLogout) onLogout();
-                else auth.logout();
-              }}
-              title="Click to sign out"
+              style={{ cursor: "default" }}
             >
               <div className="dash-avatar-circle">SP</div>
               <div className="dash-user-details">
                 <span className="dash-user-name">Sanika Patil</span>
                 <span className="dash-user-role-label">System Administrator</span>
               </div>
-              <ChevronDown size={14} style={{ color: "var(--text-muted)" }} />
             </div>
+
+            <button
+              type="button"
+              className="dash-btn dash-btn-outline"
+              onClick={() => {
+                if (onLogout) onLogout();
+                else auth.logout();
+              }}
+              style={{ height: "34px", padding: "0 12px", fontSize: "12px" }}
+              title="Sign out of Admin session"
+            >
+              Sign Out
+            </button>
           </div>
         </header>
 

@@ -11,7 +11,6 @@ import {
   BookOpen,
   Plus,
   Layers,
-  ArrowRight,
   ShieldCheck,
   Calendar,
   UserPlus,
@@ -31,7 +30,7 @@ interface DepartmentCoordinatorDashboardProps {
 }
 
 export const DepartmentCoordinatorDashboard: React.FC<DepartmentCoordinatorDashboardProps> = ({
-  onSwitchToExamCoordinator,
+  onSwitchToExamCoordinator: _onSwitchToExamCoordinator,
   onLogout,
 }) => {
   const auth = useAuth();
@@ -721,18 +720,6 @@ export const DepartmentCoordinatorDashboard: React.FC<DepartmentCoordinatorDashb
             </div>
           </div>
 
-          {onSwitchToExamCoordinator && (
-            <button
-              type="button"
-              className="dash-btn dash-btn-outline"
-              style={{ width: "100%", justifyContent: "center", fontSize: "12px", height: "30px", marginTop: "2px" }}
-              onClick={onSwitchToExamCoordinator}
-            >
-              <span>Switch to Exam Cell</span>
-              <ArrowRight size={13} />
-            </button>
-          )}
-
           {onLogout && (
             <button
               type="button"
@@ -768,22 +755,6 @@ export const DepartmentCoordinatorDashboard: React.FC<DepartmentCoordinatorDashb
           </div>
 
           <div className="dash-topbar-actions">
-            {onSwitchToExamCoordinator && (
-              <div className="dash-role-switcher" title="Switch active portal view">
-                <button type="button" className="dash-role-btn active">
-                  {deptCode} Dept Portal
-                </button>
-                <button
-                  type="button"
-                  className="dash-role-btn"
-                  onClick={onSwitchToExamCoordinator}
-                  title="Open Exam Coordinator Dashboard"
-                >
-                  Exam Coordinator
-                </button>
-              </div>
-            )}
-
             {/* User Profile Pill */}
             <div
               className="dash-user-chip"

@@ -28,10 +28,10 @@ interface HODDashboardProps {
 }
 
 export const HODDashboard: React.FC<HODDashboardProps> = ({
-  onSwitchRole,
+  onSwitchRole: _onSwitchRole,
   onLogout,
 }) => {
-  const { currentUser, switchRole, logout } = useAuth();
+  const { currentUser, logout } = useAuth();
   const [activeMenu, setActiveMenu] = useState<string>("overview");
   const [storeState, setStoreState] = useState(AcademicDataStore.getSnapshot());
   const [currentTime, setCurrentTime] = useState("");
@@ -349,26 +349,6 @@ export const HODDashboard: React.FC<HODDashboardProps> = ({
               <span className="dash-user-name">{hodName}</span>
               <span className="dash-user-id">HOD • Computer Science</span>
             </div>
-          </div>
-
-          <div className="dash-role-switcher-row">
-            <span className="dash-role-label">Active Role:</span>
-            <select
-              className="dash-role-select"
-              value={currentUser?.role || UserRole.HOD}
-              onChange={(e) => {
-                const targetRole = e.target.value as UserRole;
-                if (onSwitchRole) onSwitchRole(targetRole);
-                else switchRole(targetRole);
-              }}
-            >
-              <option value={UserRole.ADMIN}>Admin</option>
-              <option value={UserRole.EXAM_COORDINATOR}>Exam Coordinator</option>
-              <option value={UserRole.DEPARTMENTAL_COORDINATOR}>Dept Coordinator</option>
-              <option value={UserRole.HOD}>Head of Department</option>
-              <option value={UserRole.FACULTY}>Faculty</option>
-              <option value={UserRole.STUDENT}>Student</option>
-            </select>
           </div>
 
           <button

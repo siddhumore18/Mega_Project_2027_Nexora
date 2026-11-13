@@ -34,10 +34,10 @@ interface StudentDashboardProps {
 }
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({
-  onSwitchRole,
+  onSwitchRole: _onSwitchRole,
   onLogout,
 }) => {
-  const { currentUser, switchRole, logout } = useAuth();
+  const { currentUser, logout } = useAuth();
   const [activeMenu, setActiveMenu] = useState<string>("overview");
   const [storeState, setStoreState] = useState(AcademicDataStore.getSnapshot());
   const [searchQuery, setSearchQuery] = useState("");
@@ -290,30 +290,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               {currentTime}
             </span>
 
-            {/* Quick Role Switcher */}
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ fontSize: "11.5px", color: "var(--text-muted)" }}>Switch:</span>
-              <select
-                className="dash-filter-select"
-                value="student"
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "admin" && onSwitchRole) onSwitchRole(UserRole.ADMIN);
-                  else if (val === "coordinator" && onSwitchRole) onSwitchRole(UserRole.EXAM_COORDINATOR);
-                  else if (val === "deptCoordinator" && onSwitchRole) onSwitchRole(UserRole.DEPARTMENTAL_COORDINATOR);
-                  else if (val === "faculty" && onSwitchRole) onSwitchRole(UserRole.FACULTY);
-                  else if (val === "hod" && onSwitchRole) onSwitchRole(UserRole.HOD);
-                  else if (switchRole) switchRole(val as any);
-                }}
-                style={{ padding: "4px 8px", fontSize: "12px" }}
-              >
-                <option value="student">Student (Aarav)</option>
-                <option value="faculty">Faculty (Dr. Arvind)</option>
-                <option value="deptCoordinator">Dept Coordinator (Rajesh)</option>
-                <option value="coordinator">Exam Coordinator (Sarah)</option>
-                <option value="hod">HOD (Prof. Mehta)</option>
-                <option value="admin">Admin (Sanika)</option>
-              </select>
+            {/* Student User Chip */}
+            <div className="dash-user-chip" style={{ cursor: "default" }}>
+              <div className="dash-avatar" style={{ background: "#16a34a", color: "#fff" }}>
+                AS
+              </div>
+              <div className="dash-user-meta">
+                <span className="dash-user-name">Aarav Sharma</span>
+                <span className="dash-user-role">CS2023-042 · Student</span>
+              </div>
             </div>
 
             <button

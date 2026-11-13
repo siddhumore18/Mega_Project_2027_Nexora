@@ -100,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       // ignore
     }
-    return PRESET_USERS.admin;
+    return null;
   });
 
   useEffect(() => {
@@ -112,9 +112,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [currentUser]);
 
   const login = (email: string, role: UserRole = UserRole.STUDENT): boolean => {
+    const cleanEmail = email.trim().toLowerCase();
+    
+    // Check direct alias mapping for the 3 key demo roles
+    if (cleanEmail === "coordinator@nexora.edu" || cleanEmail.includes("coordinator")) {
+      setCurrentUser(PRESET_USERS.coordinator);
+      return true;
+    }
+    if (cleanEmail === "student@nexora.edu" || cleanEmail === "student1@nexora.edu" || cleanEmail.includes("student") || cleanEmail.includes("aarav")) {
+      setCurrentUser(PRESET_USERS.student);
+      return true;
+    }
+    if (cleanEmail === "admin@nexora.edu" || cleanEmail.includes("admin")) {
+      setCurrentUser(PRESET_USERS.admin);
+      return true;
+    }
+
     // Check if email matches any preset
     const foundPreset = Object.values(PRESET_USERS).find(
-      (u) => u.email.toLowerCase() === email.toLowerCase()
+      (u) => u.email.toLowerCase() === cleanEmail
     );
 
     if (foundPreset) {

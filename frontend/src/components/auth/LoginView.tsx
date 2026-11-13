@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { UserRole } from "@nexora/contracts";
 import { useAuth } from "../../context/AuthContext.js";
-import { Lock, Mail, ShieldCheck, User, KeyRound, ArrowRight } from "lucide-react";
+import { Lock, Mail, ShieldCheck, KeyRound, ArrowRight, Sparkles } from "lucide-react";
 
 interface LoginViewProps {
   onSuccess?: () => void;
@@ -11,7 +11,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
   const { login, loginAsPreset } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.ADMIN);
+  const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.EXAM_COORDINATOR);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -48,60 +48,248 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
     }, 400);
   };
 
-  const handleQuickLogin = (key: "coordinator" | "admin" | "deptCoordinator") => {
+  const handleQuickLogin = (key: "coordinator" | "student" | "admin") => {
     loginAsPreset(key);
     if (onSuccess) onSuccess();
   };
 
+  const handleFillCredentials = (demoEmail: string, role: UserRole) => {
+    setEmail(demoEmail);
+    setPassword("nexora2026");
+    setSelectedRole(role);
+    setErrors({});
+  };
+
   return (
     <div className="login-wrapper">
-      <div className="login-container">
+      <div className="login-container" style={{ maxWidth: "560px" }}>
         {/* Brand Header */}
         <div className="login-brand-header">
-          <div className="login-logo">N</div>
+          <div className="login-logo" style={{ background: "linear-gradient(135deg, #2563eb, #1d4ed8)", boxShadow: "0 4px 12px rgba(37,99,235,0.3)" }}>
+            N
+          </div>
           <div>
-            <h1 className="login-title">Nexora Academic Portal</h1>
-            <p className="login-subtitle">
-              University Examination Scheduling & Invigilation Management System
+            <h1 className="login-title" style={{ color: "#ffffff", margin: 0, fontSize: "22px", fontWeight: 800 }}>
+              Nexora Academic Portal
+            </h1>
+            <p className="login-subtitle" style={{ color: "#94a3b8", margin: "3px 0 0", fontSize: "12.5px" }}>
+              Autonomous Examination Scheduling, Seating & Invigilation Management
             </p>
           </div>
         </div>
 
-        {/* Demo Fast-Login Strip - Exposing Admin, Exam Coordinator, and Departmental Coordinator */}
-        <div className="demo-login-strip">
-          <div className="demo-strip-label">
-            <User size={13} style={{ display: "inline", verticalAlign: "middle", marginRight: "4px" }} />
-            One-Click Evaluator Sign-In:
+        {/* 3 Dedicated Demo Login Cards */}
+        <div
+          style={{
+            background: "#ffffff",
+            borderRadius: "12px",
+            border: "1px solid #e2e8f0",
+            padding: "16px",
+            marginBottom: "18px",
+            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "12px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              <Sparkles size={14} color="#2563eb" />
+              <span>One-Click Demo Sign-In (3 User Roles)</span>
+            </div>
+            <span style={{ fontSize: "11px", color: "#64748b" }}>Instant Evaluator Access</span>
           </div>
-          <div className="demo-buttons-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("admin")}
-              className="demo-role-btn admin-badge-btn"
-              title="Sign in as System Admin Sanika Patil"
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
+            {/* 1. Exam Coordinator */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                padding: "12px 10px",
+                borderRadius: "8px",
+                border: "1.5px solid #bfdbfe",
+                background: "#f0f7ff",
+                textAlign: "left",
+                transition: "all 0.15s ease",
+              }}
             >
-              <span className="demo-btn-role" style={{ color: "#065f46", fontWeight: "700" }}>System Admin</span>
-              <span className="demo-btn-name">Sanika Patil</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("coordinator")}
-              className="demo-role-btn coord-badge-btn"
-              title="Sign in as Exam Coordinator Dr. Sarah Jenkins"
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "10.5px", fontWeight: 800, color: "#1d4ed8", textTransform: "uppercase" }}>
+                    Exam Cell
+                  </span>
+                  <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "9.5px", fontWeight: 700 }}>
+                    SJ
+                  </div>
+                </div>
+                <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>Dr. Sarah Jenkins</div>
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px", lineHeight: "1.2" }}>
+                  Exam Coordinator
+                </div>
+              </div>
+              <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("coordinator")}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    background: "#2563eb",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontSize: "11.5px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "4px",
+                  }}
+                  title="Log in directly as Exam Coordinator"
+                >
+                  <span>Sign In</span>
+                  <ArrowRight size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleFillCredentials("coordinator@nexora.edu", UserRole.EXAM_COORDINATOR)}
+                  style={{ background: "none", border: "none", color: "#2563eb", fontSize: "10px", cursor: "pointer", padding: "2px" }}
+                >
+                  Fill Form
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Student */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                padding: "12px 10px",
+                borderRadius: "8px",
+                border: "1.5px solid #bbf7d0",
+                background: "#f0fdf4",
+                textAlign: "left",
+                transition: "all 0.15s ease",
+              }}
             >
-              <span className="demo-btn-role" style={{ color: "#1d4ed8", fontWeight: "700" }}>Exam Coordinator</span>
-              <span className="demo-btn-name">Dr. Sarah Jenkins</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickLogin("deptCoordinator")}
-              className="demo-role-btn dept-coord-badge-btn"
-              style={{ borderColor: "#8b5cf6", backgroundColor: "#f5f3ff" }}
-              title="Sign in as Departmental Coordinator Prof. Rajesh Kulkarni (CSE)"
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "10.5px", fontWeight: 800, color: "#15803d", textTransform: "uppercase" }}>
+                    Student
+                  </span>
+                  <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#16a34a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "9.5px", fontWeight: 700 }}>
+                    AS
+                  </div>
+                </div>
+                <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>Aarav Sharma</div>
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px", lineHeight: "1.2" }}>
+                  B.Tech CSE (Sem VII)
+                </div>
+              </div>
+              <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("student")}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    background: "#16a34a",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontSize: "11.5px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "4px",
+                  }}
+                  title="Log in directly as Student Aarav Sharma"
+                >
+                  <span>Sign In</span>
+                  <ArrowRight size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleFillCredentials("aarav.sharma@nexora.edu", UserRole.STUDENT)}
+                  style={{ background: "none", border: "none", color: "#16a34a", fontSize: "10px", cursor: "pointer", padding: "2px" }}
+                >
+                  Fill Form
+                </button>
+              </div>
+            </div>
+
+            {/* 3. System Administrator */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                padding: "12px 10px",
+                borderRadius: "8px",
+                border: "1.5px solid #ddd6fe",
+                background: "#f5f3ff",
+                textAlign: "left",
+                transition: "all 0.15s ease",
+              }}
             >
-              <span className="demo-btn-role" style={{ color: "#7c3aed", fontWeight: "700" }}>Dept Coordinator</span>
-              <span className="demo-btn-name">Prof. R. Kulkarni</span>
-            </button>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "10.5px", fontWeight: 800, color: "#7c3aed", textTransform: "uppercase" }}>
+                    Administrator
+                  </span>
+                  <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#7c3aed", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "9.5px", fontWeight: 700 }}>
+                    SP
+                  </div>
+                </div>
+                <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>Sanika Patil</div>
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px", lineHeight: "1.2" }}>
+                  University Admin
+                </div>
+              </div>
+              <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                <button
+                  type="button"
+                  onClick={() => handleQuickLogin("admin")}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    background: "#7c3aed",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontSize: "11.5px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "4px",
+                  }}
+                  title="Log in directly as System Administrator"
+                >
+                  <span>Sign In</span>
+                  <ArrowRight size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleFillCredentials("admin@nexora.edu", UserRole.ADMIN)}
+                  style={{ background: "none", border: "none", color: "#7c3aed", fontSize: "10px", cursor: "pointer", padding: "2px" }}
+                >
+                  Fill Form
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -109,9 +297,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
         <div className="card login-card">
           <div className="card-header" style={{ marginBottom: "16px" }}>
             <div>
-              <h2 className="card-title">Sign In to Your Account</h2>
+              <h2 className="card-title">Institutional Account Login</h2>
               <p className="card-subtitle">
-                Enter your institutional credentials to access your exam records
+                Enter your university credentials or select one of the demo users above
               </p>
             </div>
             <div className="security-tag">
@@ -124,12 +312,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
             {/* Role Target Selector */}
             <div className="form-group">
               <label className="form-label" htmlFor="role-select">
-                Select Academic Role
+                Target Academic Role
               </label>
-              <div className="role-selector-radios" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+              <div className="role-selector-radios" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
                 {[
-                  { role: UserRole.ADMIN, label: "System Administrator" },
-                  { role: UserRole.EXAM_COORDINATOR, label: "Exam Coordinator" },
+                  { role: UserRole.EXAM_COORDINATOR, label: "Coordinator" },
+                  { role: UserRole.STUDENT, label: "Student" },
+                  { role: UserRole.ADMIN, label: "Administrator" },
                 ].map((item) => (
                   <label
                     key={item.role}

@@ -56,7 +56,7 @@ interface CoordinatorDashboardProps {
 }
 
 export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
-  onSwitchToAdmin,
+  onSwitchToAdmin: _onSwitchToAdmin,
   onLogout,
 }) => {
   const auth = useAuth();
@@ -2117,20 +2117,6 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                 ))}
               </select>
             </div>
-
-            {/* Switch to Admin Dashboard button */}
-            {onSwitchToAdmin && (
-              <button
-                type="button"
-                className="dash-btn dash-btn-outline"
-                onClick={onSwitchToAdmin}
-                style={{ height: "34px", fontSize: "12.5px" }}
-                title="Switch back to Central Admin Dashboard"
-              >
-                <ArrowRight size={14} />
-                <span>Switch to Admin</span>
-              </button>
-            )}
 
             {/* Coordinator User Badge */}
             <div className="dash-user-chip">
