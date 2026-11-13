@@ -1,6 +1,6 @@
 import { HealthStatus, ApiSuccessResponse } from "@nexora/contracts";
 
-const API_BASE = "";
+const API_BASE = (((import.meta as any).env?.VITE_API_BASE_URL as string) || "").replace(/\/+$/, "");
 
 function getAuthHeaders(): Record<string, string> {
   const token = localStorage.getItem("nexora_auth_token");

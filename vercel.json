@@ -1,0 +1,11 @@
+{
+  "buildCommand": "npm run build:contracts && npm run --workspace=@nexora/frontend build",
+  "outputDirectory": "frontend/dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+

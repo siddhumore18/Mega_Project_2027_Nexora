@@ -25,13 +25,15 @@ export function setSession(token: string, user: UserProfile): void {
   localStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
+const API_BASE = (((import.meta as any).env?.VITE_API_BASE_URL as string) || "").replace(/\/+$/, "");
+
 export function clearSession(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 }
 
 export async function login(email: string, password = "nexora2026"): Promise<UserProfile> {
-  const res = await fetch("/api/v1/auth/login", {
+  const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -50,7 +52,7 @@ export async function logout(): Promise<void> {
   const token = getStoredToken();
   if (token) {
     try {
-      await fetch("/api/v1/auth/logout", {
+      await fetch(`${API_BASE}/api/v1/auth/logout`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -66,7 +68,7 @@ export async function fetchCurrentUser(): Promise<UserProfile | null> {
   if (!token) return null;
 
   try {
-    const res = await fetch("/api/v1/auth/me", {
+    const res = await fetch(`${API_BASE}/api/v1/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const body = await res.json();

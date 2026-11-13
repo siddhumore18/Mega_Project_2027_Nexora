@@ -4,7 +4,6 @@ import {
   KIT_PROGRAMS,
   KIT_ESE_2026_EXAM_CYCLE,
   KIT_ESE_2026_SUBJECTS,
-  KIT_ESE_2026_TIMETABLE,
 } from "../data/kitExamData.js";
 import {
   KIT_PDF_EXAMS,

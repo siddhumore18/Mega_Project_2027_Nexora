@@ -19,9 +19,25 @@ export function createApp(): Express {
 
   // Security headers & CORS
   app.use(helmet());
+
+  const allowedOrigins = process.env.WEB_ORIGIN
+    ? process.env.WEB_ORIGIN.split(",").map((s) => s.trim())
+    : ["http://localhost:3000"];
+
   app.use(
     cors({
-      origin: process.env.WEB_ORIGIN || "http://localhost:3000",
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (
+          allowedOrigins.includes("*") ||
+          allowedOrigins.includes(origin) ||
+          origin.endsWith(".vercel.app") ||
+          origin.includes("localhost")
+        ) {
+          return callback(null, true);
+        }
+        return callback(null, true);
+      },
       credentials: true,
     })
   );
