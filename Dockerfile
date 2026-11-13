@@ -16,8 +16,8 @@ WORKDIR /app
 COPY optimizer/requirements.txt ./optimizer/
 RUN pip3 install --no-cache-dir --break-system-packages -r optimizer/requirements.txt
 
-# Copy monorepo package manifests
-COPY package*.json ./
+# Copy monorepo package manifests and base TypeScript config
+COPY package*.json tsconfig.base.json ./
 COPY packages/contracts/package*.json ./packages/contracts/
 COPY backend/package*.json ./backend/
 
@@ -25,6 +25,7 @@ COPY backend/package*.json ./backend/
 RUN npm install
 
 # Copy application source code
+COPY tsconfig.base.json ./
 COPY packages/ ./packages/
 COPY backend/ ./backend/
 COPY optimizer/ ./optimizer/

@@ -49,6 +49,7 @@ import {
 } from "lucide-react";
 import { MasterDataManager } from "./MasterDataManager.js";
 import { AutonomousCircularView } from "./timetable/AutonomousCircularView.js";
+import "../styles/dashboard.css";
 
 interface CoordinatorDashboardProps {
   onSwitchToAdmin?: () => void;
