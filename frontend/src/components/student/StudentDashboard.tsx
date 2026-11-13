@@ -99,16 +99,39 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     );
   }, [storeState.studentRegistrations, currentUser, studentPRN, studentName]);
 
+  // Derive department code from currentUser identifier or department string
+  const studentDeptCode = useMemo(() => {
+    const deptStr = (currentUser?.department || "").toUpperCase();
+    const id = currentUser?.identifier || studentPRN;
+    if (id.startsWith("CSE") || id.startsWith("CS")) return "CSE";
+    if (id.startsWith("ETC") || id.startsWith("ET")) return "ETC";
+    if (id.startsWith("MECH") || id.startsWith("ME")) return "MECH";
+    if (id.startsWith("CVL") || id.startsWith("CV")) return "CVL";
+    if (id.startsWith("ELE") || id.startsWith("EL")) return "ELE";
+    if (id.startsWith("CSEAIML") || id.startsWith("AM")) return "CSEAIML";
+    if (id.startsWith("CSEDS") || id.startsWith("DS")) return "CSEDS";
+    if (id.startsWith("CSBS") || id.startsWith("CB")) return "CSBS";
+    if (id.startsWith("BIO") || id.startsWith("BT")) return "BIO";
+    if (deptStr.includes("COMPUTER") || deptStr.includes("CSE")) return "CSE";
+    if (deptStr.includes("ELECTRON")) return "ETC";
+    if (deptStr.includes("MECH")) return "MECH";
+    return "CSE"; // default
+  }, [currentUser, studentPRN]);
+
   // Student's personalized examination schedule with seating
   const studentExamSchedule = useMemo(() => {
-    const defaultCodes = ["UCSPC0701", "UCSPC0702", "UCSPC0703", "UCSPE0711", "UILOE0726", "CS701", "CS704"];
+    // Try to match registered subject codes from registrations first
+    if (studentRegistrations.length > 0) {
+      const regCodes = new Set(studentRegistrations.map((r: StudentRegistrationRecord) => r.subjectCode));
+      const matched = scheduledPapers.filter((p) => regCodes.has(p.code));
+      if (matched.length > 0) return matched;
+    }
+    // Fallback: filter by department code
     return scheduledPapers.filter((p) => {
-      if (p.department === "CSE" || p.programCode === "BTECH-CSE" || defaultCodes.includes(p.code)) {
-        return true;
-      }
-      return studentRegistrations.some((r: StudentRegistrationRecord) => r.subjectCode === p.code);
+      const deptMatch = p.department === studentDeptCode || (p.programCode || "").includes(studentDeptCode);
+      return deptMatch;
     });
-  }, [scheduledPapers, studentRegistrations]);
+  }, [scheduledPapers, studentRegistrations, studentDeptCode]);
 
   // Next upcoming exam
   const nextExam = useMemo(() => {
@@ -153,7 +176,132 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   };
 
   const handlePrintHallTicket = () => {
-    window.print();
+    // Open a new print window with the admit card as a clean A4 page
+    const semLabel =
+      currentUser?.designation?.includes("Sem I") || currentUser?.designation?.includes("Sem 1")
+        ? "Semester I"
+        : currentUser?.designation?.includes("Sem III") || currentUser?.designation?.includes("Sem 3")
+        ? "Semester III"
+        : currentUser?.designation?.includes("Sem V") || currentUser?.designation?.includes("Sem 5")
+        ? "Semester V"
+        : "Semester VII";
+
+    const paperRows = studentExamSchedule
+      .map(
+        (p, i) =>
+          `<tr style="background:${i % 2 === 1 ? "#f8fafc" : "#fff"}">
+            <td style="border:1px solid #cbd5e1;padding:6px 8px;font-weight:700;color:#2563eb">${p.code}</td>
+            <td style="border:1px solid #cbd5e1;padding:6px 8px;font-weight:600">${p.subject}</td>
+            <td style="border:1px solid #cbd5e1;padding:6px 8px">${p.date}</td>
+            <td style="border:1px solid #cbd5e1;padding:6px 8px">${p.slot}</td>
+            <td style="border:1px solid #cbd5e1;padding:6px 8px;font-weight:700">${p.room}</td>
+            <td style="border:1px solid #cbd5e1;padding:6px 8px;font-family:monospace;font-weight:700;color:#7c3aed">${studentDeskNumber}</td>
+            <td style="border:1px solid #cbd5e1;padding:6px 8px;width:100px"></td>
+          </tr>`
+      )
+      .join("");
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <title>Admit Card — ${studentName} (${studentPRN})</title>
+  <style>
+    @page { size: A4 portrait; margin: 12mm 14mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; color: #0f172a; font-size: 10pt; }
+    h1 { font-size: 15pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+    h2 { font-size: 11pt; font-weight: 700; }
+    .header { text-align: center; border-bottom: 2.5px solid #0f172a; padding-bottom: 12px; margin-bottom: 14px; }
+    .meta-grid { display: grid; grid-template-columns: 1fr 120px; gap: 16px; background: #f8fafc;
+      border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; margin-bottom: 14px; }
+    .meta-row { display: grid; grid-template-columns: 130px 1fr; gap: 6px 10px; font-size: 9.5pt; }
+    .meta-row span:first-child { color: #64748b; font-weight: 600; }
+    .meta-row span:nth-child(even) { font-weight: 700; }
+    .photo-box { display: flex; flex-direction: column; align-items: center; justify-content: center;
+      border: 1px dashed #94a3b8; border-radius: 4px; font-size: 9pt; color: #64748b; text-align: center; }
+    table { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 8px 0 14px; }
+    th { background: #f1f5f9; font-weight: 700; border: 1px solid #94a3b8; padding: 6px 8px; text-align: left; }
+    .instructions { font-size: 8.5pt; color: #475569; line-height: 1.5; border-top: 1px solid #cbd5e1; padding-top: 10px; margin-bottom: 20px; }
+    .instructions strong { color: #0f172a; }
+    .sigs { display: flex; justify-content: space-between; align-items: flex-end; padding-top: 8px; }
+    .sig-box { text-align: center; width: 160px; }
+    .sig-line { border-top: 1.5px solid #334155; margin-bottom: 4px; height: 28px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 2px; font-size: 8pt; color: #059669; font-weight: 700; }
+    .sig-title { font-size: 8.5pt; font-weight: 700; }
+    .sig-sub { font-size: 7.5pt; color: #64748b; }
+    .barcode { font-family: monospace; font-size: 9pt; color: #334155; margin-top: 3px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 8pt; font-weight: 700; }
+    .issued { background: #ecfdf5; color: #065f46; }
+    .section-title { font-size: 9.5pt; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.3px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Kolhapur Institute of Technology's College of Engineering (Autonomous)</h1>
+    <div style="font-size:9.5pt;color:#475569;margin-top:3px">Gokul Shirgaon, Kolhapur, Maharashtra 416234 | www.kitcoek.in</div>
+    <h2 style="color:#1e3a8a;margin-top:7px">OFFICIAL ADMIT CARD — END SEMESTER EXAMINATION (ESE 2026-27)</h2>
+    <div style="margin-top:5px"><span class="badge issued">✔ Authorized &amp; Digitally Verified</span></div>
+  </div>
+
+  <div class="meta-grid">
+    <div class="meta-row">
+      <span>Candidate Name:</span> <span>${studentName}</span>
+      <span>PRN / Roll No:</span>  <span style="font-family:monospace;color:#2563eb">${studentPRN}</span>
+      <span>Academic Program:</span><span>B.Tech — ${studentDept.replace(" — B.Tech","")}</span>
+      <span>Year &amp; Semester:</span> <span>${semLabel} — Odd Semester 2026-27</span>
+      <span>Permanent Desk:</span>  <span style="font-family:monospace;color:#7c3aed">${studentDeskNumber}</span>
+      <span>Admit Card No:</span>   <span style="font-family:monospace">#2026-${studentPRN.replace("-","")}</span>
+      <span>Issue Date:</span>      <span>${new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}</span>
+    </div>
+    <div class="photo-box">
+      <div style="width:80px;height:95px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:9pt;color:#64748b">PHOTO</div>
+      <div class="barcode">*${studentPRN}*</div>
+    </div>
+  </div>
+
+  <div class="section-title">Scheduled Examination Papers &amp; Invigilator Sign-Off</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Course Code</th><th>Subject Title</th><th>Date</th><th>Time Slot</th><th>Venue</th><th>Desk No</th><th style="width:100px">Invig. Sign</th>
+      </tr>
+    </thead>
+    <tbody>${paperRows}</tbody>
+  </table>
+
+  <div class="instructions">
+    <strong>IMPORTANT INSTRUCTIONS TO EXAMINEES:</strong><br/>
+    1. Candidates must report to the examination hall at least 20 minutes before commencement. &nbsp;
+    2. No candidate will be admitted after 15 minutes from the scheduled start time. &nbsp;
+    3. Mobile phones, smartwatches, and unauthorized material are strictly prohibited. &nbsp;
+    4. This admit card must be produced on demand by the Chief Superintendent or Invigilator.
+  </div>
+
+  <div class="sigs">
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-title">Candidate's Signature</div>
+      <div class="sig-sub">${studentName}</div>
+    </div>
+    <div class="sig-box" style="text-align:center">
+      <div style="font-size:8pt;color:#64748b;margin-bottom:2px">Exam Ref: ESE-2026-${studentPRN.replace(/[^A-Z0-9]/gi,"")}</div>
+      <div class="sig-line">VERIFIED &amp; APPROVED</div>
+      <div class="sig-title">Controller of Examinations</div>
+      <div class="sig-sub">KITCoEK Autonomous Exam Cell</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const printWin = window.open("", "_blank", "width=900,height=700");
+    if (printWin) {
+      printWin.document.write(html);
+      printWin.document.close();
+      printWin.focus();
+      setTimeout(() => {
+        printWin.print();
+      }, 500);
+    }
   };
 
   return (
@@ -293,11 +441,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             {/* Student User Chip */}
             <div className="dash-user-chip" style={{ cursor: "default" }}>
               <div className="dash-avatar" style={{ background: "#16a34a", color: "#fff" }}>
-                AS
+                {currentUser?.avatarInitials || studentName.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase() || "AS"}
               </div>
               <div className="dash-user-meta">
-                <span className="dash-user-name">Aarav Sharma</span>
-                <span className="dash-user-role">CS2023-042 · Student</span>
+                <span className="dash-user-name">{studentName}</span>
+                <span className="dash-user-role">{studentPRN} · Student</span>
               </div>
             </div>
 

@@ -16,35 +16,22 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Validate form
-  const validateForm = (): boolean => {
-    const newErrors: { email?: string; password?: string } = {};
-
-    if (!email.trim()) {
-      newErrors.email = "University email address is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = "Please enter a valid email address (e.g., student@nexora.edu)";
-    }
-
-    if (!password) {
-      newErrors.password = "Password is required";
-    } else if (password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters in length";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleManualLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!email.trim()) {
+      setErrors({ email: "University email or Roll Number is required" });
+      return;
+    }
 
     setIsSubmitting(true);
     setTimeout(() => {
-      login(email, selectedRole);
+      const ok = login(email, selectedRole, password);
       setIsSubmitting(false);
-      if (onSuccess) onSuccess();
+      if (ok) {
+        if (onSuccess) onSuccess();
+      } else {
+        setErrors({ email: "No account found. Use your @kit.edu email or Roll Number (e.g. CSE2025001)." });
+      }
     }, 400);
   };
 
@@ -342,15 +329,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
             {/* Email Field */}
             <div className="form-group">
               <label className="form-label" htmlFor="login-email">
-                Institutional Email Address <span className="text-danger">*</span>
+                Email / Roll Number <span className="text-danger">*</span>
               </label>
               <div className="input-with-icon">
                 <Mail size={16} className="input-icon" />
                 <input
                   id="login-email"
-                  type="email"
+                  type="text"
                   className={`form-input ${errors.email ? "is-invalid" : ""}`}
-                  placeholder="e.g. aarav.sharma@nexora.edu"
+                  placeholder="e.g. aarav.sharma@kit.edu or CSE2025001"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
@@ -366,7 +353,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                 </div>
               ) : (
                 <div className="form-hint">
-                  Use your registered @nexora.edu or authorized university email
+                  Use your @kit.edu email or Roll Number (password = Roll Number)
                 </div>
               )}
             </div>
@@ -405,6 +392,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               {errors.password && (
                 <div id="password-error" className="form-error">
                   {errors.password}
+                </div>
+              )}
+              {!errors.password && (
+                <div className="form-hint">
+                  For students: your Roll Number is your password (e.g. CSE2025001)
                 </div>
               )}
             </div>

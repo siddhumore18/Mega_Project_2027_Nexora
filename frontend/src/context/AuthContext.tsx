@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { UserRole } from "@nexora/contracts";
+import { KIT_STUDENTS_DATA } from "../data/kitStudentData.js";
 
 export interface UserProfile {
   id: string;
@@ -78,7 +79,7 @@ export const PRESET_USERS: Record<string, UserProfile> = {
 interface AuthContextType {
   currentUser: UserProfile | null;
   isAuthenticated: boolean;
-  login: (email: string, role?: UserRole) => boolean;
+  login: (email: string, role?: UserRole, password?: string) => boolean;
   loginAsPreset: (key: "student" | "faculty" | "coordinator" | "hod" | "admin" | "deptCoordinator") => void;
   logout: () => void;
   switchRole: (role: UserRole) => void;
@@ -111,45 +112,93 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [currentUser]);
 
-  const login = (email: string, role: UserRole = UserRole.STUDENT): boolean => {
+  const login = (email: string, role: UserRole = UserRole.STUDENT, password?: string): boolean => {
     const cleanEmail = email.trim().toLowerCase();
-    
-    // Check direct alias mapping for the 3 key demo roles
-    if (cleanEmail === "coordinator@nexora.edu" || cleanEmail.includes("coordinator")) {
+    const cleanPassword = (password || "").trim();
+
+    // ── 1. Try matching any KIT student by email or roll number ──────────────
+    // Password = roll number (case-insensitive) or the student's email itself
+    const kitStudent = KIT_STUDENTS_DATA.find((s) => {
+      const emailMatch = s.email.toLowerCase() === cleanEmail;
+      const rollMatch  = s.rollNumber.toLowerCase() === cleanEmail; // allow login with roll as "email"
+      return emailMatch || rollMatch;
+    });
+
+    if (kitStudent) {
+      // Accept password = roll number (case-insensitive), or empty (demo mode)
+      const rollLower = kitStudent.rollNumber.toLowerCase();
+      const passOk =
+        !cleanPassword ||
+        cleanPassword.toLowerCase() === rollLower ||
+        cleanPassword === kitStudent.email.toLowerCase();
+      if (passOk) {
+        const initials = kitStudent.name
+          .split(" ")
+          .map((n) => n[0])
+          .slice(0, 2)
+          .join("")
+          .toUpperCase();
+        const semLabel =
+          kitStudent.currentSemester === 1
+            ? "I"
+            : kitStudent.currentSemester === 3
+            ? "III"
+            : kitStudent.currentSemester === 5
+            ? "V"
+            : "VII";
+        setCurrentUser({
+          id: kitStudent.id,
+          name: kitStudent.name,
+          email: kitStudent.email,
+          role: UserRole.STUDENT,
+          department: kitStudent.departmentCode + " — B.Tech",
+          identifier: kitStudent.rollNumber,
+          designation: `B.Tech ${kitStudent.departmentCode} — Semester ${semLabel} (Div ${kitStudent.division})`,
+          avatarInitials: initials,
+        });
+        return true;
+      }
+    }
+
+    // ── 2. Demo role aliases ─────────────────────────────────────────────────
+    if (cleanEmail === "coordinator@nexora.edu" || (role === UserRole.EXAM_COORDINATOR && cleanEmail.includes("coordinator"))) {
       setCurrentUser(PRESET_USERS.coordinator);
       return true;
     }
-    if (cleanEmail === "student@nexora.edu" || cleanEmail === "student1@nexora.edu" || cleanEmail.includes("student") || cleanEmail.includes("aarav")) {
+    if (cleanEmail === "student1@nexora.edu" || cleanEmail === "aarav.sharma@nexora.edu" || cleanEmail === "student@nexora.edu") {
       setCurrentUser(PRESET_USERS.student);
       return true;
     }
-    if (cleanEmail === "admin@nexora.edu" || cleanEmail.includes("admin")) {
+    if (cleanEmail === "admin@nexora.edu" || (role === UserRole.ADMIN && cleanEmail.includes("admin"))) {
       setCurrentUser(PRESET_USERS.admin);
       return true;
     }
 
-    // Check if email matches any preset
+    // ── 3. Any preset user exact email match ─────────────────────────────────
     const foundPreset = Object.values(PRESET_USERS).find(
       (u) => u.email.toLowerCase() === cleanEmail
     );
-
     if (foundPreset) {
       setCurrentUser(foundPreset);
       return true;
     }
 
-    // Generic fallback user based on role
-    const genericUser: UserProfile = {
-      id: `usr-${Date.now()}`,
-      name: email.split("@")[0].replace(".", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-      email,
-      role,
-      department: "Academic Sciences",
-      identifier: role === UserRole.STUDENT ? "STU-9901" : "FAC-8801",
-      avatarInitials: email.slice(0, 2).toUpperCase(),
-    };
-    setCurrentUser(genericUser);
-    return true;
+    // ── 4. Generic fallback (any @nexora.edu or @kit.edu address) ────────────
+    const isKnownDomain = cleanEmail.endsWith("@nexora.edu") || cleanEmail.endsWith("@kit.edu");
+    if (isKnownDomain) {
+      setCurrentUser({
+        id: `usr-${Date.now()}`,
+        name: email.split("@")[0].replace(/\./g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        email,
+        role,
+        department: "Academic Sciences",
+        identifier: role === UserRole.STUDENT ? "STU-9901" : "FAC-8801",
+        avatarInitials: email.slice(0, 2).toUpperCase(),
+      });
+      return true;
+    }
+
+    return false; // reject unknown emails
   };
 
   const loginAsPreset = (key: "student" | "faculty" | "coordinator" | "hod" | "admin" | "deptCoordinator") => {
