@@ -2235,7 +2235,7 @@
   .dash-topbar,
   .dash-nav,
   .dash-btn,
-  .dash-modal-backdrop,
+  .dash-modal-backdrop:not(:has(.printable-order-sheet)),
   .dash-toast,
   .dash-header-actions,
   button,
@@ -2254,16 +2254,24 @@
   }
   body:has(.printable-order-sheet) .dash-sidebar,
   body:has(.printable-order-sheet) .dash-topbar,
-  body:has(.printable-order-sheet) .dash-content {
+  body:has(.printable-order-sheet) .dash-content,
+  body:has(.printable-order-sheet) .dash-modal-header,
+  body:has(.printable-order-sheet) .dash-modal-footer,
+  body:has(.printable-order-sheet) .dash-modal-close,
+  body:has(.printable-order-sheet) .modal-header-actions,
+  body:has(.printable-order-sheet) .no-print {
     display: none !important;
   }
-  body:has(.printable-order-sheet) .official-modal-overlay {
+  body:has(.printable-order-sheet) .official-modal-overlay,
+  body:has(.printable-order-sheet) .dash-modal-backdrop {
     position: static !important;
     display: block !important;
     background: transparent !important;
     padding: 0 !important;
+    margin: 0 !important;
   }
-  body:has(.printable-order-sheet) .official-duty-modal-card {
+  body:has(.printable-order-sheet) .official-duty-modal-card,
+  body:has(.printable-order-sheet) .dash-modal {
     box-shadow: none !important;
     border: none !important;
     width: 100% !important;
@@ -2271,10 +2279,20 @@
     max-height: none !important;
     overflow: visible !important;
     display: block !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body:has(.printable-order-sheet) .dash-modal-body {
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
   body:has(.printable-order-sheet) .printable-order-sheet {
     display: block !important;
     padding: 0 !important;
+    margin: 0 !important;
   }
 
   /* Support autonomous circular printing inside dash-shell */

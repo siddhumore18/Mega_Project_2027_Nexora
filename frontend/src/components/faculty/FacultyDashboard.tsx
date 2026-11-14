@@ -7,6 +7,7 @@ import {
   SeatingRecord,
   ExamCycleRecord,
 } from "../../services/academicDataStore.js";
+import { printViaIsolatedFrame } from "../../services/printHelper.js";
 import {
   LayoutDashboard,
   Calendar,
@@ -433,17 +434,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 </body>
 </html>`;
 
-    const printWin = window.open("", "_blank", "width=900,height=700");
-    if (printWin) {
-      printWin.document.write(html);
-      printWin.document.close();
-      printWin.focus();
-      setTimeout(() => {
-        printWin.print();
-      }, 500);
-    } else {
-      window.print();
-    }
+    printViaIsolatedFrame(html, `Official Duty Appointment Order - ${dutyOrderModal.code}`);
   };
 
   // High-fidelity printable consolidated master duty order document popup
@@ -587,17 +578,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 </body>
 </html>`;
 
-    const printWin = window.open("", "_blank", "width=1000,height=750");
-    if (printWin) {
-      printWin.document.write(html);
-      printWin.document.close();
-      printWin.focus();
-      setTimeout(() => {
-        printWin.print();
-      }, 500);
-    } else {
-      window.print();
-    }
+    printViaIsolatedFrame(html, `Consolidated Master Duty Order - ${facultyId}`);
   };
 
   // High-fidelity printable door chart document popup
@@ -669,17 +650,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 </body>
 </html>`;
 
-    const printWin = window.open("", "_blank", "width=900,height=700");
-    if (printWin) {
-      printWin.document.write(html);
-      printWin.document.close();
-      printWin.focus();
-      setTimeout(() => {
-        printWin.print();
-      }, 500);
-    } else {
-      window.print();
-    }
+    printViaIsolatedFrame(html, `Door Posting Seating Chart - ${activeExamForRoster.code}`);
   };
 
   return (
@@ -1815,6 +1786,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
             <div className="dash-modal-body">
               {/* Clean styled order sheet */}
               <div
+                className="printable-order-sheet"
                 style={{
                   background: "#ffffff",
                   border: "1px solid var(--border-default)",
@@ -1983,6 +1955,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
             <div className="dash-modal-body" style={{ maxHeight: "calc(92vh - 140px)", overflowY: "auto" }}>
               {/* Document Paper */}
               <div
+                className="printable-order-sheet"
                 style={{
                   background: "#ffffff",
                   border: "1px solid var(--border-default)",

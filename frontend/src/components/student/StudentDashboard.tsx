@@ -9,6 +9,7 @@ import {
   ExamCycleRecord,
   SeatingRecord,
 } from "../../services/academicDataStore.js";
+import { printViaIsolatedFrame } from "../../services/printHelper.js";
 import {
   LayoutDashboard,
   Calendar,
@@ -343,15 +344,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 </body>
 </html>`;
 
-    const printWin = window.open("", "_blank", "width=900,height=700");
-    if (printWin) {
-      printWin.document.write(html);
-      printWin.document.close();
-      printWin.focus();
-      setTimeout(() => {
-        printWin.print();
-      }, 500);
-    }
+    printViaIsolatedFrame(html, `Admit Card — ${studentName} (${studentPRN})`);
   };
 
   return (
