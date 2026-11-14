@@ -233,6 +233,7 @@ export interface InvigilatorRosterRecord {
   maxDuties: number;
   status: "Available" | "Max Assigned" | "On Leave";
   leaveDates?: string[];
+  designation?: string;
 }
 
 export interface CoordinatorExamEntry {
@@ -517,9 +518,9 @@ const DEFAULT_TIMETABLES: TimetableApprovalRecord[] = [
     clashesCount: 0,
     roomUtilization: "84.2%",
     exams: [
-      { id: "ex-1", code: "CS701", subject: "Distributed Systems & Cloud Computing", date: "2026-11-10", slot: "09:30 - 12:30 IST", room: "Hall A-101", invigilator: "Dr. Arvind Sharma (CSE)", enrolled: 120 },
-      { id: "ex-2", code: "CS704", subject: "Cryptography & Network Security", date: "2026-11-12", slot: "09:30 - 12:30 IST", room: "Hall A-101", invigilator: "Prof. S. Patil (CSE)", enrolled: 115 },
-      { id: "ex-3", code: "CS708L", subject: "Cloud Computing & DevOps Lab", date: "2026-11-14", slot: "14:00 - 17:00 IST", room: "Lab D-105", invigilator: "Dr. Arvind Sharma (CSE)", enrolled: 120 },
+      { id: "ex-1", code: "CS701", subject: "Distributed Systems & Cloud Computing", date: "2026-11-10", slot: "09:30 - 12:30 IST", room: "Hall A-101", invigilator: "Dr. Arvind Sharma (CSE)", enrolled: 40 },
+      { id: "ex-2", code: "CS704", subject: "Cryptography & Network Security", date: "2026-11-12", slot: "09:30 - 12:30 IST", room: "Hall A-101", invigilator: "Prof. S. Patil (CSE)", enrolled: 40 },
+      { id: "ex-3", code: "CS708L", subject: "Cloud Computing & DevOps Lab", date: "2026-11-14", slot: "14:00 - 17:00 IST", room: "Lab D-105", invigilator: "Dr. Arvind Sharma (CSE)", enrolled: 35 },
     ],
   },
   {
@@ -536,7 +537,7 @@ const DEFAULT_TIMETABLES: TimetableApprovalRecord[] = [
     roomUtilization: "96.8%",
     reviewNotes: "Room Hall B-204 capacity is at 96.8% with zero ventilation headroom. Please relocate EC702 to Auditorium 1.",
     exams: [
-      { id: "ex-4", code: "EC702", subject: "VLSI Architecture & Embedded Logic", date: "2026-11-10", slot: "14:00 - 17:00 IST", room: "Hall B-204", invigilator: "Prof. Rohini Iyer (ECE)", enrolled: 90 },
+      { id: "ex-4", code: "EC702", subject: "VLSI Architecture & Embedded Logic", date: "2026-11-10", slot: "14:00 - 17:00 IST", room: "Hall B-204", invigilator: "Prof. Rohini Iyer (ECE)", enrolled: 40 },
     ],
   },
   {
@@ -554,7 +555,7 @@ const DEFAULT_TIMETABLES: TimetableApprovalRecord[] = [
     decisionTimestamp: "2026-10-16 15:30 IST",
     decidedBy: "Sanika Patil (Admin)",
     exams: [
-      { id: "ex-5", code: "ME703", subject: "Finite Element Methods & Dynamics", date: "2026-11-11", slot: "09:30 - 12:30 IST", room: "Hall C-301", invigilator: "Dr. Pramod Kulkarni (MECH)", enrolled: 75 },
+      { id: "ex-5", code: "ME703", subject: "Finite Element Methods & Dynamics", date: "2026-11-11", slot: "09:30 - 12:30 IST", room: "Hall C-301", invigilator: "Dr. Pramod Kulkarni (MECH)", enrolled: 35 },
     ],
   },
 ];
@@ -1340,23 +1341,67 @@ interface StoreState {
   conflicts: ConflictItem[];
 }
 
+function sanitizeExamsList(exams: CoordinatorExamEntry[], halls: ExamHallRecord[]): CoordinatorExamEntry[] {
+  return exams.map((e) => {
+    let enrolled = Number(e.enrolled) || 40;
+    const matchedHall = halls.find(
+      (h) => e.room && (e.room.includes(h.code) || e.room.includes(h.name) || h.name.includes(e.room))
+    );
+    const maxCap = matchedHall ? matchedHall.examCapacity : 40;
+    if (enrolled > 40 || enrolled === 60 || (matchedHall && enrolled > maxCap)) {
+      enrolled = maxCap;
+    }
+    return {
+      ...e,
+      enrolled,
+    };
+  });
+}
+
+function sanitizeTimetablesList(timetables: TimetableApprovalRecord[], halls: ExamHallRecord[]): TimetableApprovalRecord[] {
+  return timetables.map((t) => ({
+    ...t,
+    exams: t.exams.map((ex) => {
+      let enrolled = Number(ex.enrolled) || 40;
+      const matchedHall = halls.find(
+        (h) => ex.room && (ex.room.includes(h.code) || ex.room.includes(h.name) || h.name.includes(ex.room))
+      );
+      const maxCap = matchedHall ? matchedHall.examCapacity : 40;
+      if (enrolled > 40 || enrolled === 60 || (matchedHall && enrolled > maxCap)) {
+        enrolled = maxCap;
+      }
+      return {
+        ...ex,
+        enrolled,
+      };
+    }),
+  }));
+}
+
 function loadInitialState(): StoreState {
   if (typeof window === "undefined") {
+    const cleanHalls = DEFAULT_EXAM_HALLS.map((h: any) => ({
+      ...h,
+      capacity: Math.min(Math.max(10, Number(h.capacity) || 40), 40),
+      examCapacity: Math.min(Math.max(10, Number(h.examCapacity) || 35), 40),
+    }));
+    const sanitizedExams = sanitizeExamsList(DEFAULT_COORDINATOR_EXAMS, cleanHalls);
+    const sanitizedTimetables = sanitizeTimetablesList(DEFAULT_TIMETABLES, cleanHalls);
     return {
       users: DEFAULT_USERS,
       departments: DEFAULT_DEPARTMENTS,
       programs: DEFAULT_PROGRAMS,
       subjects: DEFAULT_SUBJECTS,
       examCycles: DEFAULT_EXAM_CYCLES,
-      timetables: DEFAULT_TIMETABLES,
+      timetables: sanitizedTimetables,
       grievances: DEFAULT_GRIEVANCES,
       auditLogs: DEFAULT_AUDIT_LOGS,
       policies: DEFAULT_POLICIES,
       studentRegistrations: DEFAULT_STUDENT_REGISTRATIONS,
-      examHalls: DEFAULT_EXAM_HALLS,
+      examHalls: cleanHalls,
       collegeHolidays: DEFAULT_COLLEGE_HOLIDAYS,
-      invigilators: syncInvigilatorWorkloads(DEFAULT_INVIGILATORS, DEFAULT_COORDINATOR_EXAMS),
-      coordinatorExams: DEFAULT_COORDINATOR_EXAMS,
+      invigilators: syncInvigilatorWorkloads(DEFAULT_INVIGILATORS, sanitizedExams),
+      coordinatorExams: sanitizedExams,
       seatingRecords: DEFAULT_SEATING_RECORDS,
       conflicts: DEFAULT_CONFLICTS,
     };
@@ -1370,21 +1415,28 @@ function loadInitialState(): StoreState {
     }
 
     if (!parsed) {
+      const cleanHalls = DEFAULT_EXAM_HALLS.map((h: any) => ({
+        ...h,
+        capacity: Math.min(Math.max(10, Number(h.capacity) || 40), 40),
+        examCapacity: Math.min(Math.max(10, Number(h.examCapacity) || 35), 40),
+      }));
+      const sanitizedExams = sanitizeExamsList(DEFAULT_COORDINATOR_EXAMS, cleanHalls);
+      const sanitizedTimetables = sanitizeTimetablesList(DEFAULT_TIMETABLES, cleanHalls);
       const state: StoreState = {
         users: DEFAULT_USERS,
         departments: DEFAULT_DEPARTMENTS,
         programs: DEFAULT_PROGRAMS,
         subjects: DEFAULT_SUBJECTS,
         examCycles: DEFAULT_EXAM_CYCLES,
-        timetables: DEFAULT_TIMETABLES,
+        timetables: sanitizedTimetables,
         grievances: DEFAULT_GRIEVANCES,
         auditLogs: DEFAULT_AUDIT_LOGS,
         policies: DEFAULT_POLICIES,
         studentRegistrations: DEFAULT_STUDENT_REGISTRATIONS,
-        examHalls: DEFAULT_EXAM_HALLS,
+        examHalls: cleanHalls,
         collegeHolidays: DEFAULT_COLLEGE_HOLIDAYS,
-        invigilators: syncInvigilatorWorkloads(DEFAULT_INVIGILATORS, DEFAULT_COORDINATOR_EXAMS),
-        coordinatorExams: DEFAULT_COORDINATOR_EXAMS,
+        invigilators: syncInvigilatorWorkloads(DEFAULT_INVIGILATORS, sanitizedExams),
+        coordinatorExams: sanitizedExams,
         seatingRecords: DEFAULT_SEATING_RECORDS,
         conflicts: DEFAULT_CONFLICTS,
       };
@@ -1398,8 +1450,11 @@ function loadInitialState(): StoreState {
     const mergedCycles = [...missingKitCycles, ...loadedCycles];
 
     const nonEseExams = BASE_COORDINATOR_EXAMS;
-    // Always supply the collision-free full PDF exams and balanced base exams
-    const mergedExams = [...KIT_PDF_EXAMS, ...nonEseExams];
+    let baseExams = [...KIT_PDF_EXAMS, ...nonEseExams];
+    if (parsed.coordinatorExams && parsed.coordinatorExams.length > 0) {
+      const parsedMap = new Map<string, CoordinatorExamEntry>(parsed.coordinatorExams.map((e: any) => [e.id, e]));
+      baseExams = baseExams.map((e) => parsedMap.get(e.id) || e);
+    }
 
     const parsedSubjects = parsed.subjects && parsed.subjects.length > 0 ? parsed.subjects : DEFAULT_SUBJECTS;
     const existingSubjectCodes = new Set(parsedSubjects.map((s: any) => s.code));
@@ -1425,6 +1480,11 @@ function loadInitialState(): StoreState {
       capacity: Math.min(Math.max(10, Number(h.capacity) || 40), 40),
       examCapacity: Math.min(Math.max(10, Number(h.examCapacity) || 35), 40),
     }));
+
+    const mergedExams = sanitizeExamsList(baseExams, mergedHalls);
+
+    const loadedTimetables: TimetableApprovalRecord[] = parsed.timetables && parsed.timetables.length > 0 ? parsed.timetables : DEFAULT_TIMETABLES;
+    const sanitizedTimetables = sanitizeTimetablesList(loadedTimetables, mergedHalls);
 
     const parsedInvigs = parsed.invigilators && parsed.invigilators.length > 0 ? parsed.invigilators : DEFAULT_INVIGILATORS;
     const existingInvigNames = new Set(parsedInvigs.map((i: any) => i.name));
@@ -1458,7 +1518,7 @@ function loadInitialState(): StoreState {
         status: s.status || "Active",
       })),
       examCycles: mergedCycles,
-      timetables: parsed.timetables && parsed.timetables.length > 0 ? parsed.timetables : DEFAULT_TIMETABLES,
+      timetables: sanitizedTimetables,
       grievances: parsed.grievances && parsed.grievances.length > 0
         ? [
             ...parsed.grievances,
@@ -1478,21 +1538,28 @@ function loadInitialState(): StoreState {
     return state;
   } catch (e) {
     console.warn("Failed to load state from localStorage, falling back to defaults", e);
+    const cleanHalls = DEFAULT_EXAM_HALLS.map((h: any) => ({
+      ...h,
+      capacity: Math.min(Math.max(10, Number(h.capacity) || 40), 40),
+      examCapacity: Math.min(Math.max(10, Number(h.examCapacity) || 35), 40),
+    }));
+    const sanitizedExams = sanitizeExamsList(DEFAULT_COORDINATOR_EXAMS, cleanHalls);
+    const sanitizedTimetables = sanitizeTimetablesList(DEFAULT_TIMETABLES, cleanHalls);
     return {
       users: DEFAULT_USERS,
       departments: DEFAULT_DEPARTMENTS,
       programs: DEFAULT_PROGRAMS,
       subjects: DEFAULT_SUBJECTS,
       examCycles: DEFAULT_EXAM_CYCLES,
-      timetables: DEFAULT_TIMETABLES,
+      timetables: sanitizedTimetables,
       grievances: DEFAULT_GRIEVANCES,
       auditLogs: DEFAULT_AUDIT_LOGS,
       policies: DEFAULT_POLICIES,
       studentRegistrations: DEFAULT_STUDENT_REGISTRATIONS,
-      examHalls: DEFAULT_EXAM_HALLS,
+      examHalls: cleanHalls,
       collegeHolidays: DEFAULT_COLLEGE_HOLIDAYS,
-      invigilators: syncInvigilatorWorkloads(DEFAULT_INVIGILATORS, DEFAULT_COORDINATOR_EXAMS),
-      coordinatorExams: DEFAULT_COORDINATOR_EXAMS,
+      invigilators: syncInvigilatorWorkloads(DEFAULT_INVIGILATORS, sanitizedExams),
+      coordinatorExams: sanitizedExams,
       seatingRecords: DEFAULT_SEATING_RECORDS,
       conflicts: DEFAULT_CONFLICTS,
     };
@@ -1532,21 +1599,28 @@ export const AcademicDataStore = {
   },
 
   resetToDefaults(): void {
+    const cleanHalls = DEFAULT_EXAM_HALLS.map((h: any) => ({
+      ...h,
+      capacity: Math.min(Math.max(10, Number(h.capacity) || 40), 40),
+      examCapacity: Math.min(Math.max(10, Number(h.examCapacity) || 35), 40),
+    }));
+    const sanitizedExams = sanitizeExamsList(DEFAULT_COORDINATOR_EXAMS, cleanHalls);
+    const sanitizedTimetables = sanitizeTimetablesList(DEFAULT_TIMETABLES, cleanHalls);
     currentState = {
       users: DEFAULT_USERS,
       departments: DEFAULT_DEPARTMENTS,
       programs: DEFAULT_PROGRAMS,
       subjects: DEFAULT_SUBJECTS,
       examCycles: DEFAULT_EXAM_CYCLES,
-      timetables: DEFAULT_TIMETABLES,
+      timetables: sanitizedTimetables,
       grievances: DEFAULT_GRIEVANCES,
       auditLogs: DEFAULT_AUDIT_LOGS,
       policies: DEFAULT_POLICIES,
       studentRegistrations: DEFAULT_STUDENT_REGISTRATIONS,
-      examHalls: DEFAULT_EXAM_HALLS,
+      examHalls: cleanHalls,
       collegeHolidays: DEFAULT_COLLEGE_HOLIDAYS,
-      invigilators: DEFAULT_INVIGILATORS,
-      coordinatorExams: DEFAULT_COORDINATOR_EXAMS,
+      invigilators: syncInvigilatorWorkloads(DEFAULT_INVIGILATORS, sanitizedExams),
+      coordinatorExams: sanitizedExams,
       seatingRecords: DEFAULT_SEATING_RECORDS,
       conflicts: DEFAULT_CONFLICTS,
     };
@@ -2394,12 +2468,31 @@ export const AcademicDataStore = {
       examCapacity: newExamCapacity,
     };
     currentState.examHalls[idx] = updated;
+
+    // When room capacity is updated, find all exams assigned to this room and update candidate count
+    let affectedExamCount = 0;
+    currentState.coordinatorExams.forEach((e) => {
+      if (e.room && (e.room.includes(updated.code) || e.room.includes(updated.name))) {
+        e.enrolled = updated.examCapacity;
+        affectedExamCount++;
+      }
+    });
+
+    // Also update currentState.timetables so all timetables and reports reflect this updated classroom candidate count
+    currentState.timetables.forEach((t) => {
+      t.exams.forEach((ex) => {
+        if (ex.room && (ex.room.includes(updated.code) || ex.room.includes(updated.name))) {
+          ex.enrolled = updated.examCapacity;
+        }
+      });
+    });
+
     this.logAction(
       actor,
       "EXAM_COORDINATOR",
       "UPDATE_ROOM",
       "ExamHall",
-      `Updated venue ${updated.name} (${updated.code}) - Exam Capacity set to ${newExamCapacity} (Max: 40 desks)`,
+      `Updated venue ${updated.name} (${updated.code}) - Exam Capacity set to ${newExamCapacity} (Max: 40 desks). Synchronized candidate count across ${affectedExamCount} assigned exam papers and timetables.`,
       "SUCCESS",
       id
     );
@@ -3478,12 +3571,55 @@ export const AcademicDataStore = {
       (c) => c.examId !== examIdToday || (c.type !== "FACULTY_OVERLAP" && c.type !== "FACULTY_ON_LEAVE")
     );
 
+    // Automatically resolve any grievance in currentState.grievances associated with examIdToday
+    // (by examId or paper code in title) with status "Open" or "In Review"
+    const nowTimestamp =
+      new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) +
+      " " +
+      new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) +
+      " IST";
+    const resolutionNote = `Emergency swap approved. Substituted by ${substitute.name}. Quotas and timetable synchronized.`;
+
+    let resolvedCount = 0;
+    currentState.grievances.forEach((g) => {
+      const isAssociated =
+        (g as any).examId === examIdToday ||
+        g.id === examIdToday ||
+        g.title.includes(examIdToday) ||
+        (examToday.code && (g.title.includes(examToday.code) || g.description.includes(examToday.code)));
+
+      if (isAssociated && (g.status === "Open" || g.status === "In Review")) {
+        g.status = "Resolved";
+        g.resolutionNote = resolutionNote;
+        if (!g.internalNotes) g.internalNotes = [];
+        g.internalNotes.push(`[${new Date().toLocaleDateString("en-IN")}] ${resolutionNote}`);
+        if (!g.history) g.history = [];
+        g.history.unshift({
+          timestamp: nowTimestamp,
+          action: "STATUS_CHANGE_TO_RESOLVED",
+          actor,
+          note: resolutionNote,
+        });
+        resolvedCount++;
+
+        this.logAction(
+          actor,
+          "EXAM_COORDINATOR",
+          "RESOLVE_GRIEVANCE",
+          "Grievance",
+          `Automatically resolved grievance ${g.ticketNumber} via emergency duty substitution for ${examToday.code} (${substitute.name})`,
+          "SUCCESS",
+          g.id
+        );
+      }
+    });
+
     this.logAction(
       actor,
       "EXAM_COORDINATOR",
       "EMERGENCY_DUTY_SWAP",
       "CoordinatorExam",
-      `${message}. Reason: ${reason}`,
+      `${message}. Reason: ${reason}${resolvedCount > 0 ? ` (${resolvedCount} associated emergency grievance(s) resolved)` : ""}`,
       "WARNING",
       examIdToday
     );
@@ -3626,7 +3762,7 @@ export const AcademicDataStore = {
           totalSubjects: scheduledExams.length,
           scheduledCount: scheduledExams.length,
           unscheduledCount: 0,
-          totalSeatsAllocated: scheduledExams.reduce((acc, e) => acc + (e.enrolled || 60), 0),
+          totalSeatsAllocated: scheduledExams.reduce((acc, e) => acc + (e.enrolled || 40), 0),
           roomsUsed: 26,
           invigilatorsAssigned: 88,
           clashesCount: 0,

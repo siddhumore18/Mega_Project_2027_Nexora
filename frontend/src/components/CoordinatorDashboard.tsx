@@ -432,6 +432,11 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
     if (!editingHall) return;
     const safeExamCap = Math.min(Math.max(10, Number(editingHall.examCapacity) || 35), 40);
     const safeCap = Math.min(Math.max(10, Number(editingHall.capacity) || 40), 40);
+
+    const affectedExams = storeState.coordinatorExams.filter(
+      (ex) => ex.room.includes(editingHall.code) || ex.room.includes(editingHall.name)
+    );
+
     const res = AcademicDataStore.updateExamHall(editingHall.id, {
       name: editingHall.name,
       code: editingHall.code,
@@ -444,7 +449,10 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
       isAccessible: editingHall.isAccessible,
     });
     if (res.success) {
-      showToast(`Venue "${editingHall.name}" updated successfully: Exam Block Capacity set to ${safeExamCap} desks (Capped at 40 max).`);
+      showToast(
+        `Venue "${editingHall.name}" updated successfully: Room capacity set to ${safeExamCap} desks (${safeExamCap} max students per classroom session). Recalculated and synchronized across ${affectedExams.length} assigned exam session(s) and timetables.`,
+        "success"
+      );
       setEditingHall(null);
     } else {
       showToast(res.error || "Failed to update venue.", "error");
@@ -1808,11 +1816,26 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
         AcademicDataStore.updateGrievanceStatus(
           activeEmergencyGrievanceId,
           "Resolved",
-          `Emergency swap approved. Substituted by ${substituteIdOrName}.`,
+          `Emergency swap approved. Substituted by ${substituteIdOrName}. Workloads and timetables synchronized.`,
           coordinatorName
         );
         setActiveEmergencyGrievanceId(null);
       }
+      // Also resolve any related open emergency grievance matching this exam code or description
+      const related = storeState.grievances.filter(
+        (g) =>
+          (g.status === "Open" || g.status === "In Review") &&
+          (g.id === activeEmergencyGrievanceId ||
+            (emergencySwapExam && (g.title.includes(emergencySwapExam.code) || g.description.includes(emergencySwapExam.code))))
+      );
+      related.forEach((g) => {
+        AcademicDataStore.updateGrievanceStatus(
+          g.id,
+          "Resolved",
+          `Emergency swap approved. Substituted by ${substituteIdOrName}. Workloads and timetables synchronized.`,
+          coordinatorName
+        );
+      });
       showToast(res.message || `Emergency spot-swap successfully executed! Substituted by ${substituteIdOrName}.`, "success");
       setEmergencySwapExam(null);
       setEmergencyStandbyPool(null);
@@ -1837,10 +1860,27 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
       AcademicDataStore.updateGrievanceStatus(
         grievanceId,
         "Resolved",
-        `Emergency swap approved. Substituted by ${substituteName}.`,
+        `Emergency swap approved. Substituted by ${substituteName}. Workloads and timetables synchronized.`,
         coordinatorName
       );
-      showToast(res.message || `Emergency duty swap approved! Substituted by ${substituteName}.`, "success");
+      const targetExam = storeState.coordinatorExams.find((e) => e.id === examId);
+      if (targetExam) {
+        const related = storeState.grievances.filter(
+          (g) =>
+            g.id !== grievanceId &&
+            (g.status === "Open" || g.status === "In Review") &&
+            (g.title.includes(targetExam.code) || g.description.includes(targetExam.code))
+        );
+        related.forEach((g) => {
+          AcademicDataStore.updateGrievanceStatus(
+            g.id,
+            "Resolved",
+            `Emergency swap approved. Substituted by ${substituteName}. Workloads and timetables synchronized.`,
+            coordinatorName
+          );
+        });
+      }
+      showToast(res.message || `Emergency duty swap approved! Substituted by ${substituteName}. Timetables & workloads synchronized.`, "success");
       if (activeEmergencyGrievanceId === grievanceId) {
         setActiveEmergencyGrievanceId(null);
         setEmergencySwapExam(null);
@@ -4008,82 +4048,126 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
               </div>
 
               {/* Halls Grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: "16px" }}>
-                {storeState.examHalls.map((hall) => (
-                  <div key={hall.id} className="dash-card" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div>
-                        <div style={{ fontSize: "15px", fontWeight: 700 }}>{hall.name}</div>
-                        <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                          {hall.building} · {hall.floor}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px" }}>
+                {storeState.examHalls.map((hall) => {
+                  const assignedExamsForHall = storeState.coordinatorExams.filter(
+                    (e) => e.room.includes(hall.code) || e.room.includes(hall.name)
+                  );
+                  return (
+                    <div key={hall.id} className="dash-card" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div>
+                          <div style={{ fontSize: "15px", fontWeight: 700 }}>{hall.name}</div>
+                          <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                            {hall.building} · {hall.floor} · Code: <strong>{hall.code}</strong>
+                          </div>
                         </div>
-                      </div>
-                      <span
-                        className={`dash-badge ${
-                          hall.status === "Available"
-                            ? "dash-badge-success"
-                            : hall.status === "Maintenance"
-                            ? "dash-badge-danger"
-                            : "dash-badge-warning"
-                        }`}
-                      >
-                        {hall.status}
-                      </span>
-                    </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "12.5px" }}>
-                      <div style={{ background: "#eff6ff", padding: "6px 10px", borderRadius: "6px", border: "1px solid #bfdbfe" }}>
-                        <span style={{ fontSize: "11px", color: "#1e40af", display: "block", fontWeight: 600 }}>Exam Block Capacity</span>
-                        <strong style={{ color: "#1d4ed8", fontSize: "14px" }}>{hall.examCapacity} Desks</strong>
-                        <span style={{ fontSize: "10px", color: "#64748b", display: "block" }}>
-                          {hall.examCapacity === 40 ? "Hard Ceiling (Max 40)" : "Within Safe Margin (≤40)"}
+                        <span
+                          className={`dash-badge ${
+                            hall.status === "Available"
+                              ? "dash-badge-success"
+                              : hall.status === "Maintenance"
+                              ? "dash-badge-danger"
+                              : "dash-badge-warning"
+                          }`}
+                        >
+                          {hall.status}
                         </span>
                       </div>
-                      <div style={{ background: "#f8fafc", padding: "6px 10px", borderRadius: "6px", border: "1px solid #e2e8f0" }}>
-                        <span style={{ fontSize: "11px", color: "#475569", display: "block", fontWeight: 600 }}>Classroom Capacity</span>
-                        <strong style={{ fontSize: "14px", color: "#0f172a" }}>{hall.capacity} Seats</strong>
-                        <span style={{ fontSize: "10px", color: "#64748b", display: "block" }}>Bench Seating</span>
+
+                      {/* Prominent Student Count & Session Allocation Box */}
+                      <div
+                        style={{
+                          background: "linear-gradient(135deg, #f0fdf4 0%, #e6f9ed 100%)",
+                          border: "1.5px solid #86efac",
+                          borderRadius: "8px",
+                          padding: "10px 14px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "10px",
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: "11px", fontWeight: 700, color: "#166534", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                            Students Per Classroom Session
+                          </div>
+                          <div style={{ fontSize: "18px", fontWeight: 800, color: "#15803d", display: "flex", alignItems: "baseline", gap: "8px", marginTop: "2px" }}>
+                            <span>{hall.examCapacity} Students</span>
+                            <span style={{ fontSize: "12.5px", fontWeight: 600, color: "#166534" }}>({hall.examCapacity} Desks)</span>
+                          </div>
+                          <div style={{ fontSize: "11px", color: "#166534", marginTop: "2px" }}>
+                            Max {hall.examCapacity} students / session · 1:1 single-seat exam protocol
+                          </div>
+                        </div>
+                        <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+                          <span
+                            className="dash-badge dash-badge-success"
+                            style={{ fontWeight: 700, fontSize: "11px", padding: "3px 8px" }}
+                          >
+                            {assignedExamsForHall.length} Session{assignedExamsForHall.length === 1 ? "" : "s"}
+                          </span>
+                          <span style={{ fontSize: "10.5px", color: "#166534", fontWeight: 600 }}>
+                            Max 40 Desks Enforced
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        Venue Type: <strong>{hall.type}</strong>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "12.5px" }}>
+                        <div style={{ background: "#eff6ff", padding: "6px 10px", borderRadius: "6px", border: "1px solid #bfdbfe" }}>
+                          <span style={{ fontSize: "11px", color: "#1e40af", display: "block", fontWeight: 600 }}>Exam Block Capacity</span>
+                          <strong style={{ color: "#1d4ed8", fontSize: "14px" }}>{hall.examCapacity} Desks</strong>
+                          <span style={{ fontSize: "10px", color: "#64748b", display: "block" }}>
+                            {hall.examCapacity === 40 ? "Hard Ceiling (Max 40)" : "Within Safe Margin (≤40)"}
+                          </span>
+                        </div>
+                        <div style={{ background: "#f8fafc", padding: "6px 10px", borderRadius: "6px", border: "1px solid #e2e8f0" }}>
+                          <span style={{ fontSize: "11px", color: "#475569", display: "block", fontWeight: 600 }}>Classroom Bench Capacity</span>
+                          <strong style={{ fontSize: "14px", color: "#0f172a" }}>{hall.capacity} Seats</strong>
+                          <span style={{ fontSize: "10px", color: "#64748b", display: "block" }}>Normal Classrooms</span>
+                        </div>
+                        <div>
+                          Venue Type: <strong>{hall.type}</strong>
+                        </div>
+                        <div>
+                          AC Fitted: <strong>{hall.hasAC ? "Yes" : "No"}</strong>
+                        </div>
+                        <div style={{ gridColumn: "span 2" }}>
+                          Accessibility:{" "}
+                          <strong style={{ color: hall.isAccessible ? "#10b981" : "#f59e0b" }}>
+                            {hall.isAccessible ? "Wheelchair Accessible (Ground/Lift)" : "Staircase Access Only"}
+                          </strong>
+                        </div>
                       </div>
-                      <div>
-                        AC Fitted: <strong>{hall.hasAC ? "Yes" : "No"}</strong>
-                      </div>
-                      <div style={{ gridColumn: "span 2" }}>
-                        Accessibility:{" "}
-                        <strong style={{ color: hall.isAccessible ? "#10b981" : "#f59e0b" }}>
-                          {hall.isAccessible ? "Wheelchair Accessible (Ground/Lift)" : "Staircase Access Only"}
-                        </strong>
+
+                      {hall.maintenanceReason && (
+                        <div style={{ padding: "8px", borderRadius: "6px", background: "#fef2f2", color: "#991b1b", fontSize: "11.5px" }}>
+                          <strong>Blocked:</strong> {hall.maintenanceReason}
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "auto", paddingTop: "8px" }}>
+                        <button
+                          type="button"
+                          className="dash-btn dash-btn-outline"
+                          onClick={() => setHallStatusModal(hall)}
+                          style={{ fontSize: "11.5px", padding: "5px 10px" }}
+                        >
+                          {hall.status === "Available" ? "Block for Maintenance" : "Mark Available"}
+                        </button>
+                        <button
+                          type="button"
+                          className="dash-btn dash-btn-primary"
+                          onClick={() => setEditingHall({ ...hall })}
+                          style={{ fontSize: "11.5px", padding: "5px 12px", display: "flex", alignItems: "center", gap: "5px" }}
+                          title="Edit Venue details and student exam capacity"
+                        >
+                          <span>✏️ Edit Venue</span>
+                        </button>
                       </div>
                     </div>
-
-                    {hall.maintenanceReason && (
-                      <div style={{ padding: "8px", borderRadius: "6px", background: "#fef2f2", color: "#991b1b", fontSize: "11.5px" }}>
-                        <strong>Blocked:</strong> {hall.maintenanceReason}
-                      </div>
-                    )}
-
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "auto", paddingTop: "8px" }}>
-                      <button
-                        type="button"
-                        className="dash-btn dash-btn-outline"
-                        onClick={() => setHallStatusModal(hall)}
-                        style={{ fontSize: "11.5px", padding: "5px 10px" }}
-                      >
-                        {hall.status === "Available" ? "Block for Maintenance" : "Mark Available"}
-                      </button>
-                      <button
-                        type="button"
-                        className="dash-btn dash-btn-primary"
-                        onClick={() => setEditingHall({ ...hall })}
-                        style={{ fontSize: "11.5px", padding: "5px 12px", display: "flex", alignItems: "center", gap: "5px" }}
-                      >
-                        <span>✏️ Edit Capacity</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Edit Hall Capacity Modal */}
@@ -6476,6 +6560,44 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                     alignItems: "center",
                                     gap: "6px",
                                   }}
+                                  onClick={() => {
+                                    const substitute =
+                                      details.topStandby?.name ||
+                                      details.pool?.tomorrowStandbyFaculty?.[0]?.name ||
+                                      details.pool?.lowDutyFallbackFaculty?.[0]?.name;
+                                    if (substitute) {
+                                      handleExecuteEmergencySwapDirect(
+                                        req.id,
+                                        details.matchingExam.id,
+                                        substitute,
+                                        details.reason
+                                      );
+                                    } else {
+                                      handleOpenEmergencySwapForRequest(
+                                        req.id,
+                                        details.matchingExam,
+                                        details.reason
+                                      );
+                                    }
+                                  }}
+                                  title={`Immediately execute emergency duty swap for ${details.facultyName}`}
+                                >
+                                  <Zap size={14} />
+                                  <span>⚡ Execute Emergency Swap</span>
+                                </button>
+                              )}
+
+                              {details.matchingExam && (
+                                <button
+                                  type="button"
+                                  className="dash-btn dash-btn-outline"
+                                  style={{
+                                    fontSize: "12px",
+                                    padding: "6px 12px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "5px",
+                                  }}
                                   onClick={() =>
                                     handleOpenEmergencySwapForRequest(
                                       req.id,
@@ -6483,10 +6605,10 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                       details.reason
                                     )
                                   }
-                                  title="Open Emergency Swap Modal to choose candidate or review schedule"
+                                  title="Open full standby pool dialog to select alternative replacement"
                                 >
-                                  <Zap size={14} />
-                                  <span>⚡ Execute Emergency Swap</span>
+                                  <Users size={13} />
+                                  <span>Review Standby Pool...</span>
                                 </button>
                               )}
                             </div>
@@ -7483,7 +7605,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                               }}
                             >
                               <Zap size={13} />
-                              <span>Swap with Top Standby ({((emergencyStandbyPool?.tomorrowStandbyFaculty?.[0] || emergencyStandbyPool?.lowDutyFallbackFaculty?.[0])?.name || "").split(" ")[0]})</span>
+                              <span>⚡ Execute Emergency Swap ({((emergencyStandbyPool?.tomorrowStandbyFaculty?.[0] || emergencyStandbyPool?.lowDutyFallbackFaculty?.[0])?.name || "").split(" ")[0]})</span>
                             </button>
                           )}
                         </div>

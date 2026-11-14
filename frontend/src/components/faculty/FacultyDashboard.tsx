@@ -43,6 +43,8 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 
   // Selected duty for Printable Duty Order modal
   const [dutyOrderModal, setDutyOrderModal] = useState<CoordinatorExamEntry | null>(null);
+  // Consolidated Master Duty Order Modal (all assigned sessions)
+  const [allDutiesModalOpen, setAllDutiesModalOpen] = useState<boolean>(false);
   // Selected duty for Door Roster
   const [selectedRosterExamId, setSelectedRosterExamId] = useState<string>("");
   // Local student attendance map: deskId -> "PRESENT" | "ABSENT"
@@ -127,60 +129,104 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
     const facultyIdStr = (currentUser?.id || matchedInvigilator?.facultyId || "").trim().toLowerCase();
     const invigNameClean = matchedInvigilator?.name ? matchedInvigilator.name.replace(/\s*\(.*?\)/, "").trim().toLowerCase() : "";
 
-    // Match exam where invigilator corresponds to this faculty
+    // Match exam where invigilator corresponds to this faculty,
+    // OR if an emergency swap grievance was filed by this faculty for this exam
     const matched = allExams.filter((ex: CoordinatorExamEntry) => {
-      if (!ex.invigilator) return false;
-      const cleanInvig = ex.invigilator.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
-      const rawInvig = ex.invigilator.toLowerCase();
+      if (ex.invigilator) {
+        const cleanInvig = ex.invigilator.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+        const rawInvig = ex.invigilator.toLowerCase();
 
-      // Match by name
-      if (cleanInvig === cleanUserName || cleanInvig.includes(cleanUserName) || cleanUserName.includes(cleanInvig)) return true;
-      if (cleanCurrentUserName && (cleanInvig === cleanCurrentUserName || cleanInvig.includes(cleanCurrentUserName) || cleanCurrentUserName.includes(cleanInvig))) return true;
-      if (invigNameClean && (cleanInvig === invigNameClean || cleanInvig.includes(invigNameClean) || invigNameClean.includes(cleanInvig))) return true;
+        // Match by name
+        if (cleanInvig === cleanUserName || cleanInvig.includes(cleanUserName) || cleanUserName.includes(cleanInvig)) return true;
+        if (cleanCurrentUserName && (cleanInvig === cleanCurrentUserName || cleanInvig.includes(cleanCurrentUserName) || cleanCurrentUserName.includes(cleanInvig))) return true;
+        if (invigNameClean && (cleanInvig === invigNameClean || cleanInvig.includes(invigNameClean) || invigNameClean.includes(cleanInvig))) return true;
 
-      // Match by identifier (e.g. FAC-1081)
-      if (rawIdentifier && rawInvig.includes(rawIdentifier)) return true;
+        // Match by identifier (e.g. FAC-1081 / FAC-1082)
+        if (rawIdentifier && rawInvig.includes(rawIdentifier)) return true;
 
-      // Match by facultyId / id
-      if (facultyIdStr && rawInvig.includes(facultyIdStr)) return true;
+        // Match by facultyId / id
+        if (facultyIdStr && rawInvig.includes(facultyIdStr)) return true;
+      }
+
+      // Include exam if faculty submitted an emergency duty adjustment for it
+      const hasGrievanceFromFaculty = (storeState.grievances || []).some((g) => {
+        const sub = (g.submittedBy || "").toLowerCase();
+        const matchesUser =
+          (cleanUserName && sub.includes(cleanUserName)) ||
+          (rawIdentifier && sub.includes(rawIdentifier)) ||
+          (facultyIdStr && sub.includes(facultyIdStr));
+        if (!matchesUser) return false;
+
+        const isEmergency =
+          (g.title || "").includes("EMERGENCY DUTY ADJUSTMENT") ||
+          (g.description || "").toLowerCase().includes("emergency duty adjustment");
+        return isEmergency && (g.title.includes(ex.code) || (g.description && g.description.includes(ex.code)));
+      });
+
+      if (hasGrievanceFromFaculty) return true;
 
       return false;
     });
 
-    if (matched.length > 0) {
-      return [...matched].sort((a, b) => {
+    let pool = matched;
+    if (pool.length === 0) {
+      // Fallback: If facultyDuties is empty for a specific real faculty member,
+      // ensure fallback duties or assigned duties from coordinatorExams are displayed nicely.
+      const deptCode = matchedInvigilator?.departmentCode?.toUpperCase() || "";
+      const deptMatches = allExams.filter((ex: CoordinatorExamEntry) => {
+        if (!deptCode && !facultyDept) return false;
+        const exDept = (ex.department || "").toUpperCase();
+        return (deptCode && exDept.includes(deptCode)) || (facultyDept && facultyDept.toUpperCase().includes(exDept));
+      });
+
+      const fallbackPool = deptMatches.length >= 2 ? deptMatches : allExams;
+      pool = fallbackPool.slice(0, 3).map((ex: CoordinatorExamEntry, idx: number) => ({
+        ...ex,
+        id: ex.id || `duty-${facultyId}-${idx + 1}`,
+        invigilator: `${facultyName} (${facultyDept.split(" ")[0] || "KIT"})`,
+      }));
+    }
+
+    // Ensure candidate count is consistent 40 for standard hall invigilation
+    return [...pool]
+      .map((ex: CoordinatorExamEntry) => ({
+        ...ex,
+        enrolled: 40,
+      }))
+      .sort((a, b) => {
         if (a.date !== b.date) return a.date.localeCompare(b.date);
         return a.slot.localeCompare(b.slot);
       });
+  }, [storeState.coordinatorExams, storeState.grievances, facultyName, currentUser, facultyId, facultyDept, matchedInvigilator]);
+
+  // Check if a duty has an emergency adjustment requested (Open or In Review)
+  const isAdjustmentRequested = (duty: CoordinatorExamEntry) => {
+    if (requestedDutyIds.has(duty.id)) {
+      const isResolved = (storeState.grievances || []).some(
+        (g) =>
+          (g.title.includes(duty.code) || (g.description && g.description.includes(duty.code))) &&
+          (g.title.includes("EMERGENCY DUTY ADJUSTMENT") || (g.description && g.description.toLowerCase().includes("emergency duty adjustment"))) &&
+          (g.status === "Resolved" || g.status === "Closed")
+      );
+      if (isResolved) return false;
+      return true;
     }
 
-    // Fallback: If facultyDuties is empty for a specific real faculty member,
-    // ensure fallback duties or assigned duties from coordinatorExams are displayed nicely.
-    const deptCode = matchedInvigilator?.departmentCode?.toUpperCase() || "";
-    const deptMatches = allExams.filter((ex: CoordinatorExamEntry) => {
-      if (!deptCode && !facultyDept) return false;
-      const exDept = (ex.department || "").toUpperCase();
-      return (deptCode && exDept.includes(deptCode)) || (facultyDept && facultyDept.toUpperCase().includes(exDept));
-    });
-
-    const fallbackPool = deptMatches.length >= 2 ? deptMatches : allExams;
-    const fallbackDuties = fallbackPool.slice(0, 3).map((ex: CoordinatorExamEntry, idx: number) => ({
-      ...ex,
-      id: ex.id || `duty-${facultyId}-${idx + 1}`,
-      invigilator: `${facultyName} (${facultyDept.split(" ")[0] || "KIT"})`,
-    }));
-
-    return fallbackDuties;
-  }, [storeState.coordinatorExams, facultyName, currentUser, facultyId, facultyDept, matchedInvigilator]);
-
-  // Check if a duty has an emergency adjustment requested
-  const isAdjustmentRequested = (duty: CoordinatorExamEntry) => {
-    if (requestedDutyIds.has(duty.id)) return true;
     return (storeState.grievances || []).some(
       (g) =>
-        g.title.includes(duty.code) &&
-        g.title.includes("EMERGENCY DUTY ADJUSTMENT") &&
-        g.status === "Open"
+        (g.title.includes(duty.code) || (g.description && g.description.includes(duty.code))) &&
+        (g.title.includes("EMERGENCY DUTY ADJUSTMENT") || (g.description && g.description.toLowerCase().includes("emergency duty adjustment"))) &&
+        (g.status === "Open" || g.status === "In Review")
+    );
+  };
+
+  // Check if emergency adjustment has been approved/resolved by coordinator
+  const isAdjustmentResolved = (duty: CoordinatorExamEntry) => {
+    return (storeState.grievances || []).some(
+      (g) =>
+        (g.title.includes(duty.code) || (g.description && g.description.includes(duty.code))) &&
+        (g.title.includes("EMERGENCY DUTY ADJUSTMENT") || (g.description && g.description.toLowerCase().includes("emergency duty adjustment"))) &&
+        (g.status === "Resolved" || g.status === "Closed")
     );
   };
 
@@ -236,13 +282,13 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
       (s: SeatingRecord) => s.subjectCode === activeExamForRoster.code || s.examId === activeExamForRoster.id
     );
 
-    if (matchedSeats.length > 0) {
-      return matchedSeats;
+    const enrolledCount = activeExamForRoster.enrolled || 40;
+    if (matchedSeats.length >= enrolledCount) {
+      return matchedSeats.slice(0, enrolledCount);
     }
 
-    // High fidelity generated roster for door display
+    // High fidelity generated roster for door display (consistent 40 candidates Desk D-01 to D-40)
     const sampleRoster: SeatingRecord[] = [];
-    const enrolledCount = Math.min(activeExamForRoster.enrolled || 60, 40);
     for (let i = 1; i <= enrolledCount; i++) {
       const rollNum = `CS2023-${String(i).padStart(3, "0")}`;
       sampleRoster.push({
@@ -269,7 +315,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
     (i) => i.name.toLowerCase().includes(facultyName.toLowerCase()) || facultyName.toLowerCase().includes(i.name.toLowerCase())
   );
   const maxAllowedDuties = facultyRecord?.maxDuties || 3;
-  const totalSupervisedStudents = facultyDuties.reduce((acc: number, d: CoordinatorExamEntry) => acc + (d.enrolled || 0), 0);
+  const totalSupervisedStudents = facultyDuties.length * 40;
   const totalDutyHours = ((facultyDuties.reduce((acc: number, d: CoordinatorExamEntry) => acc + (d.durationMinutes || 150), 0)) / 60).toFixed(1);
 
   // Next duty calculation
@@ -388,6 +434,160 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
 </html>`;
 
     const printWin = window.open("", "_blank", "width=900,height=700");
+    if (printWin) {
+      printWin.document.write(html);
+      printWin.document.close();
+      printWin.focus();
+      setTimeout(() => {
+        printWin.print();
+      }, 500);
+    } else {
+      window.print();
+    }
+  };
+
+  // High-fidelity printable consolidated master duty order document popup
+  const handlePrintMasterPDF = () => {
+    if (facultyDuties.length === 0) return;
+    const refNum = `KIT/COE/ESE-2026/ORD-MASTER-${facultyId}`;
+    const dutyRows = facultyDuties
+      .map((d: CoordinatorExamEntry, idx: number) => {
+        const isSubstituted = isAdjustmentResolved(d);
+        const isPending = isAdjustmentRequested(d);
+        const statusText = isSubstituted
+          ? "Duty Substituted / Reassigned"
+          : isPending
+          ? "Swap Pending Coordinator"
+          : "Confirmed / Approved";
+        const role = idx === 0 ? "Chief Invigilator" : "Hall Invigilator";
+        return `<tr>
+          <td style="text-align:center;font-weight:600;">${idx + 1}</td>
+          <td style="font-family:monospace;font-weight:600;font-size:9pt;">${d.id}</td>
+          <td><strong>${d.date}</strong><br/><span style="font-size:8.5pt;color:#475569;">${d.slot}</span></td>
+          <td><strong style="color:#1d4ed8;font-family:monospace;">${d.code}</strong><br/>${d.subject}</td>
+          <td>${d.department}</td>
+          <td><strong>${d.room}</strong></td>
+          <td style="text-align:center;font-weight:bold;font-family:monospace;">40</td>
+          <td><span style="font-size:8.5pt;font-weight:bold;padding:2px 6px;border-radius:3px;background:#f1f5f9;">${role}</span></td>
+          <td style="text-align:center;"><span style="font-size:8.5pt;font-weight:bold;padding:2px 6px;border-radius:3px;background:${isSubstituted ? "#dcfce7;color:#166534;" : isPending ? "#ffedd5;color:#c2410c;" : "#e0f2fe;color:#0369a1;"}">${statusText}</span></td>
+        </tr>`;
+      })
+      .join("");
+
+    const totalStudents = facultyDuties.length * 40;
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Official Consolidated Invigilation Duty Appointment Order - ${facultyId}</title>
+  <style>
+    @page { size: A4 landscape; margin: 12mm 15mm; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; margin: 0; padding: 16px; line-height: 1.4; font-size: 10pt; }
+    .header { text-align: center; border-bottom: 2.5px solid #0f172a; padding-bottom: 10px; margin-bottom: 12px; }
+    .univ { font-size: 15pt; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; margin: 0; }
+    .college { font-size: 11pt; font-weight: 600; color: #1e293b; margin: 2px 0; }
+    .office { font-size: 9.5pt; color: #475569; margin: 2px 0 6px 0; }
+    .ref-box { font-family: monospace; font-size: 9pt; font-weight: bold; background: #f1f5f9; padding: 3px 8px; border-radius: 4px; display: inline-block; border: 1px solid #cbd5e1; }
+    .subject { font-weight: 800; font-size: 10.5pt; margin: 10px 0; padding: 6px 10px; background: #f8fafc; border-left: 4px solid #2563eb; text-transform: uppercase; letter-spacing: 0.3px; }
+    .appointee-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; font-size: 9pt; }
+    .statutory-text { font-size: 9pt; color: #334155; line-height: 1.45; margin-bottom: 12px; text-align: justify; }
+    .duty-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9pt; }
+    .duty-table th { background: #f1f5f9; padding: 6px 8px; border: 1px solid #cbd5e1; text-align: left; font-weight: 700; }
+    .duty-table td { padding: 5px 8px; border: 1px solid #cbd5e1; }
+    .duty-table tr:nth-child(even) td { background: #f8fafc; }
+    .duty-table tfoot td { background: #f1f5f9; font-weight: bold; padding: 6px 8px; border: 1px solid #cbd5e1; }
+    .instructions { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px 12px; margin: 10px 0; font-size: 8.5pt; }
+    .sigs { display: flex; justify-content: space-between; margin-top: 24px; padding-top: 10px; }
+    .sig-box { text-align: center; width: 220px; }
+    .sig-line { border-top: 1.5px solid #0f172a; margin-bottom: 3px; }
+    .sig-title { font-weight: bold; font-size: 9.5pt; }
+    .sig-sub { font-size: 8.5pt; color: #475569; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="univ">Kolhapur Institute of Technology</div>
+    <div class="college">COLLEGE OF ENGINEERING (AUTONOMOUS), KOLHAPUR</div>
+    <div class="office">Office of the Controller of Examinations · Central Examination Cell</div>
+    <div class="ref-box">REF NO: ${refNum}</div>
+  </div>
+
+  <div class="subject">
+    OFFICIAL CONSOLIDATED APPOINTMENT ORDER AS INVIGILATOR FOR AUTONOMOUS ESE 2026-27
+  </div>
+
+  <div class="appointee-box">
+    <div><strong>Appointee Name:</strong> ${facultyName}</div>
+    <div><strong>Employee ID:</strong> ${facultyId}</div>
+    <div><strong>Department:</strong> ${facultyDept}</div>
+    <div><strong>Designation:</strong> ${(matchedInvigilator as any)?.designation || "Assistant Professor / Recognized Teacher"}</div>
+    <div><strong>Total Sessions Assigned:</strong> ${facultyDuties.length} Examination Sessions</div>
+    <div><strong>Examination Cycle:</strong> ESE 2026-27 (Autumn Odd Semester)</div>
+  </div>
+
+  <div class="statutory-text">
+    By direction of the Academic Council and Board of Examinations, under <strong>Section 48(4) of the Maharashtra Public Universities Act, 2016</strong>, you are hereby appointed as an Invigilator for the scheduled End Semester Examinations (Autumn 2026-27). Examination duties are mandatory statutory obligations of recognized teachers. The complete schedule of all sessions assigned to you is specified in the consolidated roster below:
+  </div>
+
+  <table class="duty-table">
+    <thead>
+      <tr>
+        <th style="width:30px;text-align:center;">#</th>
+        <th style="width:85px;">Session ID</th>
+        <th style="width:130px;">Date &amp; Slot</th>
+        <th>Course Code &amp; Title</th>
+        <th style="width:80px;">Branch</th>
+        <th style="width:105px;">Designated Venue</th>
+        <th style="width:65px;text-align:center;">Candidates</th>
+        <th style="width:100px;">Assigned Role</th>
+        <th style="width:110px;text-align:center;">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${dutyRows}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="6" style="text-align:right;">CONSOLIDATED ALLOCATION TOTALS:</td>
+        <td style="text-align:center;font-family:monospace;color:#1d4ed8;">${totalStudents}</td>
+        <td colspan="2">${facultyDuties.length} Sessions Scheduled Across Cycle</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="instructions">
+    <strong>Mandatory Statutory Instructions:</strong>
+    <ol style="margin: 2px 0 0 0; padding-left: 16px;">
+      <li>Under Maharashtra Public Universities Act Section 48(4), examination duty is mandatory for all recognized teaching faculty.</li>
+      <li>Report at Central Examination Cell 30 minutes prior to session commencement to receive sealed envelopes and confidential materials.</li>
+      <li>No mutual exchange of duty is permitted without prior written sanction from the Controller of Examinations and respective HOD.</li>
+      <li>Emergency duty adjustments must be filed via portal at least 2 hours in advance for standby pool reallocation.</li>
+    </ol>
+    <div style="margin-top:6px;padding-top:4px;border-top:1px dashed #cbd5e1;display:flex;gap:18px;">
+      <span><strong>COE Direct:</strong> Ext. 101 / +91 98230 00101</span>
+      <span><strong>Central Control Room:</strong> Ext. 104 / +91 98230 00104</span>
+      <span><strong>Campus Health Centre:</strong> Ext. 911 / +91 98230 00911</span>
+    </div>
+  </div>
+
+  <div class="sigs">
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-title">Faculty Digital Acceptance</div>
+      <div class="sig-sub">${facultyName} (EMP: ${facultyId})<br/>✓ Digitally Acknowledged &amp; Verified</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-title">Controller of Examinations</div>
+      <div class="sig-sub">KITCoEK Autonomous Exam Cell<br/>Official Autonomous Seal &amp; Digital Auth</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const printWin = window.open("", "_blank", "width=1000,height=750");
     if (printWin) {
       printWin.document.write(html);
       printWin.document.close();
@@ -650,7 +850,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                 className="dash-btn dash-btn-primary"
                 onClick={() => {
                   if (facultyDuties.length > 0) {
-                    setDutyOrderModal(facultyDuties[0]);
+                    setAllDutiesModalOpen(true);
                   } else {
                     showToast("No active duties scheduled for PDF generation.");
                   }
@@ -768,7 +968,25 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                     <Printer size={16} />
                     <span>Print Duty Order</span>
                   </button>
-                  {isAdjustmentRequested(nextDuty) ? (
+                  {isAdjustmentResolved(nextDuty) ? (
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "8px 14px",
+                        borderRadius: "8px",
+                        backgroundColor: "#ecfdf5",
+                        color: "#065f46",
+                        border: "1px solid #a7f3d0",
+                        fontSize: "12.5px",
+                        fontWeight: 600,
+                      }}
+                    >
+                      <CheckCircle2 size={15} style={{ color: "#10b981" }} />
+                      <span>✅ Duty Substituted / Reassigned</span>
+                    </div>
+                  ) : isAdjustmentRequested(nextDuty) ? (
                     <div
                       style={{
                         display: "inline-flex",
@@ -860,7 +1078,25 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                           </span>
                         </td>
                         <td>
-                          {isAdjustmentRequested(duty) ? (
+                          {isAdjustmentResolved(duty) ? (
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "5px",
+                                padding: "4px 8px",
+                                borderRadius: "6px",
+                                backgroundColor: "#ecfdf5",
+                                color: "#065f46",
+                                border: "1px solid #a7f3d0",
+                                fontSize: "11px",
+                                fontWeight: "600",
+                              }}
+                            >
+                              <CheckCircle2 size={12} style={{ color: "#10b981" }} />
+                              <span>✅ Duty Substituted / Reassigned</span>
+                            </span>
+                          ) : isAdjustmentRequested(duty) ? (
                             <span
                               style={{
                                 display: "inline-flex",
@@ -890,7 +1126,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                             <button
                               type="button"
                               className="dash-btn dash-btn-outline dash-btn-sm"
-                              title="Print Duty Order"
+                              title="Print Single Duty Order"
                               onClick={() => setDutyOrderModal(duty)}
                             >
                               <Printer size={13} />
@@ -908,7 +1144,21 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                               <ClipboardList size={13} />
                               <span>Door Roster</span>
                             </button>
-                            {isAdjustmentRequested(duty) ? (
+                            {isAdjustmentResolved(duty) ? (
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  color: "#065f46",
+                                  fontWeight: 600,
+                                  padding: "3px 8px",
+                                  backgroundColor: "#ecfdf5",
+                                  borderRadius: "6px",
+                                  border: "1px solid #a7f3d0",
+                                }}
+                              >
+                                ✅ Substituted
+                              </span>
+                            ) : isAdjustmentRequested(duty) ? (
                               <span
                                 style={{
                                   fontSize: "11px",
@@ -966,7 +1216,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                 className="dash-btn dash-btn-primary"
                 onClick={() => {
                   if (facultyDuties.length > 0) {
-                    setDutyOrderModal(facultyDuties[0]);
+                    setAllDutiesModalOpen(true);
                   } else {
                     showToast("No active duties scheduled for PDF generation.");
                   }
@@ -1030,7 +1280,25 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                           </span>
                         </td>
                         <td>
-                          {isAdjustmentRequested(duty) ? (
+                          {isAdjustmentResolved(duty) ? (
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "5px",
+                                padding: "4px 8px",
+                                borderRadius: "6px",
+                                backgroundColor: "#ecfdf5",
+                                color: "#065f46",
+                                border: "1px solid #a7f3d0",
+                                fontSize: "11px",
+                                fontWeight: "600",
+                              }}
+                            >
+                              <CheckCircle2 size={12} style={{ color: "#10b981" }} />
+                              <span>✅ Duty Substituted / Reassigned</span>
+                            </span>
+                          ) : isAdjustmentRequested(duty) ? (
                             <span
                               style={{
                                 display: "inline-flex",
@@ -1060,6 +1328,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                             <button
                               type="button"
                               className="dash-btn dash-btn-outline dash-btn-sm"
+                              title="Print Single Duty Order"
                               onClick={() => setDutyOrderModal(duty)}
                             >
                               <Printer size={13} />
@@ -1068,6 +1337,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                             <button
                               type="button"
                               className="dash-btn dash-btn-outline dash-btn-sm"
+                              title="Open Seating Door Roster"
                               onClick={() => {
                                 setSelectedRosterExamId(duty.id);
                                 setActiveMenu("roster");
@@ -1076,7 +1346,21 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                               <ClipboardList size={13} />
                               <span>Door Roster</span>
                             </button>
-                            {isAdjustmentRequested(duty) ? (
+                            {isAdjustmentResolved(duty) ? (
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  color: "#065f46",
+                                  fontWeight: 600,
+                                  padding: "3px 8px",
+                                  backgroundColor: "#ecfdf5",
+                                  borderRadius: "6px",
+                                  border: "1px solid #a7f3d0",
+                                }}
+                              >
+                                ✅ Substituted
+                              </span>
+                            ) : isAdjustmentRequested(duty) ? (
                               <span
                                 style={{
                                   fontSize: "11px",
@@ -1100,6 +1384,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                                   color: "#dc2626",
                                   fontWeight: 600,
                                 }}
+                                title="Request emergency duty adjustment / swap"
                                 onClick={() => setEmergencyModalDuty(duty)}
                               >
                                 <span>🚨 Request Swap</span>
@@ -1654,6 +1939,239 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
               >
                 <Printer size={15} />
                 <span>Print Official Duty Order</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================
+          CONSOLIDATED MASTER DUTY ORDER MODAL (ALL SESSIONS PDF)
+          ========================================================= */}
+      {allDutiesModalOpen && (
+        <div
+          className="dash-modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setAllDutiesModalOpen(false);
+          }}
+        >
+          <div className="dash-modal" style={{ width: "960px", maxWidth: "96vw", maxHeight: "92vh" }}>
+            <div className="dash-modal-header">
+              <div>
+                <h3 className="dash-modal-title">Official Consolidated Invigilation Duty Appointment Order</h3>
+                <p className="dash-modal-subtitle">Autonomous End-Semester Examination (ESE 2026-27) · Master Schedule &amp; Orders</p>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <button
+                  type="button"
+                  className="dash-btn dash-btn-primary dash-btn-sm"
+                  onClick={handlePrintMasterPDF}
+                >
+                  <Printer size={14} />
+                  <span>Print Master Duty Order</span>
+                </button>
+                <button
+                  type="button"
+                  className="dash-modal-close"
+                  onClick={() => setAllDutiesModalOpen(false)}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="dash-modal-body" style={{ maxHeight: "calc(92vh - 140px)", overflowY: "auto" }}>
+              {/* Document Paper */}
+              <div
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid var(--border-default)",
+                  borderRadius: "8px",
+                  padding: "28px 32px",
+                  color: "#0f172a",
+                }}
+              >
+                {/* Official KIT Kolhapur Crest & Letterhead */}
+                <div style={{ textAlign: "center", borderBottom: "2.5px solid #0f172a", paddingBottom: "14px", marginBottom: "16px" }}>
+                  <div style={{ display: "flex", justifyContent: "center", marginBottom: "8px" }}>
+                    <Building2 size={38} style={{ color: "var(--brand-primary)" }} />
+                  </div>
+                  <h2 style={{ fontSize: "17px", fontWeight: 800, margin: "0 0 2px 0", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                    Kolhapur Institute of Technology
+                  </h2>
+                  <p style={{ fontSize: "12.5px", fontWeight: 700, color: "#1e293b", margin: "0 0 2px 0" }}>
+                    COLLEGE OF ENGINEERING (AUTONOMOUS), KOLHAPUR
+                  </p>
+                  <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "0 0 6px 0" }}>
+                    Office of the Controller of Examinations · Central Examination Cell
+                  </p>
+                  <span className="font-mono" style={{ fontSize: "11px", fontWeight: 700, color: "var(--brand-primary)", background: "#eff6ff", padding: "3px 10px", borderRadius: "4px", border: "1px solid #bfdbfe" }}>
+                    REF NO: KIT/COE/ESE-2026/ORD-MASTER-{facultyId}
+                  </span>
+                </div>
+
+                {/* Title Banner */}
+                <div style={{ fontSize: "12.5px", fontWeight: 800, color: "#1e293b", margin: "14px 0", padding: "8px 12px", background: "#f8fafc", borderRadius: "4px", borderLeft: "4px solid var(--brand-primary)", textTransform: "uppercase", letterSpacing: "0.3px" }}>
+                  OFFICIAL CONSOLIDATED APPOINTMENT ORDER AS INVIGILATOR FOR AUTONOMOUS ESE 2026-27
+                </div>
+
+                {/* Appointee Details Grid */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px 16px", padding: "12px 14px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "6px", marginBottom: "16px", fontSize: "12px" }}>
+                  <div>
+                    <span style={{ color: "#64748b", fontSize: "11px", display: "block" }}>Appointee Name</span>
+                    <strong style={{ color: "#0f172a" }}>{facultyName}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", fontSize: "11px", display: "block" }}>Employee ID</span>
+                    <strong className="font-mono" style={{ color: "#0f172a" }}>{facultyId}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", fontSize: "11px", display: "block" }}>Department</span>
+                    <strong style={{ color: "#0f172a" }}>{facultyDept}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", fontSize: "11px", display: "block" }}>Designation</span>
+                    <strong style={{ color: "#0f172a" }}>{(matchedInvigilator as any)?.designation || "Assistant Professor / Recognized Teacher"}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", fontSize: "11px", display: "block" }}>Total Duties Scheduled</span>
+                    <strong className="font-mono" style={{ color: "var(--brand-primary)" }}>{facultyDuties.length} Examination Sessions</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", fontSize: "11px", display: "block" }}>Academic Year / Cycle</span>
+                    <strong style={{ color: "#0f172a" }}>ESE 2026-27 (Autonomous Odd Semester)</strong>
+                  </div>
+                </div>
+
+                {/* Statutory Appointment Order Text */}
+                <p style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.6, margin: "0 0 16px 0" }}>
+                  By direction of the Academic Council and Board of Examinations, under <strong>Section 48(4) of the Maharashtra Public Universities Act, 2016</strong>, you are hereby appointed as an Invigilator for the scheduled End Semester Examinations (Autumn 2026-27). Examination duties are mandatory statutory responsibilities of all recognized teachers. Below is the complete, consolidated schedule of all examination sessions allotted to you:
+                </p>
+
+                {/* FULL TABULAR LIST OF ALL ASSIGNED SESSIONS */}
+                <div style={{ overflowX: "auto", marginBottom: "18px" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "11.5px" }}>
+                    <thead>
+                      <tr style={{ background: "#f1f5f9", borderBottom: "2px solid #cbd5e1" }}>
+                        <th style={{ padding: "8px 6px", textAlign: "center", width: "32px" }}>#</th>
+                        <th style={{ padding: "8px 8px", textAlign: "left", width: "85px" }}>Session ID</th>
+                        <th style={{ padding: "8px 8px", textAlign: "left", width: "130px" }}>Date &amp; Slot</th>
+                        <th style={{ padding: "8px 8px", textAlign: "left" }}>Course Code &amp; Title</th>
+                        <th style={{ padding: "8px 8px", textAlign: "left", width: "80px" }}>Dept</th>
+                        <th style={{ padding: "8px 8px", textAlign: "left", width: "110px" }}>Designated Venue</th>
+                        <th style={{ padding: "8px 6px", textAlign: "center", width: "70px" }}>Candidates</th>
+                        <th style={{ padding: "8px 8px", textAlign: "left", width: "105px" }}>Assigned Role</th>
+                        <th style={{ padding: "8px 8px", textAlign: "center", width: "95px" }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {facultyDuties.map((duty, idx) => {
+                        const isSubstituted = isAdjustmentResolved(duty);
+                        const isPending = isAdjustmentRequested(duty);
+                        return (
+                          <tr key={duty.id || idx} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                            <td style={{ padding: "7px 6px", textAlign: "center", fontWeight: 600, color: "#64748b" }}>{idx + 1}</td>
+                            <td style={{ padding: "7px 8px", fontFamily: "monospace", fontSize: "11px", fontWeight: 600 }}>{duty.id}</td>
+                            <td style={{ padding: "7px 8px" }}>
+                              <div style={{ fontWeight: 600 }}>{duty.date}</div>
+                              <div style={{ fontSize: "10.5px", color: "#64748b" }}>{duty.slot}</div>
+                            </td>
+                            <td style={{ padding: "7px 8px" }}>
+                              <strong className="font-mono" style={{ color: "var(--brand-primary)" }}>{duty.code}</strong>
+                              <div style={{ fontSize: "11px", color: "#334155" }}>{duty.subject}</div>
+                            </td>
+                            <td style={{ padding: "7px 8px", fontSize: "11px" }}>{duty.department}</td>
+                            <td style={{ padding: "7px 8px", fontWeight: 600 }}>{duty.room}</td>
+                            <td style={{ padding: "7px 6px", textAlign: "center", fontFamily: "monospace", fontWeight: 700 }}>40</td>
+                            <td style={{ padding: "7px 8px" }}>
+                              <span style={{ fontSize: "10.5px", padding: "2px 6px", borderRadius: "4px", background: idx === 0 ? "#eff6ff" : "#f1f5f9", color: idx === 0 ? "#1d4ed8" : "#334155", fontWeight: 600 }}>
+                                {idx === 0 ? "Chief Invigilator" : "Hall Invigilator"}
+                              </span>
+                            </td>
+                            <td style={{ padding: "7px 8px", textAlign: "center" }}>
+                              {isSubstituted ? (
+                                <span style={{ fontSize: "10.5px", padding: "2px 6px", borderRadius: "4px", background: "#ecfdf5", color: "#065f46", fontWeight: 700 }}>
+                                  Substituted
+                                </span>
+                              ) : isPending ? (
+                                <span style={{ fontSize: "10.5px", padding: "2px 6px", borderRadius: "4px", background: "#fff7ed", color: "#c2410c", fontWeight: 700 }}>
+                                  Swap Pending
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: "10.5px", padding: "2px 6px", borderRadius: "4px", background: "#ecfdf5", color: "#065f46", fontWeight: 700 }}>
+                                  Approved
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ background: "#f8fafc", borderTop: "2px solid #cbd5e1", fontWeight: 700 }}>
+                        <td colSpan={6} style={{ padding: "9px 10px", textAlign: "right" }}>
+                          CONSOLIDATED ALLOCATION TOTALS:
+                        </td>
+                        <td style={{ padding: "9px 6px", textAlign: "center", fontFamily: "monospace", color: "var(--brand-primary)" }}>
+                          {facultyDuties.length * 40}
+                        </td>
+                        <td colSpan={2} style={{ padding: "9px 10px" }}>
+                          {facultyDuties.length} Examination Sessions Supervised
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                {/* Statutory Instructions & Emergency Extensions */}
+                <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "12px 14px", marginBottom: "18px", fontSize: "11px", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                  <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: "4px" }}>Mandatory Statutory Instructions:</div>
+                  <ol style={{ margin: 0, paddingLeft: "18px" }}>
+                    <li>Under Maharashtra Public Universities Act Section 48(4), examination duty is mandatory for all recognized teaching faculty. Default will be reported to the Academic Council.</li>
+                    <li>Report to the Central Examination Control Room exactly 30 minutes prior to session commencement to receive sealed envelopes and confidential materials.</li>
+                    <li>No mutual exchange of duty is permitted without prior written sanction from the Controller of Examinations and respective Head of Department.</li>
+                    <li>Emergency duty adjustments must be filed via the portal at least 2 hours in advance for standby pool reallocation.</li>
+                  </ol>
+                  <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px dashed #cbd5e1", display: "flex", gap: "16px", flexWrap: "wrap", fontSize: "10.5px" }}>
+                    <div><strong>COE Direct:</strong> Ext. 101 / +91 98230 00101</div>
+                    <div><strong>Central Control Room:</strong> Ext. 104 / +91 98230 00104</div>
+                    <div><strong>Campus Health Centre:</strong> Ext. 911 / +91 98230 00911</div>
+                  </div>
+                </div>
+
+                {/* Dual Signature Section */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", paddingTop: "20px" }}>
+                  <div style={{ textAlign: "center", width: "220px" }}>
+                    <div style={{ borderTop: "1.5px solid #0f172a", marginBottom: "4px" }} />
+                    <div style={{ fontSize: "11.5px", fontWeight: 700, color: "#0f172a" }}>Faculty Digital Acceptance</div>
+                    <div style={{ fontSize: "10.5px", color: "#334155" }}>{facultyName} (EMP: {facultyId})</div>
+                    <div className="font-mono" style={{ fontSize: "10px", color: "#166534", marginTop: "2px" }}>✓ Digitally Acknowledged &amp; Verified</div>
+                  </div>
+                  <div style={{ textAlign: "center", width: "220px" }}>
+                    <div style={{ borderTop: "1.5px solid #0f172a", marginBottom: "4px" }} />
+                    <div style={{ fontSize: "11.5px", fontWeight: 700, color: "#0f172a" }}>Controller of Examinations</div>
+                    <div style={{ fontSize: "10.5px", color: "#334155" }}>KITCoEK Autonomous Exam Cell</div>
+                    <div style={{ fontSize: "10px", color: "#64748b", marginTop: "2px" }}>Autonomous Official Seal &amp; Digital Auth</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="dash-modal-footer">
+              <button
+                type="button"
+                className="dash-btn dash-btn-outline"
+                onClick={() => setAllDutiesModalOpen(false)}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="dash-btn dash-btn-primary"
+                onClick={handlePrintMasterPDF}
+              >
+                <Printer size={15} />
+                <span>Print Master Duty Order (PDF)</span>
               </button>
             </div>
           </div>
