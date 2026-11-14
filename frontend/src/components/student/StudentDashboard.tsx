@@ -9,7 +9,7 @@ import {
   ExamCycleRecord,
   SeatingRecord,
 } from "../../services/academicDataStore.js";
-import { printViaIsolatedFrame } from "../../services/printHelper.js";
+import { printViaIsolatedFrame, downloadHtmlDocument } from "../../services/printHelper.js";
 import {
   LayoutDashboard,
   Calendar,
@@ -26,6 +26,8 @@ import {
   Send,
   Plus,
   X,
+  Download,
+  Eye,
 } from "lucide-react";
 import "../../styles/dashboard.css";
 
@@ -226,8 +228,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     }
   };
 
-  const handlePrintHallTicket = () => {
-    // Open a new print window with the admit card as a clean A4 page
+  const generateHallTicketHtml = () => {
     const semLabel =
       studentSemester === 1
         ? "Semester I"
@@ -252,7 +253,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       )
       .join("");
 
-    const html = `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8"/>
@@ -343,8 +344,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   </div>
 </body>
 </html>`;
+  };
 
+  const handlePrintHallTicket = () => {
+    const html = generateHallTicketHtml();
     printViaIsolatedFrame(html, `Admit Card — ${studentName} (${studentPRN})`);
+  };
+
+  const handleDownloadHallTicketFile = () => {
+    const html = generateHallTicketHtml();
+    downloadHtmlDocument(html, `Admit_Card_${studentPRN.replace(/[^a-zA-Z0-9]/g, "_")}.html`);
+    showToast("Admit Card HTML file downloaded successfully. You can open and print anytime.");
   };
 
   return (
@@ -515,14 +525,24 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   Autonomous End-Semester Examination (ESE 2026) candidate workstation & hall allocations
                 </p>
               </div>
-              <button
-                type="button"
-                className="dash-btn dash-btn-primary"
-                onClick={() => setActiveMenu("hall-ticket")}
-              >
-                <Printer size={15} />
-                <span>View & Print Admit Card</span>
-              </button>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="dash-btn dash-btn-outline"
+                  onClick={() => setActiveMenu("hall-ticket")}
+                >
+                  <Eye size={15} />
+                  <span>View Admit Card</span>
+                </button>
+                <button
+                  type="button"
+                  className="dash-btn dash-btn-primary"
+                  onClick={handlePrintHallTicket}
+                >
+                  <Download size={15} />
+                  <span>Download Admit Card (PDF)</span>
+                </button>
+              </div>
             </div>
 
             {/* Quick Metrics Strip */}
@@ -684,14 +704,22 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   Verified date-wise examination schedule, venue locations, and PRN desk locator
                 </p>
               </div>
-              <div style={{ display: "flex", gap: "10px" }}>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="dash-btn dash-btn-outline"
+                  onClick={() => setActiveMenu("hall-ticket")}
+                >
+                  <Eye size={15} />
+                  <span>View Hall Ticket</span>
+                </button>
                 <button
                   type="button"
                   className="dash-btn dash-btn-primary"
-                  onClick={() => setActiveMenu("hall-ticket")}
+                  onClick={handlePrintHallTicket}
                 >
-                  <Printer size={15} />
-                  <span>Download Hall Ticket</span>
+                  <Download size={15} />
+                  <span>Download Hall Ticket (PDF)</span>
                 </button>
               </div>
             </div>
@@ -806,19 +834,30 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   Authorized institutional hall ticket for Autonomous End-Semester Examination 2026-27
                 </p>
               </div>
-              <button
-                type="button"
-                className="dash-btn dash-btn-primary"
-                onClick={handlePrintHallTicket}
-              >
-                <Printer size={15} />
-                <span>Print / Download PDF</span>
-              </button>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="dash-btn dash-btn-outline"
+                  onClick={handleDownloadHallTicketFile}
+                  title="Download standalone HTML document file"
+                >
+                  <Download size={15} />
+                  <span>Download File (.html)</span>
+                </button>
+                <button
+                  type="button"
+                  className="dash-btn dash-btn-primary"
+                  onClick={handlePrintHallTicket}
+                >
+                  <Printer size={15} />
+                  <span>Print / Save as PDF</span>
+                </button>
+              </div>
             </div>
 
             {/* Printable Hall Ticket Document */}
             <div
-              className="dash-card"
+              className="dash-card printable-hall-ticket printable-order-sheet"
               style={{
                 maxWidth: "850px",
                 margin: "0 auto",

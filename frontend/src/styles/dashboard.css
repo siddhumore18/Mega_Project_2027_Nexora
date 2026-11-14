@@ -2254,12 +2254,28 @@
   }
   body:has(.printable-order-sheet) .dash-sidebar,
   body:has(.printable-order-sheet) .dash-topbar,
-  body:has(.printable-order-sheet) .dash-content,
   body:has(.printable-order-sheet) .dash-modal-header,
   body:has(.printable-order-sheet) .dash-modal-footer,
   body:has(.printable-order-sheet) .dash-modal-close,
   body:has(.printable-order-sheet) .modal-header-actions,
+  body:has(.printable-order-sheet) .dash-view-header,
+  body:has(.printable-order-sheet) .dash-header-actions,
+  body:has(.printable-order-sheet) .dash-btn,
   body:has(.printable-order-sheet) .no-print {
+    display: none !important;
+  }
+  body:has(.printable-order-sheet) .dash-content,
+  body:has(.printable-order-sheet) .dash-main,
+  body:has(.printable-order-sheet) .dash-view {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+  }
+  body:has(.printable-order-sheet) .dash-view:not(:has(.printable-order-sheet)),
+  body:has(.printable-order-sheet) .dash-card:not(:has(.printable-order-sheet)):not(.printable-order-sheet) {
     display: none !important;
   }
   body:has(.printable-order-sheet) .official-modal-overlay,
