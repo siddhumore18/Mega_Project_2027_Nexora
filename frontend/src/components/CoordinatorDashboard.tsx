@@ -37,7 +37,6 @@ import {
   RefreshCw,
   Printer,
   Info,
-  ArrowLeft,
   ArrowRight,
   AlertCircle,
   Database,
@@ -51,8 +50,33 @@ import {
 } from "lucide-react";
 import { MasterDataManager } from "./MasterDataManager.js";
 import { AutonomousCircularView } from "./timetable/AutonomousCircularView.js";
-import { printViaIsolatedFrame, downloadHtmlDocument } from "../services/printHelper.js";
 import "../styles/dashboard.css";
+
+// Hoisted Module-Level Utility Helpers (guaranteed accessible everywhere without TDZ errors)
+function getShiftCategory(slot: string): "Shift 1 (Morning)" | "Shift 2 (Afternoon)" | "Shift 3 (Evening)" {
+  if (slot.includes("10.00") || slot.includes("09:30") || slot.toLowerCase().includes("morn")) {
+    return "Shift 1 (Morning)";
+  }
+  if (slot.includes("01.30") || slot.includes("12.30") || slot.includes("14:00") || slot.toLowerCase().includes("after")) {
+    return "Shift 2 (Afternoon)";
+  }
+  return "Shift 3 (Evening)";
+}
+
+function getShiftTimingLabel(shift: string): string {
+  if (shift.includes("Shift 1") || shift.includes("Morning")) return "10.00 AM TO 12.30 PM (First Shift / Morning)";
+  if (shift.includes("Shift 2") || shift.includes("Afternoon")) return "01.30 PM TO 04.00 PM (Second Shift / Afternoon)";
+  return "04.30 PM TO 07.00 PM (Third Shift / Evening)";
+}
+
+function getDayOfWeek(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-US", { weekday: "long" });
+  } catch {
+    return "Exam Day";
+  }
+}
 
 interface CoordinatorDashboardProps {
   onSwitchToAdmin?: () => void;
@@ -504,7 +528,6 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
   const [facSearch, setFacSearch] = useState("");
   const [facDeptFilter, setFacDeptFilter] = useState("ALL");
   const [facWorkloadFilter, setFacWorkloadFilter] = useState("ALL");
-  const [viewDutiesFaculty, setViewDutiesFaculty] = useState<InvigilatorRosterRecord | null>(null);
 
   const filteredFaculty = useMemo(() => {
     return storeState.invigilators.filter((f) => {
@@ -560,358 +583,6 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
     } else {
       showToast(res.message || "Failed to balance invigilators.", "error");
     }
-  };
-
-  // Duties schedule for the selected faculty member
-  const selectedFacultyDuties = useMemo(() => {
-    if (!viewDutiesFaculty) return [];
-    const cleanName = viewDutiesFaculty.name.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
-    const empId = (viewDutiesFaculty.identifier || "").trim().toLowerCase();
-
-    // Group duties by (date, slot, room) block
-    const dutyMap = new Map<string, {
-      date: string;
-      day: string;
-      slot: string;
-      shift: string;
-      room: string;
-      papers: Array<{ code: string; subject: string; dept: string; enrolled: number }>;
-    }>();
-
-    storeState.coordinatorExams.forEach((ex) => {
-      if (!ex.invigilator) return;
-      const cleanInv = ex.invigilator.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
-      const isMatch =
-        cleanInv === cleanName ||
-        (cleanName.length > 3 && cleanInv.includes(cleanName)) ||
-        (cleanInv.length > 3 && cleanName.includes(cleanInv)) ||
-        (empId && cleanInv.includes(empId));
-
-      if (isMatch) {
-        const key = `${ex.date}___${ex.slot}___${ex.room || "Room"}`;
-        if (!dutyMap.has(key)) {
-          dutyMap.set(key, {
-            date: ex.date,
-            day: getDayOfWeek(ex.date),
-            slot: ex.slot,
-            shift: getShiftCategory(ex.slot),
-            room: ex.room || "Room",
-            papers: [],
-          });
-        }
-        dutyMap.get(key)!.papers.push({
-          code: ex.code,
-          subject: ex.subject,
-          dept: ex.department,
-          enrolled: Math.min(40, ex.enrolled || 40),
-        });
-      }
-    });
-
-    // Fallback: If no direct matches found by string, provide representative duties from department pool matching assignedDuties count
-    if (dutyMap.size === 0 && viewDutiesFaculty.assignedDuties > 0) {
-      const dept = viewDutiesFaculty.departmentCode?.toUpperCase() || "";
-      const deptExams = storeState.coordinatorExams.filter((ex) => {
-        const exDept = (ex.department || "").toUpperCase();
-        return dept && exDept.includes(dept);
-      });
-      const pool = deptExams.length >= viewDutiesFaculty.assignedDuties ? deptExams : storeState.coordinatorExams;
-      const targetCount = Math.min(viewDutiesFaculty.assignedDuties, pool.length);
-      for (let i = 0; i < targetCount; i++) {
-        const ex = pool[i];
-        const key = `${ex.date}___${ex.slot}___${ex.room || "Room"}`;
-        if (!dutyMap.has(key)) {
-          dutyMap.set(key, {
-            date: ex.date,
-            day: getDayOfWeek(ex.date),
-            slot: ex.slot,
-            shift: getShiftCategory(ex.slot),
-            room: ex.room || "Room",
-            papers: [],
-          });
-        }
-        dutyMap.get(key)!.papers.push({
-          code: ex.code,
-          subject: ex.subject,
-          dept: ex.department,
-          enrolled: Math.min(40, ex.enrolled || 40),
-        });
-      }
-    }
-
-    return Array.from(dutyMap.values()).sort((a, b) => {
-      if (a.date !== b.date) return a.date.localeCompare(b.date);
-      return a.slot.localeCompare(b.slot);
-    });
-  }, [viewDutiesFaculty, storeState.coordinatorExams]);
-
-  // High-fidelity printable individual faculty appointment order
-  const handlePrintFacultyDutyOrder = (faculty: InvigilatorRosterRecord, duties: typeof selectedFacultyDuties) => {
-    if (!faculty || duties.length === 0) return;
-    const refNum = `KIT/COE/ESE-2026/ORD-FAC-${faculty.identifier || faculty.id}`;
-    const dutyRows = duties
-      .map((d, idx: number) => {
-        const role = idx === 0 ? "Chief Invigilator" : "Hall Invigilator";
-        const paperSummary = d.papers.map((p) => `<strong>${p.code}</strong> - ${p.subject} (${p.dept})`).join("<br/>");
-        const studentSum = d.papers.reduce((acc, p) => acc + (p.enrolled || 40), 0);
-        return `<tr>
-          <td style="text-align:center;font-weight:600;">${idx + 1}</td>
-          <td><strong>${d.date}</strong><br/><span style="font-size:8.5pt;color:#475569;">${d.day}</span></td>
-          <td><strong>${d.shift}</strong><br/><span style="font-size:8.5pt;color:#475569;">${d.slot}</span></td>
-          <td><strong style="color:#1d4ed8;">${d.room}</strong><br/><span style="font-size:8.5pt;color:#64748b;">Main Examination Block</span></td>
-          <td>${paperSummary}</td>
-          <td style="text-align:center;font-weight:bold;font-family:monospace;">${studentSum}</td>
-          <td><span style="font-size:8.5pt;font-weight:bold;padding:2px 6px;border-radius:3px;background:#f1f5f9;">${role}</span></td>
-          <td style="text-align:center;"><span style="font-size:8.5pt;font-weight:bold;padding:2px 6px;border-radius:3px;background:#dcfce7;color:#166534;">Scheduled & Confirmed</span></td>
-        </tr>`;
-      })
-      .join("");
-
-    const totalStudents = duties.reduce((acc, d) => acc + d.papers.reduce((s, p) => s + (p.enrolled || 40), 0), 0);
-
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Official Consolidated Invigilation Duty Appointment Order - ${faculty.identifier || faculty.id}</title>
-  <style>
-    @page { size: A4 landscape; margin: 12mm 15mm; }
-    * { box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; margin: 0; padding: 16px; line-height: 1.4; font-size: 10pt; }
-    .header { text-align: center; border-bottom: 2.5px solid #0f172a; padding-bottom: 10px; margin-bottom: 12px; }
-    .univ { font-size: 15pt; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; margin: 0; }
-    .college { font-size: 11pt; font-weight: 600; color: #1e293b; margin: 2px 0; }
-    .office { font-size: 9.5pt; color: #475569; margin: 2px 0 6px 0; }
-    .ref-box { font-family: monospace; font-size: 9pt; font-weight: bold; background: #f1f5f9; padding: 3px 8px; border-radius: 4px; display: inline-block; border: 1px solid #cbd5e1; }
-    .subject { font-weight: 800; font-size: 10.5pt; margin: 10px 0; padding: 6px 10px; background: #f8fafc; border-left: 4px solid #2563eb; text-transform: uppercase; letter-spacing: 0.3px; }
-    .appointee-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; font-size: 9pt; }
-    .statutory-text { font-size: 9pt; color: #334155; line-height: 1.45; margin-bottom: 12px; text-align: justify; }
-    .duty-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9pt; }
-    .duty-table th { background: #f1f5f9; padding: 6px 8px; border: 1px solid #cbd5e1; text-align: left; font-weight: 700; }
-    .duty-table td { padding: 5px 8px; border: 1px solid #cbd5e1; }
-    .duty-table tr:nth-child(even) td { background: #f8fafc; }
-    .duty-table tfoot td { background: #f1f5f9; font-weight: bold; padding: 6px 8px; border: 1px solid #cbd5e1; }
-    .instructions { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px 12px; margin: 10px 0; font-size: 8.5pt; }
-    .sigs { display: flex; justify-content: space-between; margin-top: 24px; padding-top: 10px; }
-    .sig-box { text-align: center; width: 220px; }
-    .sig-line { border-top: 1.5px solid #0f172a; margin-bottom: 3px; }
-    .sig-title { font-weight: bold; font-size: 9.5pt; }
-    .sig-sub { font-size: 8.5pt; color: #475569; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="univ">Kolhapur Institute of Technology</div>
-    <div class="college">COLLEGE OF ENGINEERING (AUTONOMOUS), KOLHAPUR</div>
-    <div class="office">Office of the Controller of Examinations · Central Examination Cell</div>
-    <div class="ref-box">REF NO: ${refNum}</div>
-  </div>
-
-  <div class="subject">
-    OFFICIAL CONSOLIDATED APPOINTMENT ORDER AS INVIGILATOR FOR AUTONOMOUS ESE 2026-27
-  </div>
-
-  <div class="appointee-box">
-    <div><strong>Appointee Name:</strong> ${faculty.name}</div>
-    <div><strong>Employee ID:</strong> ${faculty.identifier}</div>
-    <div><strong>Department:</strong> Department of ${faculty.departmentCode}</div>
-    <div><strong>Status:</strong> ${faculty.status}</div>
-    <div><strong>Total Sessions Assigned:</strong> ${duties.length} Examination Sessions</div>
-    <div><strong>Examination Cycle:</strong> ESE 2026-27 (Autumn Odd Semester)</div>
-  </div>
-
-  <div class="statutory-text">
-    By direction of the Academic Council and Board of Examinations, under <strong>Section 48(4) of the Maharashtra Public Universities Act, 2016</strong>, you are hereby appointed as an Invigilator for the scheduled End Semester Examinations (Autumn 2026-27). Examination duties are mandatory statutory responsibilities of all recognized teachers. Below is the complete, consolidated schedule of all examination sessions allotted to you.
-  </div>
-
-  <table class="duty-table">
-    <thead>
-      <tr>
-        <th style="width:30px;text-align:center;">#</th>
-        <th style="width:110px;">Date & Day</th>
-        <th style="width:140px;">Shift & Slot</th>
-        <th style="width:120px;">Venue / Room</th>
-        <th>Course Details</th>
-        <th style="width:75px;text-align:center;">Candidates</th>
-        <th style="width:105px;">Duty Role</th>
-        <th style="width:130px;text-align:center;">Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${dutyRows}
-    </tbody>
-    <tfoot>
-      <tr>
-        <td colspan="5" style="text-align:right;padding-right:12px;">Total Candidates Supervised:</td>
-        <td style="text-align:center;font-family:monospace;color:#1e40af;">${totalStudents}</td>
-        <td colspan="2">${duties.length} Examination Sessions Allotted</td>
-      </tr>
-    </tfoot>
-  </table>
-
-  <div class="instructions">
-    <strong>Mandatory Statutory Guidelines for Invigilators:</strong><br/>
-    1. Reporting Time: Exactly 30 minutes prior to session commencement at Central Examination Control Cell.<br/>
-    2. Identity & Verification: Verify candidate Hall Tickets and Institute Smart IDs before admitting into examination halls.<br/>
-    3. Electronic Devices: Strict prohibition of programmable calculators, smart watches, mobile phones, or unauthorised notes.<br/>
-    4. Emergency Relief: If unable to attend due to acute medical emergency, notify Controller of Examinations 24 hours in advance.
-  </div>
-
-  <div class="sigs">
-    <div class="sig-box">
-      <div class="sig-line"></div>
-      <div class="sig-title">Dr. Sarah Jenkins</div>
-      <div class="sig-sub">Chief Exam Coordinator</div>
-    </div>
-    <div class="sig-box">
-      <div class="sig-line"></div>
-      <div class="sig-title">Prof. (Dr.) V. S. Patil</div>
-      <div class="sig-sub">Controller of Examinations</div>
-    </div>
-    <div class="sig-box">
-      <div class="sig-line"></div>
-      <div class="sig-title">${faculty.name}</div>
-      <div class="sig-sub">Signature of Invigilator</div>
-    </div>
-  </div>
-</body>
-</html>`;
-
-    printViaIsolatedFrame(html, `Faculty_Duty_Order_${faculty.identifier || faculty.id}`);
-  };
-
-  const handleDownloadFacultyDutyOrderHtml = (faculty: InvigilatorRosterRecord, duties: typeof selectedFacultyDuties) => {
-    if (!faculty || duties.length === 0) return;
-    const refNum = `KIT/COE/ESE-2026/ORD-FAC-${faculty.identifier || faculty.id}`;
-    const dutyRows = duties
-      .map((d, idx: number) => {
-        const role = idx === 0 ? "Chief Invigilator" : "Hall Invigilator";
-        const paperSummary = d.papers.map((p) => `<strong>${p.code}</strong> - ${p.subject} (${p.dept})`).join("<br/>");
-        const studentSum = d.papers.reduce((acc, p) => acc + (p.enrolled || 40), 0);
-        return `<tr>
-          <td style="text-align:center;font-weight:600;">${idx + 1}</td>
-          <td><strong>${d.date}</strong><br/><span style="font-size:8.5pt;color:#475569;">${d.day}</span></td>
-          <td><strong>${d.shift}</strong><br/><span style="font-size:8.5pt;color:#475569;">${d.slot}</span></td>
-          <td><strong style="color:#1d4ed8;">${d.room}</strong><br/><span style="font-size:8.5pt;color:#64748b;">Main Examination Block</span></td>
-          <td>${paperSummary}</td>
-          <td style="text-align:center;font-weight:bold;font-family:monospace;">${studentSum}</td>
-          <td><span style="font-size:8.5pt;font-weight:bold;padding:2px 6px;border-radius:3px;background:#f1f5f9;">${role}</span></td>
-          <td style="text-align:center;"><span style="font-size:8.5pt;font-weight:bold;padding:2px 6px;border-radius:3px;background:#dcfce7;color:#166534;">Scheduled & Confirmed</span></td>
-        </tr>`;
-      })
-      .join("");
-
-    const totalStudents = duties.reduce((acc, d) => acc + d.papers.reduce((s, p) => s + (p.enrolled || 40), 0), 0);
-
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Official Consolidated Invigilation Duty Appointment Order - ${faculty.identifier || faculty.id}</title>
-  <style>
-    @page { size: A4 landscape; margin: 12mm 15mm; }
-    * { box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; margin: 0; padding: 16px; line-height: 1.4; font-size: 10pt; }
-    .header { text-align: center; border-bottom: 2.5px solid #0f172a; padding-bottom: 10px; margin-bottom: 12px; }
-    .univ { font-size: 15pt; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; margin: 0; }
-    .college { font-size: 11pt; font-weight: 600; color: #1e293b; margin: 2px 0; }
-    .office { font-size: 9.5pt; color: #475569; margin: 2px 0 6px 0; }
-    .ref-box { font-family: monospace; font-size: 9pt; font-weight: bold; background: #f1f5f9; padding: 3px 8px; border-radius: 4px; display: inline-block; border: 1px solid #cbd5e1; }
-    .subject { font-weight: 800; font-size: 10.5pt; margin: 10px 0; padding: 6px 10px; background: #f8fafc; border-left: 4px solid #2563eb; text-transform: uppercase; letter-spacing: 0.3px; }
-    .appointee-box { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; font-size: 9pt; }
-    .statutory-text { font-size: 9pt; color: #334155; line-height: 1.45; margin-bottom: 12px; text-align: justify; }
-    .duty-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9pt; }
-    .duty-table th { background: #f1f5f9; padding: 6px 8px; border: 1px solid #cbd5e1; text-align: left; font-weight: 700; }
-    .duty-table td { padding: 5px 8px; border: 1px solid #cbd5e1; }
-    .duty-table tr:nth-child(even) td { background: #f8fafc; }
-    .duty-table tfoot td { background: #f1f5f9; font-weight: bold; padding: 6px 8px; border: 1px solid #cbd5e1; }
-    .instructions { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px 12px; margin: 10px 0; font-size: 8.5pt; }
-    .sigs { display: flex; justify-content: space-between; margin-top: 24px; padding-top: 10px; }
-    .sig-box { text-align: center; width: 220px; }
-    .sig-line { border-top: 1.5px solid #0f172a; margin-bottom: 3px; }
-    .sig-title { font-weight: bold; font-size: 9.5pt; }
-    .sig-sub { font-size: 8.5pt; color: #475569; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="univ">Kolhapur Institute of Technology</div>
-    <div class="college">COLLEGE OF ENGINEERING (AUTONOMOUS), KOLHAPUR</div>
-    <div class="office">Office of the Controller of Examinations · Central Examination Cell</div>
-    <div class="ref-box">REF NO: ${refNum}</div>
-  </div>
-
-  <div class="subject">
-    OFFICIAL CONSOLIDATED APPOINTMENT ORDER AS INVIGILATOR FOR AUTONOMOUS ESE 2026-27
-  </div>
-
-  <div class="appointee-box">
-    <div><strong>Appointee Name:</strong> ${faculty.name}</div>
-    <div><strong>Employee ID:</strong> ${faculty.identifier}</div>
-    <div><strong>Department:</strong> Department of ${faculty.departmentCode}</div>
-    <div><strong>Status:</strong> ${faculty.status}</div>
-    <div><strong>Total Sessions Assigned:</strong> ${duties.length} Examination Sessions</div>
-    <div><strong>Examination Cycle:</strong> ESE 2026-27 (Autumn Odd Semester)</div>
-  </div>
-
-  <div class="statutory-text">
-    By direction of the Academic Council and Board of Examinations, under <strong>Section 48(4) of the Maharashtra Public Universities Act, 2016</strong>, you are hereby appointed as an Invigilator for the scheduled End Semester Examinations (Autumn 2026-27). Examination duties are mandatory statutory responsibilities of all recognized teachers. Below is the complete, consolidated schedule of all examination sessions allotted to you.
-  </div>
-
-  <table class="duty-table">
-    <thead>
-      <tr>
-        <th style="width:30px;text-align:center;">#</th>
-        <th style="width:110px;">Date & Day</th>
-        <th style="width:140px;">Shift & Slot</th>
-        <th style="width:120px;">Venue / Room</th>
-        <th>Course Details</th>
-        <th style="width:75px;text-align:center;">Candidates</th>
-        <th style="width:105px;">Duty Role</th>
-        <th style="width:130px;text-align:center;">Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${dutyRows}
-    </tbody>
-    <tfoot>
-      <tr>
-        <td colspan="5" style="text-align:right;padding-right:12px;">Total Candidates Supervised:</td>
-        <td style="text-align:center;font-family:monospace;color:#1e40af;">${totalStudents}</td>
-        <td colspan="2">${duties.length} Examination Sessions Allotted</td>
-      </tr>
-    </tfoot>
-  </table>
-
-  <div class="instructions">
-    <strong>Mandatory Statutory Guidelines for Invigilators:</strong><br/>
-    1. Reporting Time: Exactly 30 minutes prior to session commencement at Central Examination Control Cell.<br/>
-    2. Identity & Verification: Verify candidate Hall Tickets and Institute Smart IDs before admitting into examination halls.<br/>
-    3. Electronic Devices: Strict prohibition of programmable calculators, smart watches, mobile phones, or unauthorised notes.<br/>
-    4. Emergency Relief: If unable to attend due to acute medical emergency, notify Controller of Examinations 24 hours in advance.
-  </div>
-
-  <div class="sigs">
-    <div class="sig-box">
-      <div class="sig-line"></div>
-      <div class="sig-title">Dr. Sarah Jenkins</div>
-      <div class="sig-sub">Chief Exam Coordinator</div>
-    </div>
-    <div class="sig-box">
-      <div class="sig-line"></div>
-      <div class="sig-title">Prof. (Dr.) V. S. Patil</div>
-      <div class="sig-sub">Controller of Examinations</div>
-    </div>
-    <div class="sig-box">
-      <div class="sig-line"></div>
-      <div class="sig-title">${faculty.name}</div>
-      <div class="sig-sub">Signature of Invigilator</div>
-    </div>
-  </div>
-</body>
-</html>`;
-
-    downloadHtmlDocument(html, `Faculty_Duty_Order_${faculty.identifier || faculty.id}.html`);
   };
 
   // ==========================================
@@ -1909,32 +1580,6 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
       pool,
       topStandby,
     };
-  };
-
-  // Helper to categorize slot to Shift 1, Shift 2, Shift 3
-  const getShiftCategory = (slot: string): "Shift 1 (Morning)" | "Shift 2 (Afternoon)" | "Shift 3 (Evening)" => {
-    if (slot.includes("10.00") || slot.includes("09:30") || slot.toLowerCase().includes("morn")) {
-      return "Shift 1 (Morning)";
-    }
-    if (slot.includes("01.30") || slot.includes("12.30") || slot.includes("14:00") || slot.toLowerCase().includes("after")) {
-      return "Shift 2 (Afternoon)";
-    }
-    return "Shift 3 (Evening)";
-  };
-
-  const getShiftTimingLabel = (shift: string): string => {
-    if (shift.includes("Shift 1") || shift.includes("Morning")) return "10.00 AM TO 12.30 PM (First Shift / Morning)";
-    if (shift.includes("Shift 2") || shift.includes("Afternoon")) return "01.30 PM TO 04.00 PM (Second Shift / Afternoon)";
-    return "04.30 PM TO 07.00 PM (Third Shift / Evening)";
-  };
-
-  const getDayOfWeek = (dateStr: string): string => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString("en-US", { weekday: "long" });
-    } catch {
-      return "Exam Day";
-    }
   };
 
   // Structured Shift-Wise Block Allocations Grouped by Date -> Shift -> Block
@@ -4950,450 +4595,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
               ===================================================== */}
           {activeMenu === "faculty-availability" && (
             <div className="dash-view">
-              {viewDutiesFaculty ? (
-                /* Dedicated Individual Faculty Duties Schedule Page */
-                <div className="faculty-duties-detail-view" style={{ animation: "fadeIn 0.2s ease-in-out" }}>
-                  {/* 1. Top Navigation & Action Header */}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                      gap: "12px",
-                      marginBottom: "20px",
-                      paddingBottom: "16px",
-                      borderBottom: "1px solid var(--border-color, #e2e8f0)",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                      <button
-                        type="button"
-                        className="dash-btn dash-btn-outline"
-                        onClick={() => setViewDutiesFaculty(null)}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          padding: "8px 16px",
-                          fontSize: "13px",
-                          fontWeight: 700,
-                          borderRadius: "8px",
-                          border: "1.5px solid var(--border-color, #cbd5e1)",
-                          background: "#ffffff",
-                          color: "var(--brand-primary, #2563eb)",
-                          cursor: "pointer",
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                          transition: "all 0.15s ease",
-                        }}
-                        title="Return to the full faculty workload register"
-                      >
-                        <ArrowLeft size={16} />
-                        <span>← Back to Faculty Roster</span>
-                      </button>
-
-                      <div>
-                        <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.5px" }}>
-                          7. Faculty & Invigilators / Individual Duty Schedule
-                        </div>
-                        <h1 style={{ fontSize: "20px", fontWeight: 800, color: "var(--text-color, #0f172a)", margin: "2px 0 0 0" }}>
-                          Invigilation Schedule · {viewDutiesFaculty.name}
-                        </h1>
-                      </div>
-                    </div>
-
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        className="dash-btn dash-btn-primary"
-                        style={{ background: "#2563eb", borderColor: "#2563eb", color: "#ffffff", display: "inline-flex", alignItems: "center", gap: "6px" }}
-                        onClick={() => handlePrintFacultyDutyOrder(viewDutiesFaculty, selectedFacultyDuties)}
-                        title="Print official appointment order via isolated print engine"
-                      >
-                        <Printer size={15} />
-                        <span>Print Official Duty Order (PDF)</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        className="dash-btn dash-btn-outline"
-                        onClick={() => handleDownloadFacultyDutyOrderHtml(viewDutiesFaculty, selectedFacultyDuties)}
-                        title="Download duty schedule as self-contained HTML document"
-                        style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-                      >
-                        <Download size={15} />
-                        <span>Download (.html)</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        className="dash-btn dash-btn-outline"
-                        onClick={() =>
-                          handleExportCSV(
-                            `Faculty_Duties_${viewDutiesFaculty.identifier || viewDutiesFaculty.id}`,
-                            ["#", "Date", "Day", "Shift", "Time Slot", "Venue", "Course Code", "Subject Name", "Department", "Enrolled", "Role"],
-                            selectedFacultyDuties.flatMap((d, dIdx) =>
-                              d.papers.map((p) => [
-                                dIdx + 1,
-                                d.date,
-                                d.day,
-                                d.shift,
-                                d.slot,
-                                d.room,
-                                p.code,
-                                p.subject,
-                                p.dept,
-                                p.enrolled || 40,
-                                dIdx === 0 ? "Chief Invigilator" : "Hall Invigilator",
-                              ])
-                            )
-                          )
-                        }
-                        style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-                      >
-                        <FileSpreadsheet size={15} />
-                        <span>Export (CSV)</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 2. Faculty Profile & Quota Summary Card */}
-                  <div
-                    className="dash-card"
-                    style={{
-                      padding: "18px 22px",
-                      marginBottom: "20px",
-                      borderLeft: "5px solid #2563eb",
-                      background: "linear-gradient(to right, rgba(37, 99, 235, 0.03), rgba(255, 255, 255, 1))",
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                        <div
-                          style={{
-                            width: "52px",
-                            height: "52px",
-                            borderRadius: "50%",
-                            background: "#2563eb",
-                            color: "#ffffff",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "18px",
-                            fontWeight: 800,
-                            boxShadow: "0 2px 6px rgba(37, 99, 235, 0.3)",
-                          }}
-                        >
-                          {viewDutiesFaculty.name
-                            .replace(/^Dr\.\s*|^Prof\.\s*|^Mr\.\s*|^Ms\.\s*/i, "")
-                            .split(" ")
-                            .filter(Boolean)
-                            .slice(0, 2)
-                            .map((n) => n[0])
-                            .join("")
-                            .toUpperCase() || "FA"}
-                        </div>
-
-                        <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                            <span style={{ fontSize: "17px", fontWeight: 800, color: "var(--text-color, #0f172a)" }}>
-                              {viewDutiesFaculty.name}
-                            </span>
-                            <span
-                              style={{
-                                fontFamily: "monospace",
-                                fontWeight: 700,
-                                fontSize: "12px",
-                                background: "#e0f2fe",
-                                color: "#0369a1",
-                                padding: "2px 8px",
-                                borderRadius: "4px",
-                              }}
-                            >
-                              {viewDutiesFaculty.identifier}
-                            </span>
-                            <span
-                              className={`dash-badge ${
-                                viewDutiesFaculty.status === "Available"
-                                  ? "dash-badge-success"
-                                  : viewDutiesFaculty.status === "Max Assigned"
-                                  ? "dash-badge-info"
-                                  : "dash-badge-danger"
-                              }`}
-                            >
-                              {viewDutiesFaculty.status}
-                            </span>
-                          </div>
-
-                          <div style={{ fontSize: "12px", color: "var(--text-muted, #64748b)", marginTop: "4px", display: "flex", gap: "14px", flexWrap: "wrap" }}>
-                            <span><strong>Department:</strong> {viewDutiesFaculty.departmentCode}</span>
-                            <span>•</span>
-                            <span><strong>Email:</strong> {viewDutiesFaculty.email}</span>
-                            <span>•</span>
-                            <span><strong>Autonomous Duty Ceiling:</strong> {viewDutiesFaculty.maxDuties} Duties Max</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <button
-                          type="button"
-                          className="dash-btn dash-btn-outline"
-                          onClick={() => handleToggleFacultyLeave(viewDutiesFaculty)}
-                          style={{ fontSize: "12px", padding: "6px 12px" }}
-                        >
-                          {viewDutiesFaculty.status === "On Leave" ? "Clear Leave" : "Mark On Leave"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 3. Four KPI Metric Cards */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "14px", marginBottom: "20px" }}>
-                    <div className="dash-card" style={{ padding: "14px 18px", borderLeft: "4px solid #2563eb" }}>
-                      <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Assigned Duties / Quota</div>
-                      <div style={{ fontSize: "22px", fontWeight: 800, color: "#2563eb", marginTop: "4px" }}>
-                        {selectedFacultyDuties.length} / {viewDutiesFaculty.maxDuties}
-                      </div>
-                      <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                        {Math.min(100, Math.round((selectedFacultyDuties.length / viewDutiesFaculty.maxDuties) * 100))}% Quota Consumed
-                      </div>
-                    </div>
-
-                    <div className="dash-card" style={{ padding: "14px 18px", borderLeft: "4px solid #10b981" }}>
-                      <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Distinct Exam Dates</div>
-                      <div style={{ fontSize: "22px", fontWeight: 800, color: "#10b981", marginTop: "4px" }}>
-                        {new Set(selectedFacultyDuties.map((d) => d.date)).size} Days
-                      </div>
-                      <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Zero Same-Day Clashes (Max 1/Day)</div>
-                    </div>
-
-                    <div className="dash-card" style={{ padding: "14px 18px", borderLeft: "4px solid #8b5cf6" }}>
-                      <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Candidates Supervised</div>
-                      <div style={{ fontSize: "22px", fontWeight: 800, color: "#8b5cf6", marginTop: "4px" }}>
-                        {selectedFacultyDuties.reduce((acc, d) => acc + d.papers.reduce((s, p) => s + (p.enrolled || 40), 0), 0)}
-                      </div>
-                      <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Consistent 40 Students / Room</div>
-                    </div>
-
-                    <div className="dash-card" style={{ padding: "14px 18px", borderLeft: "4px solid #059669" }}>
-                      <div style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Supervision Time</div>
-                      <div style={{ fontSize: "22px", fontWeight: 800, color: "#059669", marginTop: "4px" }}>
-                        {(selectedFacultyDuties.length * 2.5).toFixed(1)} Hrs
-                      </div>
-                      <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Reporting 30m Prior Enforced</div>
-                    </div>
-                  </div>
-
-                  {/* 4. Examination Duties Table */}
-                  <div className="dash-card">
-                    <div
-                      style={{
-                        padding: "14px 18px",
-                        borderBottom: "1px solid var(--border-color)",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                        gap: "8px",
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: "14px", fontWeight: 800, color: "var(--text-color)" }}>
-                          Assigned Invigilation Duty Schedule ({selectedFacultyDuties.length} Examination Sessions)
-                        </div>
-                        <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                          Statutory invigilation appointments under Maharashtra Public Universities Act Sec 48(4)
-                        </div>
-                      </div>
-
-                      <div style={{ fontSize: "12px", color: "#10b981", fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }}>
-                        <CheckCircle2 size={14} />
-                        <span>Equitable Distribution · Clashes Resolved</span>
-                      </div>
-                    </div>
-
-                    {selectedFacultyDuties.length === 0 ? (
-                      <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--text-muted)" }}>
-                        <div style={{ fontSize: "40px", marginBottom: "12px" }}>📋</div>
-                        <h3 style={{ fontSize: "16px", fontWeight: 700, color: "var(--text-color)", margin: "0 0 6px 0" }}>
-                          No Examination Duties Currently Assigned
-                        </h3>
-                        <p style={{ fontSize: "12px", margin: "0 0 16px 0", maxWidth: "420px", marginLeft: "auto", marginRight: "auto" }}>
-                          {viewDutiesFaculty.name} has no scheduled duties in the active timetable cycle. You can run the auto-balance engine from the roster page to allocate duties equitably.
-                        </p>
-                        <button
-                          type="button"
-                          className="dash-btn dash-btn-primary"
-                          onClick={() => setViewDutiesFaculty(null)}
-                          style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-                        >
-                          <ArrowLeft size={15} />
-                          <span>← Return to Faculty Roster</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="dash-table-wrap">
-                        <table className="dash-table">
-                          <thead>
-                            <tr>
-                              <th style={{ width: "40px", textAlign: "center" }}>#</th>
-                              <th style={{ width: "130px" }}>Date & Day</th>
-                              <th style={{ width: "170px" }}>Shift & Timing</th>
-                              <th style={{ width: "150px" }}>Venue / Hall</th>
-                              <th>Course / Subject Details</th>
-                              <th style={{ width: "90px", textAlign: "center" }}>Candidates</th>
-                              <th style={{ width: "130px" }}>Duty Role</th>
-                              <th style={{ width: "120px", textAlign: "center" }}>Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {selectedFacultyDuties.map((duty, idx) => (
-                              <tr key={`${duty.date}-${duty.slot}-${duty.room}`}>
-                                <td style={{ textAlign: "center", fontWeight: 700, color: "var(--text-muted)" }}>
-                                  {idx + 1}
-                                </td>
-                                <td>
-                                  <div style={{ fontWeight: 700, color: "var(--text-color)" }}>{duty.date}</div>
-                                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{duty.day}</div>
-                                </td>
-                                <td>
-                                  <div style={{ fontWeight: 700, color: "#2563eb" }}>{duty.shift}</div>
-                                  <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>{duty.slot}</div>
-                                </td>
-                                <td>
-                                  <span
-                                    className="dash-badge dash-badge-default"
-                                    style={{ fontWeight: 700, fontSize: "11.5px", background: "#f1f5f9", color: "#1e293b" }}
-                                  >
-                                    {duty.room}
-                                  </span>
-                                  <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "2px" }}>Main Exam Block</div>
-                                </td>
-                                <td>
-                                  {duty.papers.map((p, pIdx) => (
-                                    <div key={p.code} style={{ marginBottom: pIdx < duty.papers.length - 1 ? "6px" : "0" }}>
-                                      <span style={{ fontWeight: 800, color: "#1d4ed8", marginRight: "6px", fontFamily: "monospace" }}>
-                                        {p.code}
-                                      </span>
-                                      <span style={{ fontWeight: 600, color: "var(--text-color)" }}>{p.subject}</span>
-                                      <span
-                                        className="dash-badge dash-badge-default"
-                                        style={{ fontSize: "9.5px", marginLeft: "6px", padding: "1px 5px" }}
-                                      >
-                                        {p.dept}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </td>
-                                <td style={{ textAlign: "center" }}>
-                                  <span
-                                    style={{
-                                      fontFamily: "monospace",
-                                      fontWeight: 700,
-                                      fontSize: "12px",
-                                      background: "#f0fdf4",
-                                      color: "#166534",
-                                      padding: "2px 7px",
-                                      borderRadius: "4px",
-                                      border: "1px solid #bbf7d0",
-                                    }}
-                                  >
-                                    {duty.papers.reduce((sum, p) => sum + (p.enrolled || 40), 0)}
-                                  </span>
-                                </td>
-                                <td>
-                                  <span
-                                    className="dash-badge dash-badge-default"
-                                    style={{
-                                      fontSize: "11px",
-                                      fontWeight: 700,
-                                      background: idx === 0 ? "#eff6ff" : "#f8fafc",
-                                      color: idx === 0 ? "#1d4ed8" : "#475569",
-                                      border: idx === 0 ? "1px solid #bfdbfe" : "1px solid #e2e8f0",
-                                    }}
-                                  >
-                                    {idx === 0 ? "Chief Invigilator" : "Hall Invigilator"}
-                                  </span>
-                                </td>
-                                <td style={{ textAlign: "center" }}>
-                                  <span className="dash-badge dash-badge-success" style={{ fontSize: "11px" }}>
-                                    Confirmed
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr style={{ background: "var(--background-subtle, #f8fafc)", fontWeight: 700 }}>
-                              <td colSpan={5} style={{ textAlign: "right", padding: "10px 14px" }}>
-                                Total Candidates Supervised Across All Sessions:
-                              </td>
-                              <td style={{ textAlign: "center", fontFamily: "monospace", color: "#2563eb", fontSize: "13px" }}>
-                                {selectedFacultyDuties.reduce((sum, d) => sum + d.papers.reduce((s, p) => s + (p.enrolled || 40), 0), 0)}
-                              </td>
-                              <td colSpan={2} style={{ padding: "10px 14px" }}>
-                                {selectedFacultyDuties.length} Examination Sessions Supervised
-                              </td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 5. Bottom Navigation & Action Bar */}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginTop: "20px",
-                      paddingTop: "16px",
-                      borderTop: "1px solid var(--border-color, #e2e8f0)",
-                      flexWrap: "wrap",
-                      gap: "10px",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      className="dash-btn dash-btn-outline"
-                      onClick={() => setViewDutiesFaculty(null)}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        padding: "8px 16px",
-                        fontSize: "13px",
-                        fontWeight: 700,
-                        borderRadius: "8px",
-                        border: "1.5px solid var(--border-color, #cbd5e1)",
-                        background: "#ffffff",
-                        color: "var(--brand-primary, #2563eb)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <ArrowLeft size={16} />
-                      <span>← Back to Faculty Roster</span>
-                    </button>
-
-                    {selectedFacultyDuties.length > 0 && (
-                      <button
-                        type="button"
-                        className="dash-btn dash-btn-primary"
-                        style={{ background: "#2563eb", borderColor: "#2563eb", color: "#ffffff", display: "inline-flex", alignItems: "center", gap: "6px" }}
-                        onClick={() => handlePrintFacultyDutyOrder(viewDutiesFaculty, selectedFacultyDuties)}
-                      >
-                        <Printer size={15} />
-                        <span>Print Official Duty Order (PDF)</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                /* Main Faculty Roster & Workload Register Table */
-                <div>
-                  <div className="dash-view-header">
+              <div className="dash-view-header">
                     <div className="dash-view-titles">
                       <h1 className="dash-view-title">Faculty Roster & Invigilator Workload</h1>
                       <p className="dash-view-subtitle">
@@ -5522,7 +4724,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                             <th>Duty Quota Utilization</th>
                             <th>Availability Status</th>
                             <th>Daily Spacing Policy</th>
-                            <th>Actions</th>
+                            <th>Duty Allocation & Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -5591,17 +4793,22 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                   </span>
                                 </td>
                                 <td>
-                                  <div style={{ display: "flex", gap: "6px" }}>
-                                    <button
-                                      type="button"
-                                      className="dash-btn dash-btn-outline"
-                                      onClick={() => setViewDutiesFaculty(f)}
-                                      style={{ fontSize: "11px", padding: "3px 8px" }}
-                                      title="Inspect individual duty allocation schedule"
+                                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <span
+                                      style={{
+                                        fontSize: "12px",
+                                        fontWeight: 700,
+                                        color: "#1d4ed8",
+                                        background: "#eff6ff",
+                                        padding: "3px 8px",
+                                        borderRadius: "4px",
+                                        border: "1px solid #bfdbfe",
+                                        whiteSpace: "nowrap",
+                                      }}
+                                      title="Total allocated duties in current exam cycle"
                                     >
-                                      <Calendar size={13} style={{ marginRight: "4px" }} />
-                                      <span>View Duties ({f.assignedDuties})</span>
-                                    </button>
+                                      {f.assignedDuties} Duties Assigned
+                                    </span>
                                     <button
                                       type="button"
                                       className="dash-btn dash-btn-outline"
@@ -5619,8 +4826,6 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                       </table>
                     </div>
                   </div>
-                </div>
-              )}
             </div>
           )}
 
