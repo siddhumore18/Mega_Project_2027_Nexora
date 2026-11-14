@@ -41,32 +41,32 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
   };
 
   return (
-    <div style={{ width: "100%", maxWidth: "440px", margin: "0 auto", padding: "20px 16px" }}>
+    <div style={{ width: "100%", maxWidth: "460px", margin: "0 auto", padding: "24px 16px" }}>
       {/* Brand Header */}
-      <div style={{ textAlign: "center", marginBottom: "24px" }}>
+      <div style={{ textAlign: "center", marginBottom: "20px" }}>
         <div
           style={{
-            width: "48px",
-            height: "48px",
-            borderRadius: "12px",
+            width: "52px",
+            height: "52px",
+            borderRadius: "14px",
             background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
             color: "#ffffff",
-            fontSize: "24px",
+            fontSize: "26px",
             fontWeight: 800,
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 8px 16px rgba(37,99,235,0.25)",
+            boxShadow: "0 10px 20px -3px rgba(37,99,235,0.3)",
             marginBottom: "12px",
           }}
         >
           N
         </div>
-        <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#ffffff", margin: 0, letterSpacing: "-0.02em" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: 800, color: "#0f172a", margin: 0, letterSpacing: "-0.025em" }}>
           Nexora Academic Portal
         </h1>
-        <p style={{ fontSize: "13px", color: "#94a3b8", margin: "4px 0 0" }}>
-          Kolhapur Institute of Technology&apos;s College of Engineering
+        <p style={{ fontSize: "13.5px", color: "#64748b", margin: "6px 0 0", fontWeight: 500 }}>
+          Kolhapur Institute of Technology&apos;s College of Engineering (Autonomous)
         </p>
       </div>
 
@@ -75,9 +75,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
         style={{
           background: "#ffffff",
           borderRadius: "16px",
-          padding: "28px 24px",
-          boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
-          border: "1px solid rgba(255,255,255,0.1)",
+          padding: "28px 26px",
+          boxShadow: "0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04)",
+          border: "1px solid #e2e8f0",
         }}
       >
         {/* Quick Demo Switcher Tabs */}

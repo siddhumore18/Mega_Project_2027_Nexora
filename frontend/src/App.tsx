@@ -15,7 +15,7 @@ const MainContent: React.FC = () => {
   // If user is not authenticated, show the Login View
   if (!isAuthenticated || !currentUser) {
     return (
-      <main className="main-content" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#0f172a" }}>
+      <main className="main-content" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#f8fafc", padding: "20px 0" }}>
         <LoginView onSuccess={() => {}} />
       </main>
     );
