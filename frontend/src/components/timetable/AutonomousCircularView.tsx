@@ -21,24 +21,35 @@ export const AutonomousCircularView: React.FC<AutonomousCircularViewProps> = ({
   onBack,
 }) => {
   const storeState = AcademicDataStore.getState();
-  const [selectedCycleId, setSelectedCycleId] = useState<string>("cycle-ese-2026");
+  const [selectedCycleId, setSelectedCycleId] = useState<string>("ALL");
   const [selectedYear, setSelectedYear] = useState<string>("ALL");
   const [selectedProgramme, setSelectedProgramme] = useState<string>("ALL");
   const [selectedStructure, setSelectedStructure] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const activeCycle = useMemo(() => {
+    if (selectedCycleId === "ALL") {
+      return storeState.examCycles.find((c) => c.id === "cycle-ese-2026-c1") || 
+             storeState.examCycles.find((c) => c.id === "cycle-ese-2026") || 
+             storeState.examCycles[0];
+    }
     return storeState.examCycles.find((c) => c.id === selectedCycleId) || storeState.examCycles[0];
   }, [storeState.examCycles, selectedCycleId]);
 
   const exams = useMemo(() => {
-    if (customExams && customExams.length > 0) {
-      if (selectedCycleId === "ALL") return customExams;
-      const filtered = customExams.filter((e) => !e.cycleId || e.cycleId === selectedCycleId);
-      return filtered.length > 0 ? filtered : customExams;
+    const sourcePool = (customExams && customExams.length > 0) ? customExams : storeState.coordinatorExams;
+    if (selectedCycleId === "ALL") return sourcePool;
+    
+    // If master cycle is chosen, include both c1 (Regular) and c2 (Backlog)
+    if (selectedCycleId === "cycle-ese-2026") {
+      const filtered = sourcePool.filter(
+        (e) => !e.cycleId || e.cycleId === "cycle-ese-2026" || e.cycleId === "cycle-ese-2026-c1" || e.cycleId === "cycle-ese-2026-c2"
+      );
+      return filtered.length > 0 ? filtered : sourcePool;
     }
-    if (selectedCycleId === "ALL") return storeState.coordinatorExams;
-    return storeState.coordinatorExams.filter((e) => !e.cycleId || e.cycleId === selectedCycleId);
+
+    const filtered = sourcePool.filter((e) => !e.cycleId || e.cycleId === selectedCycleId);
+    return filtered.length > 0 ? filtered : sourcePool;
   }, [customExams, storeState.coordinatorExams, selectedCycleId]);
 
   const isESE = activeCycle?.examType === "ESE" || activeCycle?.id === "cycle-ese-2026" || selectedCycleId === "cycle-ese-2026";
@@ -114,16 +125,34 @@ export const AutonomousCircularView: React.FC<AutonomousCircularViewProps> = ({
     }
   };
 
+  // Helper to determine accurate normalized curriculum structure
+  const getNormalizedStructure = (structureRaw?: string, code?: string): "NEP" | "CYCLE 1" | "CYCLE 2" | "CYCLE 3" | "OTHER" => {
+    const raw = (structureRaw || "").toUpperCase();
+    if (raw === "NEP" || raw === "NEP 2020" || raw === "REGULAR" || (code && code.startsWith("UC"))) return "NEP";
+    if (raw.includes("CYCLE 1") || raw === "C1") return "CYCLE 1";
+    if (raw.includes("CYCLE 2") || raw === "C2") return "CYCLE 2";
+    if (raw.includes("CYCLE 3") || raw === "C3") return "CYCLE 3";
+    if (code && code.includes("C0")) return "CYCLE 2";
+    return "NEP";
+  };
+
   // Filtered & Sorted exam rows matching the PDF ordering (Date -> Session -> Year -> Branch)
   const rows = useMemo(() => {
     return exams
       .filter((e) => {
         const yearFormatted = formatYear(e.yearOfStudy, e.semester);
         const matchYear = selectedYear === "ALL" || yearFormatted === selectedYear;
-        const matchProg = selectedProgramme === "ALL" || e.department === selectedProgramme || e.programCode.includes(selectedProgramme);
-        const structure = e.curriculumStructure || (e.code.startsWith("UC") ? "NEP" : "CYCLE 2");
-        const matchStruct = selectedStructure === "ALL" || structure === selectedStructure;
-        const matchSearch = !searchQuery ||
+        const prog = (e.department || "CSE").toUpperCase();
+        const matchProg =
+          selectedProgramme === "ALL" ||
+          prog === selectedProgramme.toUpperCase() ||
+          (e.programCode && e.programCode.toUpperCase().includes(selectedProgramme.toUpperCase()));
+        
+        const normStruct = getNormalizedStructure(e.curriculumStructure, e.code);
+        const matchStruct = selectedStructure === "ALL" || normStruct === selectedStructure;
+
+        const matchSearch =
+          !searchQuery ||
           e.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
           e.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
           e.department.toLowerCase().includes(searchQuery.toLowerCase());
@@ -131,7 +160,7 @@ export const AutonomousCircularView: React.FC<AutonomousCircularViewProps> = ({
       })
       .map((e) => {
         const { time, mae } = formatSessionTimeAndIndicator(e.slot, e.semester);
-        const structure = e.curriculumStructure || (e.code.includes("C0") && !e.code.startsWith("UCP") && !e.code.startsWith("UCS") ? "CYCLE 2" : "NEP");
+        const normStruct = getNormalizedStructure(e.curriculumStructure, e.code);
         return {
           id: e.id,
           dateRaw: e.date,
@@ -139,7 +168,7 @@ export const AutonomousCircularView: React.FC<AutonomousCircularViewProps> = ({
           day: getDayName(e.date),
           year: formatYear(e.yearOfStudy, e.semester),
           programme: e.department || "CSE",
-          structure: structure,
+          structure: normStruct,
           time,
           mae,
           sem: formatRomanSem(e.semester),
