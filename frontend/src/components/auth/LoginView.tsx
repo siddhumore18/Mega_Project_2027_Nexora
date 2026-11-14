@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { UserRole } from "@nexora/contracts";
 import { useAuth } from "../../context/AuthContext.js";
-import { Lock, Mail, ShieldCheck, KeyRound, ArrowRight, Sparkles } from "lucide-react";
+import { Lock, Mail, ShieldCheck, ArrowRight, UserCheck, GraduationCap, Shield } from "lucide-react";
 
 interface LoginViewProps {
   onSuccess?: () => void;
@@ -30,7 +30,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
       if (ok) {
         if (onSuccess) onSuccess();
       } else {
-        setErrors({ email: "No account found. Use your @kit.edu email or Roll Number (e.g. CSE2025001)." });
+        setErrors({ email: "Account not found. Use @kit.edu email or Roll Number (e.g. CSE2025001)." });
       }
     }, 400);
   };
@@ -40,392 +40,280 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
     if (onSuccess) onSuccess();
   };
 
-  const handleFillCredentials = (demoEmail: string, role: UserRole) => {
-    setEmail(demoEmail);
-    setPassword("nexora2026");
-    setSelectedRole(role);
-    setErrors({});
-  };
-
   return (
-    <div className="login-wrapper">
-      <div className="login-container" style={{ maxWidth: "560px" }}>
-        {/* Brand Header */}
-        <div className="login-brand-header">
-          <div className="login-logo" style={{ background: "linear-gradient(135deg, #2563eb, #1d4ed8)", boxShadow: "0 4px 12px rgba(37,99,235,0.3)" }}>
-            N
-          </div>
-          <div>
-            <h1 className="login-title" style={{ color: "#ffffff", margin: 0, fontSize: "22px", fontWeight: 800 }}>
-              Nexora Academic Portal
-            </h1>
-            <p className="login-subtitle" style={{ color: "#94a3b8", margin: "3px 0 0", fontSize: "12.5px" }}>
-              Autonomous Examination Scheduling, Seating & Invigilation Management
-            </p>
-          </div>
-        </div>
-
-        {/* 3 Dedicated Demo Login Cards */}
+    <div style={{ width: "100%", maxWidth: "440px", margin: "0 auto", padding: "20px 16px" }}>
+      {/* Brand Header */}
+      <div style={{ textAlign: "center", marginBottom: "24px" }}>
         <div
           style={{
-            background: "#ffffff",
+            width: "48px",
+            height: "48px",
             borderRadius: "12px",
-            border: "1px solid #e2e8f0",
-            padding: "16px",
-            marginBottom: "18px",
-            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.05)",
+            background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+            color: "#ffffff",
+            fontSize: "24px",
+            fontWeight: 800,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 8px 16px rgba(37,99,235,0.25)",
+            marginBottom: "12px",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "12px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-              <Sparkles size={14} color="#2563eb" />
-              <span>One-Click Demo Sign-In (3 User Roles)</span>
-            </div>
-            <span style={{ fontSize: "11px", color: "#64748b" }}>Instant Evaluator Access</span>
+          N
+        </div>
+        <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#ffffff", margin: 0, letterSpacing: "-0.02em" }}>
+          Nexora Academic Portal
+        </h1>
+        <p style={{ fontSize: "13px", color: "#94a3b8", margin: "4px 0 0" }}>
+          Kolhapur Institute of Technology&apos;s College of Engineering
+        </p>
+      </div>
+
+      {/* Main Login Card */}
+      <div
+        style={{
+          background: "#ffffff",
+          borderRadius: "16px",
+          padding: "28px 24px",
+          boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
+          border: "1px solid rgba(255,255,255,0.1)",
+        }}
+      >
+        {/* Quick Demo Switcher Tabs */}
+        <div style={{ marginBottom: "20px" }}>
+          <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "8px" }}>
+            Instant Demo Sign-In
           </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
-            {/* 1. Exam Coordinator */}
-            <div
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
+            <button
+              type="button"
+              onClick={() => handleQuickLogin("coordinator")}
               style={{
                 display: "flex",
                 flexDirection: "column",
-                justifyContent: "space-between",
-                padding: "12px 10px",
-                borderRadius: "8px",
-                border: "1.5px solid #bfdbfe",
+                alignItems: "center",
+                gap: "4px",
+                padding: "10px 8px",
+                borderRadius: "10px",
+                border: "1px solid #bfdbfe",
                 background: "#f0f7ff",
-                textAlign: "left",
+                cursor: "pointer",
                 transition: "all 0.15s ease",
               }}
             >
-              <div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "10.5px", fontWeight: 800, color: "#1d4ed8", textTransform: "uppercase" }}>
-                    Exam Cell
-                  </span>
-                  <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#2563eb", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "9.5px", fontWeight: 700 }}>
-                    SJ
-                  </div>
-                </div>
-                <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>Dr. Sarah Jenkins</div>
-                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px", lineHeight: "1.2" }}>
-                  Exam Coordinator
-                </div>
-              </div>
-              <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin("coordinator")}
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px",
-                    background: "#2563eb",
-                    color: "#ffffff",
-                    border: "none",
-                    borderRadius: "6px",
-                    fontSize: "11.5px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "4px",
-                  }}
-                  title="Log in directly as Exam Coordinator"
-                >
-                  <span>Sign In</span>
-                  <ArrowRight size={12} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleFillCredentials("coordinator@nexora.edu", UserRole.EXAM_COORDINATOR)}
-                  style={{ background: "none", border: "none", color: "#2563eb", fontSize: "10px", cursor: "pointer", padding: "2px" }}
-                >
-                  Fill Form
-                </button>
-              </div>
-            </div>
+              <UserCheck size={16} color="#2563eb" />
+              <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#1e40af" }}>Coordinator</span>
+              <span style={{ fontSize: "10px", color: "#64748b" }}>Exam Cell</span>
+            </button>
 
-            {/* 2. Student */}
-            <div
+            <button
+              type="button"
+              onClick={() => handleQuickLogin("student")}
               style={{
                 display: "flex",
                 flexDirection: "column",
-                justifyContent: "space-between",
-                padding: "12px 10px",
-                borderRadius: "8px",
-                border: "1.5px solid #bbf7d0",
+                alignItems: "center",
+                gap: "4px",
+                padding: "10px 8px",
+                borderRadius: "10px",
+                border: "1px solid #bbf7d0",
                 background: "#f0fdf4",
-                textAlign: "left",
+                cursor: "pointer",
                 transition: "all 0.15s ease",
               }}
             >
-              <div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "10.5px", fontWeight: 800, color: "#15803d", textTransform: "uppercase" }}>
-                    Student
-                  </span>
-                  <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#16a34a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "9.5px", fontWeight: 700 }}>
-                    AS
-                  </div>
-                </div>
-                <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>Aarav Sharma</div>
-                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px", lineHeight: "1.2" }}>
-                  B.Tech CSE (Sem VII)
-                </div>
-              </div>
-              <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin("student")}
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px",
-                    background: "#16a34a",
-                    color: "#ffffff",
-                    border: "none",
-                    borderRadius: "6px",
-                    fontSize: "11.5px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "4px",
-                  }}
-                  title="Log in directly as Student Aarav Sharma"
-                >
-                  <span>Sign In</span>
-                  <ArrowRight size={12} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleFillCredentials("aarav.sharma@nexora.edu", UserRole.STUDENT)}
-                  style={{ background: "none", border: "none", color: "#16a34a", fontSize: "10px", cursor: "pointer", padding: "2px" }}
-                >
-                  Fill Form
-                </button>
-              </div>
-            </div>
+              <GraduationCap size={16} color="#16a34a" />
+              <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#15803d" }}>Student</span>
+              <span style={{ fontSize: "10px", color: "#64748b" }}>Aarav (Sem 7)</span>
+            </button>
 
-            {/* 3. System Administrator */}
-            <div
+            <button
+              type="button"
+              onClick={() => handleQuickLogin("admin")}
               style={{
                 display: "flex",
                 flexDirection: "column",
-                justifyContent: "space-between",
-                padding: "12px 10px",
-                borderRadius: "8px",
-                border: "1.5px solid #ddd6fe",
+                alignItems: "center",
+                gap: "4px",
+                padding: "10px 8px",
+                borderRadius: "10px",
+                border: "1px solid #ddd6fe",
                 background: "#f5f3ff",
-                textAlign: "left",
+                cursor: "pointer",
                 transition: "all 0.15s ease",
               }}
             >
-              <div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "10.5px", fontWeight: 800, color: "#7c3aed", textTransform: "uppercase" }}>
-                    Administrator
-                  </span>
-                  <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: "#7c3aed", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "9.5px", fontWeight: 700 }}>
-                    SP
-                  </div>
-                </div>
-                <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>Sanika Patil</div>
-                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px", lineHeight: "1.2" }}>
-                  University Admin
-                </div>
-              </div>
-              <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                <button
-                  type="button"
-                  onClick={() => handleQuickLogin("admin")}
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px",
-                    background: "#7c3aed",
-                    color: "#ffffff",
-                    border: "none",
-                    borderRadius: "6px",
-                    fontSize: "11.5px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "4px",
-                  }}
-                  title="Log in directly as System Administrator"
-                >
-                  <span>Sign In</span>
-                  <ArrowRight size={12} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleFillCredentials("admin@nexora.edu", UserRole.ADMIN)}
-                  style={{ background: "none", border: "none", color: "#7c3aed", fontSize: "10px", cursor: "pointer", padding: "2px" }}
-                >
-                  Fill Form
-                </button>
-              </div>
-            </div>
+              <Shield size={16} color="#7c3aed" />
+              <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#6d28d9" }}>Admin</span>
+              <span style={{ fontSize: "10px", color: "#64748b" }}>University</span>
+            </button>
           </div>
         </div>
 
-        {/* Login Card */}
-        <div className="card login-card">
-          <div className="card-header" style={{ marginBottom: "16px" }}>
-            <div>
-              <h2 className="card-title">Institutional Account Login</h2>
-              <p className="card-subtitle">
-                Enter your university credentials or select one of the demo users above
-              </p>
-            </div>
-            <div className="security-tag">
-              <ShieldCheck size={14} />
-              <span>SSO Verified</span>
-            </div>
-          </div>
+        {/* Divider */}
+        <div style={{ display: "flex", alignItems: "center", margin: "20px 0 18px", gap: "10px" }}>
+          <div style={{ flex: 1, height: "1px", background: "#e2e8f0" }} />
+          <span style={{ fontSize: "11.5px", color: "#94a3b8", fontWeight: 600 }}>OR ENTER CREDENTIALS</span>
+          <div style={{ flex: 1, height: "1px", background: "#e2e8f0" }} />
+        </div>
 
-          <form onSubmit={handleManualLogin} noValidate>
-            {/* Role Target Selector */}
-            <div className="form-group">
-              <label className="form-label" htmlFor="role-select">
-                Target Academic Role
-              </label>
-              <div className="role-selector-radios" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-                {[
-                  { role: UserRole.EXAM_COORDINATOR, label: "Coordinator" },
-                  { role: UserRole.STUDENT, label: "Student" },
-                  { role: UserRole.ADMIN, label: "Administrator" },
-                ].map((item) => (
-                  <label
-                    key={item.role}
-                    className={`role-radio-item ${selectedRole === item.role ? "selected" : ""}`}
-                  >
-                    <input
-                      type="radio"
-                      name="role"
-                      value={item.role}
-                      checked={selectedRole === item.role}
-                      onChange={() => setSelectedRole(item.role)}
-                      className="sr-only"
-                    />
-                    <span className="role-radio-dot" />
-                    <span className="role-radio-text">{item.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Email Field */}
-            <div className="form-group">
-              <label className="form-label" htmlFor="login-email">
-                Email / Roll Number <span className="text-danger">*</span>
-              </label>
-              <div className="input-with-icon">
-                <Mail size={16} className="input-icon" />
-                <input
-                  id="login-email"
-                  type="text"
-                  className={`form-input ${errors.email ? "is-invalid" : ""}`}
-                  placeholder="e.g. aarav.sharma@kit.edu or CSE2025001"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
-                  }}
-                  aria-invalid={!!errors.email}
-                  aria-describedby={errors.email ? "email-error" : undefined}
-                />
-              </div>
-              {errors.email ? (
-                <div id="email-error" className="form-error">
-                  {errors.email}
-                </div>
-              ) : (
-                <div className="form-hint">
-                  Use your @kit.edu email or Roll Number (password = Roll Number)
-                </div>
-              )}
-            </div>
-
-            {/* Password Field */}
-            <div className="form-group">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <label className="form-label" htmlFor="login-password">
-                  Password <span className="text-danger">*</span>
-                </label>
+        {/* Sign In Form */}
+        <form onSubmit={handleManualLogin} noValidate>
+          {/* Role Pill Selector */}
+          <div style={{ marginBottom: "16px" }}>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "6px" }}>
+              Academic Role
+            </label>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "6px", background: "#f1f5f9", padding: "4px", borderRadius: "8px" }}>
+              {[
+                { role: UserRole.EXAM_COORDINATOR, label: "Coordinator" },
+                { role: UserRole.STUDENT, label: "Student" },
+                { role: UserRole.ADMIN, label: "Admin" },
+              ].map((item) => (
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="link-subtle"
-                  style={{ fontSize: "12px", border: "none", background: "none", cursor: "pointer" }}
-                >
-                  {showPassword ? "Hide" : "Show"}
-                </button>
-              </div>
-              <div className="input-with-icon">
-                <Lock size={16} className="input-icon" />
-                <input
-                  id="login-password"
-                  type={showPassword ? "text" : "password"}
-                  className={`form-input ${errors.password ? "is-invalid" : ""}`}
-                  placeholder="••••••••••••"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+                  key={item.role}
+                  onClick={() => setSelectedRole(item.role)}
+                  style={{
+                    padding: "6px 8px",
+                    borderRadius: "6px",
+                    border: "none",
+                    background: selectedRole === item.role ? "#ffffff" : "transparent",
+                    color: selectedRole === item.role ? "#2563eb" : "#64748b",
+                    fontWeight: selectedRole === item.role ? 700 : 500,
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    boxShadow: selectedRole === item.role ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                    transition: "all 0.15s ease",
                   }}
-                  aria-invalid={!!errors.password}
-                  aria-describedby={errors.password ? "password-error" : undefined}
-                />
-              </div>
-              {errors.password && (
-                <div id="password-error" className="form-error">
-                  {errors.password}
-                </div>
-              )}
-              {!errors.password && (
-                <div className="form-hint">
-                  For students: your Roll Number is your password (e.g. CSE2025001)
-                </div>
-              )}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="btn btn-primary"
-              style={{ width: "100%", padding: "11px", marginTop: "8px", fontSize: "14px" }}
-            >
-              {isSubmitting ? (
-                <span>Authenticating...</span>
-              ) : (
-                <>
-                  <span>Sign In to Portal</span>
-                  <ArrowRight size={16} />
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Security Notice */}
-          <div className="login-security-footer">
-            <KeyRound size={13} style={{ color: "var(--text-muted)" }} />
-            <span>
-              Authorized academic access only. All actions are logged and subject to audit policies.
-            </span>
           </div>
+
+          {/* Email / Roll Number */}
+          <div style={{ marginBottom: "14px" }}>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "6px" }}>
+              Email or Roll Number <span style={{ color: "#ef4444" }}>*</span>
+            </label>
+            <div style={{ position: "relative" }}>
+              <Mail size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+              <input
+                type="text"
+                placeholder="e.g. aarav.sharma@kit.edu or CSE2025001"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                }}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "10px 12px 10px 38px",
+                  borderRadius: "8px",
+                  border: errors.email ? "1.5px solid #ef4444" : "1px solid #cbd5e1",
+                  fontSize: "13.5px",
+                  outline: "none",
+                  background: "#ffffff",
+                  color: "#0f172a",
+                }}
+              />
+            </div>
+            {errors.email ? (
+              <div style={{ color: "#ef4444", fontSize: "11.5px", marginTop: "4px" }}>{errors.email}</div>
+            ) : (
+              <div style={{ color: "#64748b", fontSize: "11px", marginTop: "4px" }}>
+                For students: Use your @kit.edu email or Roll Number
+              </div>
+            )}
+          </div>
+
+          {/* Password */}
+          <div style={{ marginBottom: "18px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <label style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>
+                Password <span style={{ color: "#ef4444" }}>*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{ background: "none", border: "none", color: "#2563eb", fontSize: "11.5px", cursor: "pointer", padding: 0 }}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+            <div style={{ position: "relative" }}>
+              <Lock size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••••••"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+                }}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "10px 12px 10px 38px",
+                  borderRadius: "8px",
+                  border: errors.password ? "1.5px solid #ef4444" : "1px solid #cbd5e1",
+                  fontSize: "13.5px",
+                  outline: "none",
+                  background: "#ffffff",
+                  color: "#0f172a",
+                }}
+              />
+            </div>
+            {errors.password ? (
+              <div style={{ color: "#ef4444", fontSize: "11.5px", marginTop: "4px" }}>{errors.password}</div>
+            ) : (
+              <div style={{ color: "#64748b", fontSize: "11px", marginTop: "4px" }}>
+                Students: Your Roll Number is your password (e.g. CSE2025001)
+              </div>
+            )}
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            style={{
+              width: "100%",
+              padding: "11px",
+              borderRadius: "8px",
+              border: "none",
+              background: "#2563eb",
+              color: "#ffffff",
+              fontSize: "13.5px",
+              fontWeight: 700,
+              cursor: isSubmitting ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              boxShadow: "0 4px 12px rgba(37,99,235,0.25)",
+              transition: "background 0.15s ease",
+            }}
+          >
+            {isSubmitting ? (
+              <span>Authenticating...</span>
+            ) : (
+              <>
+                <span>Sign In to Portal</span>
+                <ArrowRight size={15} />
+              </>
+            )}
+          </button>
+        </form>
+
+        {/* Security Tag */}
+        <div style={{ marginTop: "18px", paddingTop: "14px", borderTop: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", color: "#64748b", fontSize: "11.5px" }}>
+          <ShieldCheck size={14} color="#10b981" />
+          <span>SSO Secured • KITCoEK Autonomous Academic ERP</span>
         </div>
       </div>
     </div>
