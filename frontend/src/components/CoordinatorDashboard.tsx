@@ -46,6 +46,7 @@ import {
   UserX,
   ShieldAlert,
   ArrowLeftRight,
+  Zap,
 } from "lucide-react";
 import { MasterDataManager } from "./MasterDataManager.js";
 import { AutonomousCircularView } from "./timetable/AutonomousCircularView.js";
@@ -1483,6 +1484,115 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
   const [emergencySwapReason, setEmergencySwapReason] = useState<string>("Last-minute personal/medical absence");
   const [emergencyStandbyPool, setEmergencyStandbyPool] = useState<EmergencyStandbyPoolResult | null>(null);
   const [standbyActiveDate, setStandbyActiveDate] = useState<string>("2026-11-22");
+  const [activeEmergencyGrievanceId, setActiveEmergencyGrievanceId] = useState<string | null>(null);
+
+  // Pending Faculty Emergency Duty Adjustments
+  const pendingEmergencyRequests = useMemo(() => {
+    const list = storeState.grievances || AcademicDataStore.getSnapshot().grievances || [];
+    return list.filter((g) => {
+      const isPending = g.status === "Open" || g.status === "In Review";
+      if (!isPending) return false;
+      const titleUpper = (g.title || "").toUpperCase();
+      const descLower = (g.description || "").toLowerCase();
+      const isEmergencyTitle = titleUpper.includes("EMERGENCY DUTY") || titleUpper.includes("EMERGENCY");
+      const isEmergencyDesc = descLower.includes("emergency");
+      const isFacultyDutyClash = g.category === "Scheduling Clash" && (g.userRole === "Faculty" || descLower.includes("duty") || titleUpper.includes("DUTY"));
+
+      if (g.category === "Scheduling Clash" && g.userRole === "Student" && !isEmergencyTitle && !isEmergencyDesc) {
+        return false;
+      }
+      return isEmergencyTitle || isEmergencyDesc || isFacultyDutyClash;
+    });
+  }, [storeState.grievances]);
+
+  const getEmergencyRequestDetails = (req: any) => {
+    const rawFaculty = req.submittedBy || "Unknown Faculty";
+    const facultyName = rawFaculty.replace(/\s*\(.*?\)/, "").trim();
+    const facultyIdMatch = rawFaculty.match(/\((FAC-[^)]+|[A-Z0-9_-]+)\)/i);
+    const facultyId = facultyIdMatch ? facultyIdMatch[1] : "";
+
+    // Department
+    let dept = "";
+    const deptMatch = (req.description || "").match(/(?:FAC-\d+,\s*([A-Za-z& -]+?)\)|Department:?\s*([A-Za-z& -]+?)(?:\.|\s|;))/i);
+    if (deptMatch) {
+      dept = (deptMatch[1] || deptMatch[2] || "").trim();
+    }
+    if (!dept) {
+      const invMatch = storeState.invigilators.find(
+        (inv) =>
+          (facultyId && inv.identifier.toLowerCase() === facultyId.toLowerCase()) ||
+          inv.name.toLowerCase().includes(facultyName.toLowerCase()) ||
+          facultyName.toLowerCase().includes(inv.name.toLowerCase())
+      );
+      if (invMatch) {
+        dept = invMatch.departmentCode || (invMatch as any).department || "";
+      }
+    }
+    if (!dept) dept = "Engineering Faculty";
+
+    // Code & Subject
+    const codeTitleMatch = (req.title || "").match(/(?:EMERGENCY DUTY ADJUSTMENT:\s*)?([A-Za-z0-9_-]+)\s*[-–:]\s*([^(\n]+)/i);
+    let extractedCode = codeTitleMatch ? codeTitleMatch[1].trim() : "";
+    let extractedSubject = codeTitleMatch ? codeTitleMatch[2].trim() : "";
+
+    // Description patterns
+    const descPattern = (req.description || "").match(/adjustment for\s+([A-Za-z0-9_-]+)\s+in\s+([^ ]+(?:\s+[^ ]+)?)\s+on\s+([0-9-]+)\s+\(([^)]+)\)/i);
+    let extractedRoom = "";
+    let extractedDate = "";
+    let extractedSlot = "";
+    if (descPattern) {
+      if (!extractedCode) extractedCode = descPattern[1].trim();
+      extractedRoom = descPattern[2].trim();
+      extractedDate = descPattern[3].trim();
+      extractedSlot = descPattern[4].trim();
+    }
+
+    // Reason
+    const reasonMatch = (req.description || "").match(/Reason:\s*([^.]+)/i);
+    const reason = reasonMatch ? reasonMatch[1].trim() : (req.description || "Medical/personal emergency");
+
+    // Submitted time
+    const timeSubmitted = req.history?.[0]?.timestamp || req.date || "Today";
+
+    // Matching exam in coordinatorExams
+    const matchingExam = storeState.coordinatorExams.find((e) => {
+      if (extractedCode && e.code.toLowerCase() === extractedCode.toLowerCase()) {
+        return true;
+      }
+      const cleanInv = (e.invigilator || "").replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+      if (facultyName && cleanInv && (cleanInv.includes(facultyName.toLowerCase()) || facultyName.toLowerCase().includes(cleanInv))) {
+        return true;
+      }
+      return false;
+    }) || storeState.coordinatorExams.find((e) => extractedCode && e.code.toLowerCase().includes(extractedCode.toLowerCase()))
+       || storeState.coordinatorExams[0];
+
+    const displayCode = matchingExam?.code || extractedCode || "EXAM-DUTY";
+    const displaySubject = matchingExam?.subject || (matchingExam as any)?.name || extractedSubject || "Duty Paper";
+    const displayDate = matchingExam?.date || extractedDate || req.date || "2026-11-22";
+    const displaySlot = matchingExam?.slot || extractedSlot || "Morning Slot";
+    const displayRoom = matchingExam?.room || extractedRoom || "Assigned Block";
+
+    // Compute standby pool for this exam
+    const pool = AcademicDataStore.getEmergencyStandbyPool(displayDate, matchingExam?.id);
+    const topStandby = pool?.tomorrowStandbyFaculty?.[0] || pool?.lowDutyFallbackFaculty?.[0];
+
+    return {
+      facultyName,
+      facultyId,
+      department: dept,
+      displayCode,
+      displaySubject,
+      displayDate,
+      displaySlot,
+      displayRoom,
+      reason,
+      timeSubmitted,
+      matchingExam,
+      pool,
+      topStandby,
+    };
+  };
 
   // Helper to categorize slot to Shift 1, Shift 2, Shift 3
   const getShiftCategory = (slot: string): "Shift 1 (Morning)" | "Shift 2 (Afternoon)" | "Shift 3 (Evening)" => {
@@ -1667,7 +1777,20 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
   };
 
   const handleOpenEmergencySwapModal = (exam: CoordinatorExamEntry) => {
+    setActiveEmergencyGrievanceId(null);
     setEmergencySwapExam(exam);
+    const pool = AcademicDataStore.getEmergencyStandbyPool(exam.date, exam.id);
+    setEmergencyStandbyPool(pool);
+  };
+
+  const handleOpenEmergencySwapForRequest = (
+    grievanceId: string,
+    exam: CoordinatorExamEntry,
+    reasonText: string
+  ) => {
+    setActiveEmergencyGrievanceId(grievanceId);
+    setEmergencySwapExam(exam);
+    setEmergencySwapReason(reasonText || "Faculty emergency duty swap request");
     const pool = AcademicDataStore.getEmergencyStandbyPool(exam.date, exam.id);
     setEmergencyStandbyPool(pool);
   };
@@ -1681,9 +1804,48 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
       coordinatorName
     );
     if (res.success) {
-      showToast(res.message || "Emergency spot-swap successfully executed!", "success");
+      if (activeEmergencyGrievanceId) {
+        AcademicDataStore.updateGrievanceStatus(
+          activeEmergencyGrievanceId,
+          "Resolved",
+          `Emergency swap approved. Substituted by ${substituteIdOrName}.`,
+          coordinatorName
+        );
+        setActiveEmergencyGrievanceId(null);
+      }
+      showToast(res.message || `Emergency spot-swap successfully executed! Substituted by ${substituteIdOrName}.`, "success");
       setEmergencySwapExam(null);
       setEmergencyStandbyPool(null);
+    } else {
+      showToast(res.error || "Failed to execute emergency duty swap.", "error");
+    }
+  };
+
+  const handleExecuteEmergencySwapDirect = (
+    grievanceId: string,
+    examId: string,
+    substituteName: string,
+    reasonText: string
+  ) => {
+    const res = AcademicDataStore.executeEmergencyDutySwap(
+      examId,
+      substituteName,
+      reasonText,
+      coordinatorName
+    );
+    if (res.success) {
+      AcademicDataStore.updateGrievanceStatus(
+        grievanceId,
+        "Resolved",
+        `Emergency swap approved. Substituted by ${substituteName}.`,
+        coordinatorName
+      );
+      showToast(res.message || `Emergency duty swap approved! Substituted by ${substituteName}.`, "success");
+      if (activeEmergencyGrievanceId === grievanceId) {
+        setActiveEmergencyGrievanceId(null);
+        setEmergencySwapExam(null);
+        setEmergencyStandbyPool(null);
+      }
     } else {
       showToast(res.error || "Failed to execute emergency duty swap.", "error");
     }
@@ -6058,6 +6220,284 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                 </div>
               </div>
 
+              {/* 🚨 PENDING FACULTY EMERGENCY DUTY ADJUSTMENTS ALERT PANEL */}
+              <div
+                style={{
+                  marginBottom: "20px",
+                  background: pendingEmergencyRequests.length > 0 ? "linear-gradient(135deg, #fff1f2 0%, #fff7ed 100%)" : "#f8fafc",
+                  border: pendingEmergencyRequests.length > 0 ? "2px solid #f43f5e" : "1px solid #e2e8f0",
+                  borderRadius: "12px",
+                  padding: "18px 20px",
+                  boxShadow: pendingEmergencyRequests.length > 0 ? "0 4px 16px rgba(244, 63, 94, 0.14)" : "none",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: pendingEmergencyRequests.length > 0 ? "16px" : "0",
+                    flexWrap: "wrap",
+                    gap: "10px",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <div
+                      style={{
+                        width: "40px",
+                        height: "40px",
+                        borderRadius: "10px",
+                        background: pendingEmergencyRequests.length > 0 ? "#ffe4e6" : "#f1f5f9",
+                        color: pendingEmergencyRequests.length > 0 ? "#e11d48" : "#64748b",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <ShieldAlert size={22} />
+                    </div>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                        <h2 style={{ fontSize: "16px", fontWeight: 700, margin: 0, color: pendingEmergencyRequests.length > 0 ? "#9f1239" : "#1e293b" }}>
+                          🚨 Pending Faculty Emergency Duty Adjustments
+                        </h2>
+                        <span
+                          style={{
+                            padding: "3px 10px",
+                            borderRadius: "12px",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            background: pendingEmergencyRequests.length > 0 ? "#e11d48" : "#10b981",
+                            color: "#fff",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {pendingEmergencyRequests.length > 0 && <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#fff", display: "inline-block" }} />}
+                          {pendingEmergencyRequests.length} {pendingEmergencyRequests.length === 1 ? "Request" : "Requests"} Pending Coordinator Action
+                        </span>
+                      </div>
+                      <p style={{ margin: "3px 0 0", fontSize: "12.5px", color: "#64748b" }}>
+                        {pendingEmergencyRequests.length > 0
+                          ? "Faculty members have reported emergency absence and requested instant duty adjustments. Review and execute instant spot-swaps with verified standby teachers."
+                          : "All faculty invigilation assignments are actively confirmed. Zero pending duty absence requests."}
+                      </p>
+                    </div>
+                  </div>
+                  {pendingEmergencyRequests.length === 0 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#16a34a", fontSize: "13px", fontWeight: 600 }}>
+                      <CheckCircle2 size={16} />
+                      <span>All Exam Blocks Staffed</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Multiple Faculty Emergency Requests List */}
+                {pendingEmergencyRequests.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {pendingEmergencyRequests.map((req) => {
+                      const details = getEmergencyRequestDetails(req);
+                      return (
+                        <div
+                          key={req.id}
+                          style={{
+                            background: "#ffffff",
+                            border: "1px solid #fecdd3",
+                            borderRadius: "10px",
+                            padding: "16px 18px",
+                            boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "12px",
+                          }}
+                        >
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <div
+                                style={{
+                                  width: "36px",
+                                  height: "36px",
+                                  borderRadius: "50%",
+                                  background: "#eff6ff",
+                                  color: "#2563eb",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontWeight: 700,
+                                  fontSize: "13px",
+                                  border: "1px solid #bfdbfe",
+                                }}
+                              >
+                                {details.facultyName.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
+                              </div>
+                              <div>
+                                <div style={{ fontSize: "14px", fontWeight: 700, color: "#1e293b", display: "flex", alignItems: "center", gap: "6px" }}>
+                                  <span>{details.facultyName}</span>
+                                  {details.facultyId && (
+                                    <span style={{ fontSize: "11px", color: "#64748b", background: "#f1f5f9", padding: "1px 6px", borderRadius: "4px" }}>
+                                      {details.facultyId}
+                                    </span>
+                                  )}
+                                  <span style={{ fontSize: "11.5px", color: "#2563eb", fontWeight: 600 }}>
+                                    · {details.department}
+                                  </span>
+                                </div>
+                                <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+                                  Ticket #{req.ticketNumber || req.id} · Submitted: <strong>{details.timeSubmitted}</strong>
+                                </div>
+                              </div>
+                            </div>
+
+                            <span
+                              style={{
+                                background: "#fee2e2",
+                                color: "#b91c1c",
+                                fontSize: "11.5px",
+                                fontWeight: 700,
+                                padding: "3px 10px",
+                                borderRadius: "6px",
+                                border: "1px solid #fecdd3",
+                              }}
+                            >
+                              URGENT DUTY ADJUSTMENT
+                            </span>
+                          </div>
+
+                          {/* Grid of details: Paper, Date/Slot, Room, Reason */}
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                              gap: "10px",
+                              background: "#f8fafc",
+                              padding: "12px 14px",
+                              borderRadius: "8px",
+                              border: "1px solid #e2e8f0",
+                              fontSize: "12.5px",
+                            }}
+                          >
+                            <div>
+                              <div style={{ color: "#64748b", fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>Paper Code & Title</div>
+                              <div style={{ fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>
+                                {details.displayCode} — {details.displaySubject}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ color: "#64748b", fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>Date & Time Slot</div>
+                              <div style={{ fontWeight: 600, color: "#1e3a8a", marginTop: "2px" }}>
+                                📅 {details.displayDate} · ⏰ {details.displaySlot}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ color: "#64748b", fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>Examination Block</div>
+                              <div style={{ fontWeight: 600, color: "#047857", marginTop: "2px" }}>
+                                🏛️ {details.displayRoom}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ color: "#64748b", fontSize: "11px", fontWeight: 600, textTransform: "uppercase" }}>Reported Reason</div>
+                              <div style={{ fontWeight: 600, color: "#b91c1c", marginTop: "2px" }}>
+                                ⚠️ {details.reason}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Row */}
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              flexWrap: "wrap",
+                              gap: "10px",
+                              paddingTop: "4px",
+                            }}
+                          >
+                            {/* Standby recommendation info */}
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "#475569" }}>
+                              <Sparkles size={15} color="#d97706" />
+                              <span>
+                                {details.topStandby ? (
+                                  <>
+                                    Recommended Standby: <strong>{details.topStandby.name}</strong> ({details.topStandby.departmentCode})
+                                    {" · "}{details.topStandby.assignedDuties}/{details.topStandby.maxDuties} Duties
+                                  </>
+                                ) : (
+                                  "Standby Faculty Available via Central Pool"
+                                )}
+                              </span>
+                            </div>
+
+                            {/* Buttons */}
+                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                              {details.topStandby && details.matchingExam && (
+                                <button
+                                  type="button"
+                                  className="dash-btn"
+                                  style={{
+                                    background: "#059669",
+                                    borderColor: "#059669",
+                                    color: "#ffffff",
+                                    fontSize: "12px",
+                                    fontWeight: 700,
+                                    padding: "6px 14px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "6px",
+                                  }}
+                                  onClick={() =>
+                                    handleExecuteEmergencySwapDirect(
+                                      req.id,
+                                      details.matchingExam.id,
+                                      details.topStandby.name,
+                                      details.reason
+                                    )
+                                  }
+                                  title={`Immediately swap ${details.facultyName} with top standby ${details.topStandby.name}`}
+                                >
+                                  <ArrowLeftRight size={14} />
+                                  <span>Swap with Top Standby ({details.topStandby.name.split(" ")[0]})</span>
+                                </button>
+                              )}
+
+                              {details.matchingExam && (
+                                <button
+                                  type="button"
+                                  className="dash-btn dash-btn-primary"
+                                  style={{
+                                    background: "#e11d48",
+                                    borderColor: "#e11d48",
+                                    color: "#ffffff",
+                                    fontSize: "12px",
+                                    fontWeight: 700,
+                                    padding: "6px 14px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "6px",
+                                  }}
+                                  onClick={() =>
+                                    handleOpenEmergencySwapForRequest(
+                                      req.id,
+                                      details.matchingExam,
+                                      details.reason
+                                    )
+                                  }
+                                  title="Open Emergency Swap Modal to choose candidate or review schedule"
+                                >
+                                  <Zap size={14} />
+                                  <span>⚡ Execute Emergency Swap</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               {/* View Mode Tabs */}
               <div
                 style={{
@@ -6968,19 +7408,87 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
 
               {/* Emergency Substitution & Spot-Swap Modal */}
               {emergencySwapExam && (
-                <div className="dash-modal-backdrop" onClick={() => setEmergencySwapExam(null)}>
+                <div
+                  className="dash-modal-backdrop"
+                  onClick={() => {
+                    setEmergencySwapExam(null);
+                    setActiveEmergencyGrievanceId(null);
+                  }}
+                >
                   <div className="dash-modal" style={{ maxWidth: "680px" }} onClick={(e) => e.stopPropagation()}>
                     <div className="dash-modal-header">
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <ShieldAlert size={20} style={{ color: "#d97706" }} />
                         <h3 className="dash-modal-title">Emergency Faculty Substitution & Spot-Swap</h3>
                       </div>
-                      <button type="button" className="dash-modal-close" onClick={() => setEmergencySwapExam(null)}>
+                      <button
+                        type="button"
+                        className="dash-modal-close"
+                        onClick={() => {
+                          setEmergencySwapExam(null);
+                          setActiveEmergencyGrievanceId(null);
+                        }}
+                      >
                         <X size={16} />
                       </button>
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                      {/* Active Grievance Notice Banner if triggered from Emergency Request */}
+                      {activeEmergencyGrievanceId && (
+                        <div
+                          style={{
+                            padding: "10px 14px",
+                            background: "#fff1f2",
+                            border: "1px solid #fecdd3",
+                            borderRadius: "8px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: "10px",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <ShieldAlert size={18} color="#e11d48" />
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: "13px", color: "#9f1239" }}>
+                                Resolving Faculty Emergency Adjustment Request
+                              </div>
+                              <div style={{ fontSize: "11.5px", color: "#64748b" }}>
+                                Selecting a substitute faculty will automatically execute the swap and mark grievance #{activeEmergencyGrievanceId} as Resolved.
+                              </div>
+                            </div>
+                          </div>
+                          {(emergencyStandbyPool?.tomorrowStandbyFaculty?.[0] || emergencyStandbyPool?.lowDutyFallbackFaculty?.[0]) && (
+                            <button
+                              type="button"
+                              className="dash-btn"
+                              style={{
+                                background: "#e11d48",
+                                color: "#fff",
+                                borderColor: "#e11d48",
+                                fontWeight: 700,
+                                fontSize: "12px",
+                                padding: "6px 14px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "6px",
+                              }}
+                              onClick={() => {
+                                const topCand = emergencyStandbyPool?.tomorrowStandbyFaculty?.[0] || emergencyStandbyPool?.lowDutyFallbackFaculty?.[0];
+                                if (topCand) {
+                                  handleExecuteEmergencySwap(topCand.name);
+                                }
+                              }}
+                            >
+                              <Zap size={13} />
+                              <span>Swap with Top Standby ({((emergencyStandbyPool?.tomorrowStandbyFaculty?.[0] || emergencyStandbyPool?.lowDutyFallbackFaculty?.[0])?.name || "").split(" ")[0]})</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+
                       {/* Paper details */}
                       <div style={{ padding: "12px 16px", background: "var(--bg-app)", borderRadius: "8px", fontSize: "13px", border: "1px solid var(--border-default)" }}>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
@@ -7124,7 +7632,14 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                       </div>
 
                       <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
-                        <button type="button" className="dash-btn dash-btn-outline" onClick={() => setEmergencySwapExam(null)}>
+                        <button
+                          type="button"
+                          className="dash-btn dash-btn-outline"
+                          onClick={() => {
+                            setEmergencySwapExam(null);
+                            setActiveEmergencyGrievanceId(null);
+                          }}
+                        >
                           Cancel
                         </button>
                       </div>

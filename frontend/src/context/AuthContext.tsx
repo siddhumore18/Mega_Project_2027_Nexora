@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { UserRole } from "@nexora/contracts";
 import { KIT_STUDENTS_DATA } from "../data/kitStudentData.js";
+import { KIT_REAL_FACULTY } from "../data/kitRealFaculty.js";
 
 export interface UserProfile {
   id: string;
@@ -29,13 +30,13 @@ export const PRESET_USERS: Record<string, UserProfile> = {
     enrolledSubjectCodes: ["UCSPC0701", "UCSPC0702", "UCSPC0703", "UCSPE0711", "UILOE0726"],
   },
   faculty: {
-    id: "usr-fac-101",
+    id: "usr-11",
     name: "Dr. Arvind Sharma",
     email: "arvind.sharma@nexora.edu",
     role: UserRole.FACULTY,
-    department: "Computer Science & Engineering",
-    identifier: "FAC-1082",
-    designation: "Associate Professor & Senior Invigilator",
+    department: "CSE — Department of Engineering",
+    identifier: "FAC-1081",
+    designation: "Assistant Professor / Invigilator",
     avatarInitials: "AS",
   },
   coordinator: {
@@ -166,7 +167,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // ── 2. Demo role aliases ─────────────────────────────────────────────────
+    // ── 2. Try matching any KIT faculty by identifier, email, or role ─────────
+    let faculty = KIT_REAL_FACULTY.find((f) => {
+      const emailMatch = f.email && f.email.toLowerCase() === cleanEmail;
+      const idMatch = f.identifier && f.identifier.toLowerCase() === cleanEmail;
+      const facIdMatch = (f.facultyId && f.facultyId.toLowerCase() === cleanEmail) || (f.id && f.id.toLowerCase() === cleanEmail);
+      return emailMatch || idMatch || facIdMatch;
+    });
+
+    if (!faculty && role === UserRole.FACULTY) {
+      faculty = KIT_REAL_FACULTY.find((f) =>
+        cleanEmail && (
+          (f.email && f.email.toLowerCase().includes(cleanEmail)) ||
+          (f.identifier && cleanEmail.includes(f.identifier.toLowerCase())) ||
+          (f.name && f.name.toLowerCase().includes(cleanEmail))
+        )
+      ) || KIT_REAL_FACULTY[0];
+    }
+
+    if (faculty && (
+      role === UserRole.FACULTY ||
+      cleanEmail === faculty.identifier?.toLowerCase() ||
+      cleanEmail === faculty.email?.toLowerCase() ||
+      cleanEmail === faculty.facultyId?.toLowerCase() ||
+      cleanEmail === faculty.id?.toLowerCase()
+    )) {
+      const initials = faculty.name
+        .split(" ")
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase();
+      setCurrentUser({
+        id: faculty.facultyId || faculty.id,
+        name: faculty.name,
+        email: faculty.email,
+        role: UserRole.FACULTY,
+        department: faculty.departmentCode + " — Department of Engineering",
+        identifier: faculty.identifier,
+        designation: "Assistant Professor / Invigilator",
+        avatarInitials: initials,
+      });
+      return true;
+    }
+
+    // ── 3. Demo role aliases ─────────────────────────────────────────────────
     if (cleanEmail === "coordinator@nexora.edu" || (role === UserRole.EXAM_COORDINATOR && cleanEmail.includes("coordinator"))) {
       setCurrentUser(PRESET_USERS.coordinator);
       return true;

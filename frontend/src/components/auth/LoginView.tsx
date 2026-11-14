@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { UserRole } from "@nexora/contracts";
 import { useAuth } from "../../context/AuthContext.js";
-import { Lock, Mail, ShieldCheck, ArrowRight, UserCheck, GraduationCap, Shield } from "lucide-react";
+import { Lock, Mail, ShieldCheck, ArrowRight, UserCheck, GraduationCap, Shield, BookOpen } from "lucide-react";
+import "../../styles/login.css";
 
 interface LoginViewProps {
   onSuccess?: () => void;
@@ -19,7 +20,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
   const handleManualLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
-      setErrors({ email: "University email or Roll Number is required" });
+      setErrors({ email: "University email, Faculty ID, or Roll Number is required" });
       return;
     }
 
@@ -30,18 +31,18 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
       if (ok) {
         if (onSuccess) onSuccess();
       } else {
-        setErrors({ email: "Account not found. Use @kit.edu email or Roll Number (e.g. CSE2025001)." });
+        setErrors({ email: "Account not found. Use e.g. FAC-1081, arvind.sharma@nexora.edu, or Roll Number." });
       }
     }, 400);
   };
 
-  const handleQuickLogin = (key: "coordinator" | "student" | "admin") => {
+  const handleQuickLogin = (key: "coordinator" | "faculty" | "student" | "admin") => {
     loginAsPreset(key);
     if (onSuccess) onSuccess();
   };
 
   return (
-    <div style={{ width: "100%", maxWidth: "460px", margin: "0 auto", padding: "24px 16px" }}>
+    <div className="login-container" style={{ width: "100%", maxWidth: "480px", margin: "0 auto" }}>
       {/* Brand Header */}
       <div style={{ textAlign: "center", marginBottom: "20px" }}>
         <div
@@ -72,10 +73,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
 
       {/* Main Login Card */}
       <div
+        className="login-card"
         style={{
           background: "#ffffff",
           borderRadius: "16px",
-          padding: "28px 26px",
+          padding: "28px 24px",
           boxShadow: "0 10px 30px -5px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04)",
           border: "1px solid #e2e8f0",
         }}
@@ -85,7 +87,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
           <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "8px" }}>
             Instant Demo Sign-In
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "6px" }}>
             <button
               type="button"
               onClick={() => handleQuickLogin("coordinator")}
@@ -94,7 +96,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                 flexDirection: "column",
                 alignItems: "center",
                 gap: "4px",
-                padding: "10px 8px",
+                padding: "10px 4px",
                 borderRadius: "10px",
                 border: "1px solid #bfdbfe",
                 background: "#f0f7ff",
@@ -103,8 +105,29 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               }}
             >
               <UserCheck size={16} color="#2563eb" />
-              <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#1e40af" }}>Coordinator</span>
-              <span style={{ fontSize: "10px", color: "#64748b" }}>Exam Cell</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#1e40af" }}>Coordinator</span>
+              <span style={{ fontSize: "9px", color: "#64748b", whiteSpace: "nowrap" }}>Exam Cell</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleQuickLogin("faculty")}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "4px",
+                padding: "10px 4px",
+                borderRadius: "10px",
+                border: "1px solid #fed7aa",
+                background: "#fff7ed",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <BookOpen size={16} color="#ea580c" />
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#c2410c" }}>Faculty</span>
+              <span style={{ fontSize: "9px", color: "#64748b", whiteSpace: "nowrap" }}>Dr. Sharma</span>
             </button>
 
             <button
@@ -115,7 +138,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                 flexDirection: "column",
                 alignItems: "center",
                 gap: "4px",
-                padding: "10px 8px",
+                padding: "10px 4px",
                 borderRadius: "10px",
                 border: "1px solid #bbf7d0",
                 background: "#f0fdf4",
@@ -124,8 +147,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               }}
             >
               <GraduationCap size={16} color="#16a34a" />
-              <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#15803d" }}>Student</span>
-              <span style={{ fontSize: "10px", color: "#64748b" }}>Aarav (Sem 7)</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#15803d" }}>Student</span>
+              <span style={{ fontSize: "9px", color: "#64748b", whiteSpace: "nowrap" }}>Aarav (Sem 7)</span>
             </button>
 
             <button
@@ -136,7 +159,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                 flexDirection: "column",
                 alignItems: "center",
                 gap: "4px",
-                padding: "10px 8px",
+                padding: "10px 4px",
                 borderRadius: "10px",
                 border: "1px solid #ddd6fe",
                 background: "#f5f3ff",
@@ -145,8 +168,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               }}
             >
               <Shield size={16} color="#7c3aed" />
-              <span style={{ fontSize: "11.5px", fontWeight: 700, color: "#6d28d9" }}>Admin</span>
-              <span style={{ fontSize: "10px", color: "#64748b" }}>University</span>
+              <span style={{ fontSize: "11px", fontWeight: 700, color: "#6d28d9" }}>Admin</span>
+              <span style={{ fontSize: "9px", color: "#64748b", whiteSpace: "nowrap" }}>University</span>
             </button>
           </div>
         </div>
@@ -163,29 +186,31 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
           {/* Role Pill Selector */}
           <div style={{ marginBottom: "16px" }}>
             <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "6px" }}>
-              Academic Role
+              Target Academic Role
             </label>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "6px", background: "#f1f5f9", padding: "4px", borderRadius: "8px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "6px", background: "#f1f5f9", padding: "4px", borderRadius: "8px" }}>
               {[
                 { role: UserRole.EXAM_COORDINATOR, label: "Coordinator" },
+                { role: UserRole.FACULTY, label: "Faculty" },
                 { role: UserRole.STUDENT, label: "Student" },
-                { role: UserRole.ADMIN, label: "Admin" },
+                { role: UserRole.ADMIN, label: "Administrator" },
               ].map((item) => (
                 <button
                   type="button"
                   key={item.role}
                   onClick={() => setSelectedRole(item.role)}
                   style={{
-                    padding: "6px 8px",
+                    padding: "6px 2px",
                     borderRadius: "6px",
                     border: "none",
                     background: selectedRole === item.role ? "#ffffff" : "transparent",
                     color: selectedRole === item.role ? "#2563eb" : "#64748b",
                     fontWeight: selectedRole === item.role ? 700 : 500,
-                    fontSize: "12px",
+                    fontSize: "11.5px",
                     cursor: "pointer",
                     boxShadow: selectedRole === item.role ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
                     transition: "all 0.15s ease",
+                    textAlign: "center",
                   }}
                 >
                   {item.label}
@@ -197,13 +222,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
           {/* Email / Roll Number */}
           <div style={{ marginBottom: "14px" }}>
             <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "6px" }}>
-              Email or Roll Number <span style={{ color: "#ef4444" }}>*</span>
+              Faculty ID, Email or Roll Number <span style={{ color: "#ef4444" }}>*</span>
             </label>
             <div style={{ position: "relative" }}>
               <Mail size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
               <input
                 type="text"
-                placeholder="e.g. aarav.sharma@kit.edu or CSE2025001"
+                placeholder="e.g. FAC-1081 or arvind.sharma@nexora.edu"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
@@ -226,7 +251,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               <div style={{ color: "#ef4444", fontSize: "11.5px", marginTop: "4px" }}>{errors.email}</div>
             ) : (
               <div style={{ color: "#64748b", fontSize: "11px", marginTop: "4px" }}>
-                For students: Use your @kit.edu email or Roll Number
+                Faculty: Use ID (e.g. FAC-1081) or email • Students: Roll Number
               </div>
             )}
           </div>
@@ -272,7 +297,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
               <div style={{ color: "#ef4444", fontSize: "11.5px", marginTop: "4px" }}>{errors.password}</div>
             ) : (
               <div style={{ color: "#64748b", fontSize: "11px", marginTop: "4px" }}>
-                Students: Your Roll Number is your password (e.g. CSE2025001)
+                Faculty: ID or email (or leave empty) • Students: Roll Number
               </div>
             )}
           </div>

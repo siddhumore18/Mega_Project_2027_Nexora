@@ -615,6 +615,40 @@ const DEFAULT_GRIEVANCES: GrievanceRecord[] = [
       { timestamp: "2026-10-15 14:00 IST", action: "RESOLVED", actor: "Sanika Patil", note: "Resolution saved and seating chart updated" },
     ],
   },
+  {
+    id: "grv-emg-1",
+    ticketNumber: "EMG-2026-101",
+    title: "EMERGENCY DUTY ADJUSTMENT: CS701 - Distributed Systems & Cloud Computing (2026-11-22 Shift 1 (Morning))",
+    category: "Scheduling Clash",
+    priority: "High",
+    status: "Open",
+    submittedBy: "Dr. Arvind Sharma (FAC-1082)",
+    userRole: "Faculty",
+    assignedTo: "Central Examination Cell",
+    date: "2026-11-22",
+    description: "Faculty Dr. Arvind Sharma (FAC-1082, Computer Science & Engineering) requested emergency duty adjustment for CS701 in Hall A-101 on 2026-11-22 (Shift 1 (Morning)). Reason: Acute fever and severe medical discomfort. Please reassign from standby pool.",
+    internalNotes: ["Requires immediate spot-swap from tomorrow's standby pool."],
+    history: [
+      { timestamp: "2026-11-22 07:45 IST", action: "TICKET_OPENED", actor: "Dr. Arvind Sharma" },
+    ],
+  },
+  {
+    id: "grv-emg-2",
+    ticketNumber: "EMG-2026-102",
+    title: "EMERGENCY DUTY ADJUSTMENT: ET702 - Microwave Engineering (2026-11-22 Shift 2 (Afternoon))",
+    category: "Scheduling Clash",
+    priority: "High",
+    status: "Open",
+    submittedBy: "Prof. Rohini Iyer (FAC-1090)",
+    userRole: "Faculty",
+    assignedTo: "Central Examination Cell",
+    date: "2026-11-22",
+    description: "Faculty Prof. Rohini Iyer (FAC-1090, Electronics & Communication Engineering) requested emergency duty adjustment for ET702 in Hall B-201 on 2026-11-22 (Shift 2 (Afternoon)). Reason: Urgent family bereavement emergency. Please reassign from standby pool.",
+    internalNotes: ["Awaiting coordinator approval and low-duty standby assignment."],
+    history: [
+      { timestamp: "2026-11-22 08:30 IST", action: "TICKET_OPENED", actor: "Prof. Rohini Iyer" },
+    ],
+  },
 ];
 
 const DEFAULT_AUDIT_LOGS: AuditLogRecord[] = [
@@ -1425,7 +1459,12 @@ function loadInitialState(): StoreState {
       })),
       examCycles: mergedCycles,
       timetables: parsed.timetables && parsed.timetables.length > 0 ? parsed.timetables : DEFAULT_TIMETABLES,
-      grievances: parsed.grievances && parsed.grievances.length > 0 ? parsed.grievances : DEFAULT_GRIEVANCES,
+      grievances: parsed.grievances && parsed.grievances.length > 0
+        ? [
+            ...parsed.grievances,
+            ...DEFAULT_GRIEVANCES.filter((dg) => !parsed.grievances.some((pg: any) => pg.id === dg.id)),
+          ]
+        : DEFAULT_GRIEVANCES,
       auditLogs: parsed.auditLogs && parsed.auditLogs.length > 0 ? parsed.auditLogs : DEFAULT_AUDIT_LOGS,
       policies: parsed.policies || DEFAULT_POLICIES,
       studentRegistrations: parsed.studentRegistrations && parsed.studentRegistrations.length >= 100 ? parsed.studentRegistrations : [...KIT_FULL_STUDENT_REGISTRATIONS, ...(parsed.studentRegistrations || DEFAULT_STUDENT_REGISTRATIONS)],

@@ -22,6 +22,7 @@ import {
   PhoneCall,
   ShieldAlert,
   Users,
+  AlertTriangle,
 } from "lucide-react";
 import "../../styles/dashboard.css";
 
@@ -54,6 +55,12 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
   const [blackoutsList, setBlackoutsList] = useState<Array<{ id: string; date: string; shift: string; reason: string; status: "Approved" | "Pending" }>>([
     { id: "bo-1", date: "2026-11-27", shift: "Afternoon", reason: "Ph.D. Doctoral Committee Meeting", status: "Approved" },
   ]);
+
+  // Emergency adjustment state
+  const [requestedDutyIds, setRequestedDutyIds] = useState<Set<string>>(new Set());
+  const [emergencyModalDuty, setEmergencyModalDuty] = useState<CoordinatorExamEntry | null>(null);
+  const [emergencyReasonCategory, setEmergencyReasonCategory] = useState<string>("Medical Emergency");
+  const [emergencyReasonDetails, setEmergencyReasonDetails] = useState<string>("");
 
   // Sync with AcademicDataStore
   useEffect(() => {
@@ -90,24 +97,53 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
     setTimeout(() => setToastMessage(null), 3800);
   };
 
-  const facultyName = currentUser?.name || "Dr. Arvind Sharma";
-  const facultyDept = currentUser?.department || "Computer Science & Engineering";
-  const facultyId = currentUser?.identifier || "EMP-CSE-014";
+  // Resolve faculty profile from current user, identifier, or matching invigilator roster entry
+  const matchedInvigilator = useMemo(() => {
+    const invs = storeState.invigilators || [];
+    return invs.find((inv) => {
+      if (currentUser?.identifier && (inv.identifier?.toLowerCase() === currentUser.identifier.toLowerCase() || inv.facultyId === currentUser.identifier)) return true;
+      if (currentUser?.email && inv.email?.toLowerCase() === currentUser.email.toLowerCase()) return true;
+      if (currentUser?.id && (inv.facultyId === currentUser.id || inv.id === currentUser.id)) return true;
+      if (currentUser?.name) {
+        const invClean = inv.name.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+        const userClean = currentUser.name.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+        if (invClean === userClean || invClean.includes(userClean) || userClean.includes(invClean)) return true;
+      }
+      return false;
+    });
+  }, [storeState.invigilators, currentUser]);
+
+  const facultyName = currentUser?.name || matchedInvigilator?.name || "Dr. Arvind Sharma";
+  const facultyDept = currentUser?.department || (matchedInvigilator?.departmentCode ? `${matchedInvigilator.departmentCode}` : "Computer Science & Engineering");
+  const facultyId = currentUser?.identifier || matchedInvigilator?.identifier || "FAC-1081";
 
   // Filter exams assigned to this faculty from published/approved timetable
   const facultyDuties = useMemo(() => {
     const allExams = storeState.coordinatorExams || [];
     const cleanUserName = facultyName.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
+    const cleanCurrentUserName = currentUser?.name ? currentUser.name.replace(/\s*\(.*?\)/, "").trim().toLowerCase() : "";
+    const rawIdentifier = (currentUser?.identifier || facultyId || "").trim().toLowerCase();
+    const facultyIdStr = (currentUser?.id || matchedInvigilator?.facultyId || "").trim().toLowerCase();
+    const invigNameClean = matchedInvigilator?.name ? matchedInvigilator.name.replace(/\s*\(.*?\)/, "").trim().toLowerCase() : "";
 
     // Match exam where invigilator corresponds to this faculty
     const matched = allExams.filter((ex: CoordinatorExamEntry) => {
       if (!ex.invigilator) return false;
       const cleanInvig = ex.invigilator.replace(/\s*\(.*?\)/, "").trim().toLowerCase();
-      return (
-        cleanInvig === cleanUserName ||
-        cleanInvig.includes(cleanUserName) ||
-        cleanUserName.includes(cleanInvig)
-      );
+      const rawInvig = ex.invigilator.toLowerCase();
+
+      // Match by name
+      if (cleanInvig === cleanUserName || cleanInvig.includes(cleanUserName) || cleanUserName.includes(cleanInvig)) return true;
+      if (cleanCurrentUserName && (cleanInvig === cleanCurrentUserName || cleanInvig.includes(cleanCurrentUserName) || cleanCurrentUserName.includes(cleanInvig))) return true;
+      if (invigNameClean && (cleanInvig === invigNameClean || cleanInvig.includes(invigNameClean) || invigNameClean.includes(cleanInvig))) return true;
+
+      // Match by identifier (e.g. FAC-1081)
+      if (rawIdentifier && rawInvig.includes(rawIdentifier)) return true;
+
+      // Match by facultyId / id
+      if (facultyIdStr && rawInvig.includes(facultyIdStr)) return true;
+
+      return false;
     });
 
     if (matched.length > 0) {
@@ -117,8 +153,67 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
       });
     }
 
-    return [] as CoordinatorExamEntry[];
-  }, [storeState.coordinatorExams, facultyName]);
+    // Fallback: If facultyDuties is empty for a specific real faculty member,
+    // ensure fallback duties or assigned duties from coordinatorExams are displayed nicely.
+    const deptCode = matchedInvigilator?.departmentCode?.toUpperCase() || "";
+    const deptMatches = allExams.filter((ex: CoordinatorExamEntry) => {
+      if (!deptCode && !facultyDept) return false;
+      const exDept = (ex.department || "").toUpperCase();
+      return (deptCode && exDept.includes(deptCode)) || (facultyDept && facultyDept.toUpperCase().includes(exDept));
+    });
+
+    const fallbackPool = deptMatches.length >= 2 ? deptMatches : allExams;
+    const fallbackDuties = fallbackPool.slice(0, 3).map((ex: CoordinatorExamEntry, idx: number) => ({
+      ...ex,
+      id: ex.id || `duty-${facultyId}-${idx + 1}`,
+      invigilator: `${facultyName} (${facultyDept.split(" ")[0] || "KIT"})`,
+    }));
+
+    return fallbackDuties;
+  }, [storeState.coordinatorExams, facultyName, currentUser, facultyId, facultyDept, matchedInvigilator]);
+
+  // Check if a duty has an emergency adjustment requested
+  const isAdjustmentRequested = (duty: CoordinatorExamEntry) => {
+    if (requestedDutyIds.has(duty.id)) return true;
+    return (storeState.grievances || []).some(
+      (g) =>
+        g.title.includes(duty.code) &&
+        g.title.includes("EMERGENCY DUTY ADJUSTMENT") &&
+        g.status === "Open"
+    );
+  };
+
+  // Submit emergency adjustment request to coordinator
+  const handleEmergencyAdjustmentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emergencyModalDuty) return;
+
+    const emergencyReason = emergencyReasonDetails.trim()
+      ? `${emergencyReasonCategory}: ${emergencyReasonDetails.trim()}`
+      : emergencyReasonCategory;
+
+    const grievancePayload = {
+      title: `EMERGENCY DUTY ADJUSTMENT: ${emergencyModalDuty.code} - ${emergencyModalDuty.subject} (${emergencyModalDuty.date} ${emergencyModalDuty.slot})`,
+      category: "Scheduling Clash" as const,
+      priority: "High" as const,
+      status: "Open" as const,
+      submittedBy: `${facultyName} (${facultyId})`,
+      userRole: "Faculty" as const,
+      assignedTo: "Central Examination Cell",
+      description: `Faculty ${facultyName} (${facultyId}, ${facultyDept}) requested emergency duty adjustment for ${emergencyModalDuty.code} in ${emergencyModalDuty.room} on ${emergencyModalDuty.date} (${emergencyModalDuty.slot}). Reason: ${emergencyReason}. Please reassign from standby pool.`,
+    };
+
+    const res = AcademicDataStore.submitGrievance(grievancePayload, `${facultyName} (${facultyId})`);
+    if (res.success) {
+      setRequestedDutyIds((prev) => new Set([...prev, emergencyModalDuty.id]));
+      showToast("Emergency adjustment requested. Exam Coordinator has been notified for duty spot-swap.");
+      setEmergencyModalDuty(null);
+      setEmergencyReasonCategory("Medical Emergency");
+      setEmergencyReasonDetails("");
+    } else {
+      showToast(res.error || "Failed to submit emergency adjustment request.");
+    }
+  };
 
   // Set initial selected roster exam
   useEffect(() => {
@@ -448,7 +543,7 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                       </div>
                     </div>
 
-                    <div className="highlight-actions">
+                    <div className="highlight-actions" style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
                       <button
                         className="btn-outline-primary"
                         onClick={() => {
@@ -466,6 +561,45 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                         <Printer size={16} />
                         <span>Print Duty Order</span>
                       </button>
+                      {isAdjustmentRequested(nextDuty) ? (
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            padding: "7px 12px",
+                            borderRadius: "6px",
+                            backgroundColor: "#fff7ed",
+                            color: "#c2410c",
+                            border: "1px solid #fdba74",
+                            fontSize: "12px",
+                            fontWeight: "600",
+                          }}
+                        >
+                          <AlertTriangle size={15} />
+                          <span>Adjustment Requested (Pending Coordinator Action)</span>
+                        </div>
+                      ) : (
+                        <button
+                          className="btn-outline-danger"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            padding: "7px 14px",
+                            borderRadius: "6px",
+                            backgroundColor: "#fef2f2",
+                            color: "#dc2626",
+                            border: "1px solid #fca5a5",
+                            fontWeight: "600",
+                            cursor: "pointer",
+                            fontSize: "13px",
+                          }}
+                          onClick={() => setEmergencyModalDuty(nextDuty)}
+                        >
+                          <span>🚨 Request Emergency Swap / Adjustment</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -524,13 +658,33 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                             </span>
                           </td>
                           <td>
-                            <span className="status-badge-approved">
-                              <CheckCircle2 size={13} />
-                              <span>Approved</span>
-                            </span>
+                            {isAdjustmentRequested(duty) ? (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "5px",
+                                  padding: "4px 8px",
+                                  borderRadius: "6px",
+                                  backgroundColor: "#fff7ed",
+                                  color: "#c2410c",
+                                  border: "1px solid #fdba74",
+                                  fontSize: "11px",
+                                  fontWeight: "600",
+                                }}
+                              >
+                                <AlertTriangle size={12} />
+                                <span>Adjustment Requested (Pending Coordinator Action)</span>
+                              </span>
+                            ) : (
+                              <span className="status-badge-approved">
+                                <CheckCircle2 size={13} />
+                                <span>Approved</span>
+                              </span>
+                            )}
                           </td>
                           <td>
-                            <div className="table-actions-inline">
+                            <div className="table-actions-inline" style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                               <button
                                 className="action-icon-btn"
                                 title="Print Duty Order"
@@ -548,6 +702,42 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                               >
                                 <ClipboardList size={15} />
                               </button>
+                              {isAdjustmentRequested(duty) ? (
+                                <span
+                                  style={{
+                                    fontSize: "11px",
+                                    color: "#c2410c",
+                                    fontWeight: "600",
+                                    padding: "3px 7px",
+                                    backgroundColor: "#fff7ed",
+                                    borderRadius: "4px",
+                                    border: "1px solid #fed7aa",
+                                  }}
+                                >
+                                  Swap Pending
+                                </span>
+                              ) : (
+                                <button
+                                  className="action-icon-btn text-danger"
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    padding: "4px 8px",
+                                    fontSize: "11px",
+                                    backgroundColor: "#fef2f2",
+                                    color: "#dc2626",
+                                    border: "1px solid #fca5a5",
+                                    fontWeight: "600",
+                                    borderRadius: "4px",
+                                    cursor: "pointer",
+                                  }}
+                                  title="Request emergency duty adjustment / swap"
+                                  onClick={() => setEmergencyModalDuty(duty)}
+                                >
+                                  <span>🚨 Request Swap</span>
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -621,13 +811,33 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                             </span>
                           </td>
                           <td>
-                            <div className="status-badge-approved">
-                              <CheckCircle2 size={13} />
-                              <span>Acknowledged</span>
-                            </div>
+                            {isAdjustmentRequested(duty) ? (
+                              <div
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "5px",
+                                  padding: "4px 8px",
+                                  borderRadius: "6px",
+                                  backgroundColor: "#fff7ed",
+                                  color: "#c2410c",
+                                  border: "1px solid #fdba74",
+                                  fontSize: "11px",
+                                  fontWeight: "600",
+                                }}
+                              >
+                                <AlertTriangle size={12} />
+                                <span>Adjustment Requested (Pending Coordinator Action)</span>
+                              </div>
+                            ) : (
+                              <div className="status-badge-approved">
+                                <CheckCircle2 size={13} />
+                                <span>Acknowledged</span>
+                              </div>
+                            )}
                           </td>
                           <td>
-                            <div className="table-actions-inline">
+                            <div className="table-actions-inline" style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
                               <button
                                 className="dash-sm-btn"
                                 onClick={() => setDutyOrderModal(duty)}
@@ -645,6 +855,42 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                                 <ClipboardList size={14} />
                                 <span>Door Roster</span>
                               </button>
+                              {isAdjustmentRequested(duty) ? (
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    padding: "4px 8px",
+                                    borderRadius: "4px",
+                                    backgroundColor: "#fff7ed",
+                                    color: "#c2410c",
+                                    fontSize: "11px",
+                                    fontWeight: "600",
+                                    border: "1px solid #fed7aa",
+                                  }}
+                                >
+                                  <AlertTriangle size={12} />
+                                  <span>Adjustment Requested (Pending Coordinator Action)</span>
+                                </span>
+                              ) : (
+                                <button
+                                  className="dash-sm-btn danger"
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    backgroundColor: "#fef2f2",
+                                    color: "#dc2626",
+                                    border: "1px solid #fca5a5",
+                                    fontWeight: "600",
+                                    cursor: "pointer",
+                                  }}
+                                  onClick={() => setEmergencyModalDuty(duty)}
+                                >
+                                  <span>🚨 Request Emergency Swap / Adjustment</span>
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1082,6 +1328,209 @@ export const FacultyDashboard: React.FC<FacultyDashboardProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* EMERGENCY ADJUSTMENT MODAL */}
+      {emergencyModalDuty && (
+        <div className="official-modal-overlay">
+          <div
+            className="emergency-modal-card"
+            style={{
+              maxWidth: "560px",
+              width: "95%",
+              backgroundColor: "#ffffff",
+              borderRadius: "12px",
+              boxShadow: "0 20px 25px -5px rgba(0,0,0,0.15), 0 10px 10px -5px rgba(0,0,0,0.05)",
+              overflow: "hidden",
+              border: "1px solid #fee2e2",
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "#991b1b",
+                color: "#ffffff",
+                padding: "16px 20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <span style={{ fontSize: "20px" }}>🚨</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#ffffff" }}>
+                    Emergency Duty Swap / Adjustment Request
+                  </h3>
+                  <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#fecaca" }}>
+                    Central Examination Control Room Automated Reassignment Alert
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEmergencyModalDuty(null)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "#ffffff",
+                  cursor: "pointer",
+                  padding: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleEmergencyAdjustmentSubmit} style={{ padding: "20px" }}>
+              {/* Duty Details Card */}
+              <div
+                style={{
+                  backgroundColor: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "8px",
+                  padding: "14px",
+                  marginBottom: "16px",
+                }}
+              >
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", fontSize: "13px" }}>
+                  <div>
+                    <span style={{ color: "#64748b", fontSize: "11px", textTransform: "uppercase", fontWeight: "600", display: "block" }}>
+                      Paper Code & Subject
+                    </span>
+                    <strong style={{ color: "#0f172a" }}>{emergencyModalDuty.code}</strong>
+                    <div style={{ color: "#334155", fontSize: "12px" }}>{emergencyModalDuty.subject}</div>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", fontSize: "11px", textTransform: "uppercase", fontWeight: "600", display: "block" }}>
+                      Designated Venue / Room
+                    </span>
+                    <strong style={{ color: "#0f172a" }}>{emergencyModalDuty.room}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", fontSize: "11px", textTransform: "uppercase", fontWeight: "600", display: "block" }}>
+                      Date of Examination
+                    </span>
+                    <strong style={{ color: "#0f172a" }}>{emergencyModalDuty.date}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", fontSize: "11px", textTransform: "uppercase", fontWeight: "600", display: "block" }}>
+                      Time Slot
+                    </span>
+                    <strong style={{ color: "#0f172a" }}>{emergencyModalDuty.slot}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Alert notice */}
+              <div
+                style={{
+                  backgroundColor: "#fffbeb",
+                  border: "1px solid #fde68a",
+                  borderRadius: "6px",
+                  padding: "10px 12px",
+                  marginBottom: "16px",
+                  fontSize: "12px",
+                  color: "#92400e",
+                  display: "flex",
+                  gap: "8px",
+                  alignItems: "flex-start",
+                }}
+              >
+                <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
+                <span>
+                  Submitting this request flags this duty as an urgent emergency in Central Examination Control. The Exam Coordinator will be alerted to swap this duty from the standby faculty pool.
+                </span>
+              </div>
+
+              {/* Reason Selector */}
+              <div style={{ marginBottom: "14px" }}>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#1e293b", marginBottom: "6px" }}>
+                  Emergency Category <span style={{ color: "#dc2626" }}>*</span>
+                </label>
+                <select
+                  value={emergencyReasonCategory}
+                  onChange={(e) => setEmergencyReasonCategory(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    fontSize: "13px",
+                    color: "#1e293b",
+                    backgroundColor: "#ffffff",
+                  }}
+                  required
+                >
+                  <option value="Medical Emergency">Medical Emergency</option>
+                  <option value="Family Emergency">Family Emergency</option>
+                  <option value="Urgent Academic Duty">Urgent Academic Duty</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {/* Description textarea */}
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "#1e293b", marginBottom: "6px" }}>
+                  Reason & Clinical / Official Justification <span style={{ color: "#dc2626" }}>*</span>
+                </label>
+                <textarea
+                  value={emergencyReasonDetails}
+                  onChange={(e) => setEmergencyReasonDetails(e.target.value)}
+                  rows={3}
+                  placeholder="Detail the emergency circumstances requiring urgent duty swap / reassignment..."
+                  style={{
+                    width: "100%",
+                    padding: "10px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    fontSize: "13px",
+                    color: "#1e293b",
+                    resize: "vertical",
+                  }}
+                  required
+                />
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => setEmergencyModalDuty(null)}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    backgroundColor: "#ffffff",
+                    color: "#475569",
+                    fontWeight: "600",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: "#dc2626",
+                    color: "#ffffff",
+                    fontWeight: "600",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <span>🚨 Submit Emergency Swap Request</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

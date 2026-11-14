@@ -8,6 +8,7 @@ import { DepartmentCoordinatorDashboard } from "./components/department/Departme
 import { HODDashboard } from "./components/hod/HODDashboard.js";
 import { FacultyDashboard } from "./components/faculty/FacultyDashboard.js";
 import { StudentDashboard } from "./components/student/StudentDashboard.js";
+import "./styles/login.css";
 
 const MainContent: React.FC = () => {
   const { currentUser, isAuthenticated, logout, switchRole } = useAuth();
@@ -15,9 +16,9 @@ const MainContent: React.FC = () => {
   // If user is not authenticated, show the Login View
   if (!isAuthenticated || !currentUser) {
     return (
-      <main className="main-content" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#f8fafc", padding: "20px 0" }}>
+      <div className="login-viewport">
         <LoginView onSuccess={() => {}} />
-      </main>
+      </div>
     );
   }
 
